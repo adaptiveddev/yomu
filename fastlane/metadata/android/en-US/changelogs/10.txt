@@ -1,0 +1,5 @@
+• Profile tab: reading time, streaks, milestones, statistics and history, with a shareable card.
+• Floating bottom bar without a background strip.
+• Catalog: saved source filters (languages, content, type, 18+), no freeze on open.
+• Source filters: background-loaded tags appear by themselves, Reset always works, long tag lists stay fast.
+• Manga tap zones are no longer shown on every open.

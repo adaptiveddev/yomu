@@ -1,0 +1,6 @@
+• The library no longer says it is empty when you follow online titles.
+• Your own tabs for books and online titles instead of format chips; categories became tabs.
+• A filter sheet: type, status, tags, languages, sort, view; active filters as chips.
+• "Continue reading" with books and online titles.
+• New look: dark theme by default, lavender accent, floating navigation bar.
+• Appearance: 11 accents and a custom colour, a preview, labels in the navigation bar.

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_highlight">Выделить</string>
+    <string name="action_underline">Подчеркнуть</string>
+    <string name="action_strike">Зачеркнуть</string>
+    <string name="action_note">Заметка</string>
+    <string name="action_quote">В цитаты</string>
+    <string name="action_meaning">Значение</string>
+    <string name="action_translate">Перевести</string>
+    <string name="action_save_word">Сохранить слово</string>
+    <string name="action_copy">Копировать</string>
+    <string name="action_share">Поделиться</string>
+    <string name="action_share_image">Поделиться картинкой</string>
+    <string name="action_search_book">Найти в книге</string>
+    <string name="action_search_web">Найти в интернете</string>
+    <string name="action_speak">Прочитать вслух</string>
+    <string name="action_sentence">Выделить предложение</string>
+    <string name="action_paragraph">Выделить абзац</string>
+    <string name="action_bookmark">Закладка</string>
+    <string name="action_custom">Свои действия</string>
+    <string name="action_delete_highlight">Удалить выделение</string>
+    <string name="color_yellow">Жёлтый</string>
+    <string name="color_green">Зелёный</string>
+    <string name="color_blue">Синий</string>
+    <string name="color_pink">Розовый</string>
+    <string name="color_purple">Фиолетовый</string>
+    <string name="style_highlight">Выделение</string>
+    <string name="style_underline">Подчёркивание</string>
+    <string name="style_strike">Зачёркивание</string>
+
+    <string name="annotations_title">Заметки и выделения</string>
+    <string name="annotations_all_title">Все заметки</string>
+    <string name="annotations_tab_highlights">Выделения</string>
+    <string name="annotations_tab_notes">Заметки</string>
+    <string name="annotations_tab_bookmarks">Закладки</string>
+    <string name="annotations_tab_quotes">Цитаты</string>
+    <string name="annotations_search">Поиск по заметкам</string>
+    <string name="annotations_empty_title">Пока ничего нет</string>
+    <string name="annotations_empty_message">Выделите текст во время чтения, чтобы добавить выделение, заметку или цитату.</string>
+    <string name="annotations_bookmarks_empty">Нажмите значок закладки во время чтения, чтобы запомнить место.</string>
+    <string name="annotations_no_results">Ничего не найдено по фильтру</string>
+    <string name="annotations_export">Экспорт</string>
+    <string name="annotations_import_readwise">Импорт Readwise CSV</string>
+    <string name="annotations_exported">Экспорт выполнен</string>
+    <string name="annotations_imported">Импортировано выделений: %1$d, пропущено: %2$d (книги нет в библиотеке)</string>
+    <string name="annotations_deleted">Удалено</string>
+    <string name="annotations_open">Открыть в книге</string>
+    <string name="annotations_edit_note">Изменить заметку</string>
+    <string name="annotations_add_note">Добавить заметку</string>
+    <string name="annotations_favorite">В избранное</string>
+    <string name="annotations_unfavorite">Убрать из избранного</string>
+    <string name="annotations_favorites_only">Избранное</string>
+    <string name="annotations_all_colors">Все цвета</string>
+    <string name="annotations_sort_position">По положению</string>
+    <string name="annotations_sort_date">По дате</string>
+    <string name="annotations_mark_quote">Отметить как цитату</string>
+    <string name="annotations_unmark_quote">Убрать из цитат</string>
+    <string name="annotations_position">%1$s · %2$d%%</string>
+    <string name="annotations_count">Элементов: %1$d</string>
+    <string name="annotations_export_failed">Ошибка экспорта: %1$s</string>
+    <string name="annotations_rename_bookmark">Переименовать закладку</string>
+
+    <string name="note_title">Заметка</string>
+    <string name="note_hint">Напишите заметку. Поддерживается Markdown.</string>
+    <string name="note_edit">Редактор</string>
+    <string name="note_preview">Просмотр</string>
+    <string name="note_empty_preview">Нечего показать</string>
+
+    <string name="quote_share_title">Поделиться цитатой</string>
+    <string name="quote_style_light">Светлая карточка</string>
+    <string name="quote_style_dark">Тёмная карточка</string>
+
+    <string name="export_markdown">Markdown (Obsidian)</string>
+    <string name="export_json">JSON</string>
+    <string name="export_html">HTML</string>
+    <string name="export_txt">Обычный текст</string>
+    <string name="export_readwise">Readwise CSV</string>
+    <string name="page_action_translate">Перевести страницу</string>
+    <string name="page_action_save">Сохранить страницу</string>
+    <string name="page_action_share">Поделиться страницей</string>
+    <string name="page_action_copy_text">Копировать текст</string>
+    <string name="page_action_bookmark">Закладка</string>
+    <string name="page_action_set_cover">Сделать обложкой</string>
+    <string name="page_action_note">Заметка</string>
+</resources>

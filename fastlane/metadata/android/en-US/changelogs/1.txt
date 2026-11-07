@@ -1,0 +1,1 @@
+First release: reader for EPUB, PDF, comics and manga; dictionaries, translation and flashcards; highlights and notes with export; EPUB and manga editor; OPDS, MangaDex and extension catalog with downloads; backups, sync folder and app lock.

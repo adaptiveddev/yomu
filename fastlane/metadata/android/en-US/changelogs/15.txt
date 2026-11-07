@@ -1,0 +1,1 @@
+Optional WebDAV book file sync. Enable it on each device in Backup and sync. Image folders are not supported.

@@ -1,0 +1,5 @@
+• Smoother navigation bar animation.
+• Settings → Navigation bar: reorder tabs and hide them (e.g. Dictionary).
+• Source screen: Popular, Latest and Search tabs; search and filters live in the Search tab.
+• Fixed: Latest showed the popular titles and hid errors.
+• About: author, GitHub links, check for updates.

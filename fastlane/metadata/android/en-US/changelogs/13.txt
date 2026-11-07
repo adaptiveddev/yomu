@@ -1,0 +1,5 @@
+• Profile: Tracking and Downloads tabs.
+• Shikimori fixed: it now uses shikimori.io.
+• More reliable tracking sign-in and sending.
+• WebDAV sync with servers that compress on the fly.
+• Bug fixes.

@@ -1,0 +1,1 @@
+Interrupted update downloads resume when checksums are available; APK identity is checked before installation. Damaged sync files are no longer overwritten. Encrypted EPUB content is reported as unsupported.

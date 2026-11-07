@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channel_downloads">Downloads</string>
+    <string name="channel_updates">Catalog updates</string>
+    <string name="channel_backup">Backup and sync</string>
+    <string name="channel_reminders">Vocabulary reminders</string>
+    <string name="channel_tasks">Background tasks</string>
+    <string name="notif_downloading">Downloading</string>
+    <string name="notif_checking_updates">Checking for new chapters</string>
+    <string name="notif_new_chapters">New chapters</string>
+    <plurals name="notif_new_chapters_text">
+        <item quantity="one">%1$d new chapter in %2$s</item>
+        <item quantity="other">%1$d new chapters in %2$s</item>
+    </plurals>
+    <string name="notif_backup_done">Backup created</string>
+    <string name="notif_backup_failed">Backup failed</string>
+    <string name="notif_sync_done">Synchronised</string>
+    <string name="notif_review_title">Time to review words</string>
+    <plurals name="notif_review_text">
+        <item quantity="one">%d word is waiting for review</item>
+        <item quantity="other">%d words are waiting for review</item>
+    </plurals>
+    <string name="notif_translating">Translating the book</string>
+    <string name="notif_translation_done">Translation finished: %s</string>
+    <string name="notif_scanning">Scanning library folders</string>
+    <plurals name="notif_downloads_left">
+        <item quantity="one">Downloading · %d left</item>
+        <item quantity="other">Downloading · %d left</item>
+    </plurals>
+    <string name="notif_downloads_finished">Downloads finished</string>
+    <plurals name="notif_downloads_done_text">
+        <item quantity="one">%d downloaded</item>
+        <item quantity="other">%d downloaded</item>
+    </plurals>
+    <plurals name="notif_downloads_failed_text">
+        <item quantity="one">%d failed</item>
+        <item quantity="other">%d failed</item>
+    </plurals>
+    <string name="notif_downloads_waiting_network">Downloads will continue when the network is back</string>
+    <string name="notif_downloads_no_space">Downloads paused: the storage is full</string>
+    <string name="notif_downloads_no_space_text">Free up some space, then tap “Resume”.</string>
+    <plurals name="notif_updates_failed">
+        <item quantity="one">%d title could not be checked</item>
+        <item quantity="other">%d titles could not be checked</item>
+    </plurals>
+    <plurals name="notif_auto_download">
+        <item quantity="one">%d new chapter queued for download</item>
+        <item quantity="other">%d new chapters queued for download</item>
+    </plurals>
+    <string name="download_error_network">No network connection</string>
+    <string name="download_error_timeout">The server did not answer in time</string>
+    <string name="download_error_http">Server error %d</string>
+    <string name="download_error_webview">The site asks for verification: open the source in WebView</string>
+    <string name="download_error_space">Not enough storage space</string>
+    <string name="download_error_not_image">The server sent a web page instead of the image</string>
+    <string name="download_error_not_file">The server sent a web page instead of the file (sign-in may be required)</string>
+    <string name="download_error_no_pages">The source returned no pages</string>
+    <string name="notif_action_pause">Pause</string>
+    <string name="notif_action_retry">Retry</string>
+    <string name="notif_action_resume">Resume</string>
+    <string name="sync_folder_legacy">“%1$s” uses an old folder identity. Safe migration is not yet available. Keep your backup; disable book file sync to sync other data.</string>
+    <string name="sync_folder_similar">A folder similar to “%1$s” already exists with a different identity. Keep both copies; safe merging is not yet available.</string>
+    <string name="sync_folder_diverged">Folder “%1$s” changed on more than one device. Keep all copies; automatic conflict resolution is not yet available.</string>
+    <string name="sync_folder_revision_missing">The saved page revision for “%1$s” is missing. Restore a backup before syncing.</string>
+    <string name="sync_folder_page_changed">Saved page “%1$s” has changed or its filename was reused. Keep both versions; automatic resolution is not yet available.</string>
+    <string name="sync_folder_page_missing">Saved page “%1$s” was removed or cannot be matched. Restore it or keep both versions until the conflict can be resolved.</string>
+    <string name="sync_annotation_conflict">An annotation has conflicting changes on different devices. No conflicting annotation changes were applied. Keep both copies and backups; automatic conflict resolution is not yet available.</string>
+    <string name="sync_annotation_no_proof">An annotation deletion has no trustworthy saved revision. No annotation was deleted. Keep backups and use the same updated Yomu version on every device.</string>
+    <string name="sync_annotation_duplicate">Two annotations have the same sync identity. No data was changed. Keep a backup before resolving the duplicates.</string>
+</resources>

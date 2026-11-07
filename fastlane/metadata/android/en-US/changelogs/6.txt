@@ -1,0 +1,6 @@
+• Chapter numbers in reading order and "Read X of N"; the reader shows "Chapter 12 of 368".
+• Titles added with the heart show up in the Library: an "Online" tab and a shelf.
+• Network and data: data saver, covers and a warning on mobile data, a traffic counter.
+• Faster: chapter pages download in parallel, the reader preloads pages ahead.
+• New source filters: chips, search in genres, active filters above the results, search history.
+• Icons in settings and menus, list animations.

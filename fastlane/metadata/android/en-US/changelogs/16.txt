@@ -1,0 +1,1 @@
+Link local books and manga files to AniList, MyAnimeList and Shikimori; set chapters manually. Backups include WebDAV-synced books.

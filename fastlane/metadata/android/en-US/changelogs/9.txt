@@ -1,0 +1,4 @@
+• Seven app icons to choose from, themed on Android 13+.
+• In-app updates: release notes, APK download verified with SHA-256, then the installer.
+• Optional daily check: a dot on Settings and a card for the new version.
+• What's new, once after every update.

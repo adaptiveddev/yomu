@@ -1,0 +1,6 @@
+• Fixed Mihon/Tachiyomi extensions failing with "No field headers$delegate" and the MangaDex JSON error.
+• Clear error screens with details to copy.
+• Manga: left to right by default, new settings (background, filters, tap zones with hints, webtoon gaps).
+• Source logos, calmer untrusted-extension list, "Add repository" without a prefilled https://.
+• Yomu's own ink-and-paper theme.
+• New signing key: back up, uninstall 1.1.0, install, restore.

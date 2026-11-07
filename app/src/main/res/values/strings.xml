@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Yomu</string>
+    <string name="process_text_label">Look up in Yomu</string>
+    <string name="import_failed_count">failed: %1$d</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_start">Get started</string>
+    <string name="onboarding_welcome_title">Welcome to Yomu</string>
+    <string name="onboarding_welcome_text">A reader for books, comics and manga that helps you learn languages.</string>
+    <string name="onboarding_feature_read">EPUB, PDF, FB2, MOBI, DOCX, TXT, CBZ/CBR and image folders</string>
+    <string name="onboarding_feature_words">Tap a word for the dictionary, translate sentences and repeat saved words</string>
+    <string name="onboarding_feature_catalog">Find books and manga in OPDS catalogs and online sources</string>
+    <string name="onboarding_feature_editor">Fix books and comics in the built-in editor</string>
+    <string name="onboarding_folder_title">Where are your books?</string>
+    <string name="onboarding_folder_text">Choose a folder: Yomu adds the books from it and keeps the library up to date.</string>
+    <string name="onboarding_folder_pick">Choose folder</string>
+    <string name="onboarding_folder_another">Add another folder</string>
+    <string name="onboarding_folder_chosen">Folder “%1$s” added</string>
+    <string name="onboarding_folder_hint">You can skip this step and import single files from the library later.</string>
+    <string name="onboarding_language_title">Translate into</string>
+    <string name="onboarding_language_text">Words and sentences you look up will be translated into this language. You can change it in the settings.</string>
+    <plurals name="import_result">
+        <item quantity="one">%d book added</item>
+        <item quantity="other">%d books added</item>
+    </plurals>
+    <string name="add_extension_repo">Add extension repository</string>
+    <!-- Launcher icons (Settings → Appearance → App icon) -->
+    <string name="icon_classic">Classic</string>
+    <string name="icon_spark">Spark</string>
+    <string name="icon_ribbon">Ribbon</string>
+    <string name="icon_fox">Fox</string>
+    <string name="icon_hanko">Hanko</string>
+    <string name="icon_gaze">Gaze</string>
+    <string name="icon_manga">Manga</string>
+    <!-- A crash of the previous run (1.9.0) -->
+    <string name="crash_title">Yomu closed unexpectedly</string>
+    <string name="crash_text">The app crashed last time. The report has the error, the screen it happened on and the phone model: send it to the developer to get it fixed. Nothing is sent without you.</string>
+    <string name="crash_send">Send report</string>
+    <!-- "What's new", shown once after an update -->
+    <string name="whats_new_title">What\'s new in Yomu</string>
+    <string name="whats_new_ok">Got it</string>
+    <string name="whats_new_all">All changes</string>
+    <string-array name="whats_new_2_0_4">
+        <item>Local books and manga files can now be linked to AniList, MyAnimeList and Shikimori. Set chapters manually; local page progress is not sent automatically.</item>
+        <item>Backups with files now include books downloaded through WebDAV sync.</item>
+    </string-array>
+    <string-array name="whats_new_2_0_3">
+        <item>Optional WebDAV book file sync: enable it on each device under Backup and sync. The server can read the files; local deletions may be restored and image folders are not supported.</item>
+    </string-array>
+    <string-array name="whats_new_2_0_2">
+        <item>Interrupted update downloads resume when the release has a checksum; the APK package and signing certificate are checked before opening the installer.</item>
+        <item>A damaged sync file is no longer overwritten.</item>
+        <item>Encrypted EPUB books now show an unsupported-format error instead of opening as unreadable text.</item>
+    </string-array>
+    <string-array name="whats_new_2_0_1">
+        <item>Profile: new Tracking and Downloads tabs. Tracking lists every title linked to MyAnimeList, AniList or Shikimori with its status, chapters and score, refreshes them all at once and sends the changes that wait.</item>
+        <item>Shikimori fixed: the service moved to shikimori.io, and requests sent to the old address lost the sign-in.</item>
+        <item>More reliable tracking: requests made at the same time no longer break the sign-in, a server error no longer signs you out, and changes made while signed out are sent as soon as you sign in.</item>
+        <item>WebDAV sync also works with servers that compress files on the fly.</item>
+        <item>Editing the metadata of several books no longer touches a language you left as it was.</item>
+    </string-array>
+    <string-array name="whats_new_2_0_0">
+        <item>Moving from Mihon or Tachiyomi? Settings → Backup and sync → Import from Mihon / Tachiyomi brings your library, categories, read chapters and tracking from a .tachibk backup.</item>
+        <item>Tracking with Shikimori, AniList and MyAnimeList: link a title with the Tracking button on its page, and the chapters you read go to your list by themselves.</item>
+        <item>Light novels online: novel sources (RanobeLib, NovelBin) in the catalog, chapters open in the book reader.</item>
+        <item>A “Continue reading” widget for the home screen.</item>
+        <item>Manga editor: “Translate page (OCR)” recognizes the text of a page, translates it and letters it into the image; every bubble can be corrected.</item>
+        <item>Book editor: edit a chapter as it looks, without HTML, and translate only the chapters you choose.</item>
+        <item>Library: select several books and edit their authors, series, tags and status at once.</item>
+        <item>PDF highlights are also saved in the file itself, so other PDF apps show them (Manga and PDF settings).</item>
+        <item>Sync through a shared folder or WebDAV: deletions and the online library are synced too, on its own if you like. Update every synced device to 2.0.</item>
+        <item>Long-press menus: radial or a list, with the actions and order you choose (Settings → Long-press menus).</item>
+    </string-array>
+    <string-array name="whats_new_1_9_0">
+        <item>Switching tabs is smooth: a tab you opened stays ready in the background, so coming back to it no longer rebuilds the whole screen, and a tab starts loading as soon as your finger touches the bar.</item>
+        <item>Fixed: the app closed when a title page in the catalog failed to load.</item>
+        <item>After a crash, Yomu offers to send or copy the report on the next start: the error, the screen it happened on and the steps before it.</item>
+        <item>Sources with a source per language (MangaDex, Wikisource, NHentai and others): switch the language right in the top bar of the source, with your search and filters.</item>
+    </string-array>
+    <string-array name="whats_new_1_8_0">
+        <item>A Profile tab instead of History: reading time, streaks, milestones, statistics and history in one place, with a shareable card.</item>
+        <item>The bottom bar floats over the content without a background strip: lists scroll underneath it.</item>
+        <item>Catalog: filters for the source list (languages, content, type, 18+, pinned), kept after a restart. The catalog opens without the freeze.</item>
+        <item>Source filters: tags that load in the background appear by themselves, Reset always works, and long tag lists no longer slow the panel down.</item>
+        <item>The manga tap zones are no longer shown every time a title opens (reading settings → Show tap zones on opening).</item>
+    </string-array>
+    <string-array name="whats_new_1_7_0">
+        <item>Seven app icons to choose from in Settings → Appearance → App icon, themed on Android 13 and newer.</item>
+        <item>Updates inside the app: About → Check for updates downloads the APK for your phone, verifies its checksum and opens the installer.</item>
+        <item>With the daily check on, a dot on Settings and a card at the top of the settings tell you about a new version.</item>
+        <item>This list, once after every update.</item>
+    </string-array>
+    <!-- Profile tab (1.8.0) -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_tab_overview">Overview</string>
+    <string name="profile_tab_stats">Statistics</string>
+    <string name="profile_tab_history">History</string>
+    <string name="profile_default_name">Reader</string>
+    <string name="profile_set_name">Tap to set your name and avatar</string>
+    <string name="profile_edit">Edit profile</string>
+    <string name="profile_name">Name</string>
+    <string name="profile_avatar">Avatar</string>
+    <string name="profile_since">Reading with Yomu since %1$s</string>
+    <string name="profile_no_reading">Open a book: your time, streaks and milestones will appear here.</string>
+    <string name="profile_total_time">Total reading time</string>
+    <string name="profile_open_stats">Statistics</string>
+    <string name="profile_today">Today: %1$d of %2$d min</string>
+    <string name="profile_stat_books">Books finished</string>
+    <string name="profile_stat_titles">Titles read</string>
+    <string name="profile_stat_streak">Day streak</string>
+    <string name="profile_stat_best">Best streak</string>
+    <string name="profile_stat_pages">Pages read</string>
+    <string name="profile_stat_days">Days with reading</string>
+    <string name="profile_stat_words">Words saved</string>
+    <string name="profile_stat_longest">Longest session</string>
+    <string name="profile_milestones">Milestones</string>
+    <string name="profile_ms_hours">Reading time</string>
+    <string name="profile_ms_streak">Best streak</string>
+    <string name="profile_ms_books">Finished books</string>
+    <string name="profile_ms_pages">Pages</string>
+    <string name="profile_ms_words">Vocabulary</string>
+    <string name="profile_ms_progress">%1$s / %2$s %3$s</string>
+    <string name="profile_ms_done">All levels reached</string>
+    <string name="profile_unit_hours">h</string>
+    <string name="profile_unit_days">days</string>
+    <string name="profile_unit_books">books</string>
+    <string name="profile_unit_pages">pages</string>
+    <string name="profile_unit_words">words</string>
+    <string name="profile_top">Most read</string>
+    <string name="profile_recent">Recently read</string>
+    <string name="profile_all_history">All history</string>
+    <string name="profile_share_section">Share and transfer</string>
+    <string name="profile_share_hint">Your profile lives on this device: no account or server is needed. Share it as a picture or text, or move everything to another phone with a backup.</string>
+    <string name="profile_share_card">Statistics card</string>
+    <string name="profile_share_card_sum">A picture with your reading time, streak and books</string>
+    <string name="profile_share_text">Statistics as text</string>
+    <string name="profile_share_text_sum">For a chat or a post</string>
+    <string name="profile_share_history">Reading history (CSV)</string>
+    <string name="profile_share_history_sum">A table for Excel or Google Sheets</string>
+    <string name="profile_share_backup">Send a backup</string>
+    <string name="profile_share_backup_sum">Library, progress, history, statistics, words and settings without the book files: open it in Yomu on another device to restore</string>
+    <string name="profile_backup_settings">Backup and sync</string>
+    <string name="profile_backup_settings_sum">Automatic backups, sync through a folder or WebDAV</string>
+    <string name="profile_duration_m">%1$d min</string>
+    <string name="profile_duration_h">%1$d h</string>
+    <string name="profile_duration_hm">%1$d h %2$d min</string>
+    <string name="profile_card_title">My reading</string>
+    <string name="profile_card_total">spent reading</string>
+    <string name="profile_card_footer">Yomu · %1$s</string>
+    <string name="profile_text_header">📚 %1$s: my reading in Yomu</string>
+    <string name="profile_text_time">⏱ Reading time: %1$s</string>
+    <string name="profile_text_books">📖 Books finished: %1$d</string>
+    <string name="profile_text_streak">🔥 Streak: %1$s (best: %2$s)</string>
+    <string name="profile_text_pages">📄 Pages read: %1$s</string>
+    <string name="profile_text_words">🗂 Words saved: %1$s</string>
+    <string name="profile_text_top">🏆 Most read: %1$s</string>
+    <string name="profile_text_footer">Yomu, a reader for books, comics and manga</string>
+    <plurals name="profile_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <string name="track_login_ok">Signed in to %1$s as %2$s</string>
+    <string name="track_login_ok_anon">Signed in to %1$s</string>
+    <string name="track_login_failed">Could not sign in to %1$s: %2$s</string>
+    <string name="widget_continue_label">Continue reading</string>
+    <string name="widget_continue_description">The books and online titles you are reading: one tap to go on.</string>
+    <string name="widget_continue_empty">Nothing in progress yet. Open a book in Yomu and it shows up here.</string>
+    <plurals name="widget_unread_chapters">
+        <item quantity="one">%1$d unread chapter</item>
+        <item quantity="other">%1$d unread chapters</item>
+    </plurals>
+
+    <!-- Profile: Tracking and Downloads tabs (2.0.1) -->
+    <string name="profile_tab_tracking">Tracking</string>
+    <string name="profile_tab_downloads">Downloads</string>
+    <string name="profile_downloads_settings">Download settings</string>
+    <string name="profile_track_refresh">Refresh from the services</string>
+    <string name="profile_track_settings">Tracking settings</string>
+    <string name="profile_track_accounts">Accounts</string>
+    <string name="profile_track_manage">Manage</string>
+    <string name="profile_track_signed_in">Signed in</string>
+    <string name="profile_track_signed_out">Not signed in</string>
+    <plurals name="profile_track_pending">
+        <item quantity="one">%1$d change not sent yet</item>
+        <item quantity="other">%1$d changes not sent yet</item>
+    </plurals>
+    <string name="profile_track_send">Send</string>
+    <string name="profile_track_empty">No tracked titles</string>
+    <string name="profile_track_empty_hint">Open an online title or a local book and tap Tracking to link it. Online chapter progress updates automatically; for local files, enter chapters manually.</string>
+    <string name="profile_track_empty_signed_out">Sign in to MyAnimeList, AniList or Shikimori, then link titles with the Tracking button on their page.</string>
+    <string name="profile_track_sign_in">Sign in</string>
+    <string name="profile_track_all">All · %1$d</string>
+    <string name="profile_track_refreshed">Tracking entries are up to date</string>
+    <plurals name="profile_track_refresh_failed">
+        <item quantity="one">%1$d entry could not be read: %2$s</item>
+        <item quantity="other">%1$d entries could not be read: %2$s</item>
+    </plurals>
+    <string name="profile_track_sent">All changes sent</string>
+    <plurals name="profile_track_left">
+        <item quantity="one">%1$d change still waits: no network or the service did not answer</item>
+        <item quantity="other">%1$d changes still wait: no network or the service did not answer</item>
+    </plurals>
+</resources>

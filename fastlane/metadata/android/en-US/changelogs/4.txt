@@ -1,0 +1,5 @@
+• Chapter sort and filters per title or for all titles: number, source order, upload date; unread, downloaded, bookmarked, one release per chapter, groups.
+• One reading order for the list, the reader, Continue and downloads.
+• Library and source sorting, better search ranking.
+• More stable sources: timeouts, retries, health hints.
+• Downloads: next N, unread, all, auto-download new chapters, download ahead, retries, queue grouped by title.

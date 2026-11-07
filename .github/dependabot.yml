@@ -1,0 +1,25 @@
+# Weekly pull requests for outdated GitHub Actions and Gradle dependencies (gradle/libs.versions.toml).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies, skip-changelog]
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, skip-changelog]
+    groups:
+      androidx-compose:
+        patterns: ['androidx.*', 'org.jetbrains.compose*']
+      kotlin:
+        patterns: ['org.jetbrains.kotlin*', 'org.jetbrains.kotlinx*', 'com.google.devtools.ksp*']
+      testing:
+        patterns: ['junit*', 'org.junit*', 'org.robolectric*', 'io.github.takahirom.roborazzi*', 'com.squareup.okhttp3:mockwebserver']

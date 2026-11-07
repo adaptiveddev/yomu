@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channel_downloads">Загрузки</string>
+    <string name="channel_updates">Обновления каталога</string>
+    <string name="channel_backup">Резервные копии и синхронизация</string>
+    <string name="channel_reminders">Напоминания о словах</string>
+    <string name="channel_tasks">Фоновые задачи</string>
+    <string name="notif_downloading">Загрузка</string>
+    <string name="notif_checking_updates">Проверка новых глав</string>
+    <string name="notif_new_chapters">Новые главы</string>
+    <plurals name="notif_new_chapters_text">
+        <item quantity="one">%1$d новая глава: %2$s</item>
+        <item quantity="few">%1$d новые главы: %2$s</item>
+        <item quantity="many">%1$d новых глав: %2$s</item>
+        <item quantity="other">%1$d новых глав: %2$s</item>
+    </plurals>
+    <string name="notif_backup_done">Резервная копия создана</string>
+    <string name="notif_backup_failed">Не удалось создать резервную копию</string>
+    <string name="notif_sync_done">Синхронизировано</string>
+    <string name="notif_review_title">Пора повторить слова</string>
+    <plurals name="notif_review_text">
+        <item quantity="one">%d слово ждёт повторения</item>
+        <item quantity="few">%d слова ждут повторения</item>
+        <item quantity="many">%d слов ждут повторения</item>
+        <item quantity="other">%d слов ждут повторения</item>
+    </plurals>
+    <string name="notif_translating">Перевод книги</string>
+    <string name="notif_translation_done">Перевод готов: %s</string>
+    <string name="notif_scanning">Сканирование папок библиотеки</string>
+    <plurals name="notif_downloads_left">
+        <item quantity="one">Загрузка · осталась %d</item>
+        <item quantity="few">Загрузка · осталось %d</item>
+        <item quantity="many">Загрузка · осталось %d</item>
+        <item quantity="other">Загрузка · осталось %d</item>
+    </plurals>
+    <string name="notif_downloads_finished">Загрузки завершены</string>
+    <plurals name="notif_downloads_done_text">
+        <item quantity="one">Скачана %d</item>
+        <item quantity="few">Скачано %d</item>
+        <item quantity="many">Скачано %d</item>
+        <item quantity="other">Скачано %d</item>
+    </plurals>
+    <plurals name="notif_downloads_failed_text">
+        <item quantity="one">%d с ошибкой</item>
+        <item quantity="few">%d с ошибками</item>
+        <item quantity="many">%d с ошибками</item>
+        <item quantity="other">%d с ошибками</item>
+    </plurals>
+    <string name="notif_downloads_waiting_network">Загрузки продолжатся, когда появится сеть</string>
+    <string name="notif_downloads_no_space">Загрузки приостановлены: закончилось место</string>
+    <string name="notif_downloads_no_space_text">Освободите место и нажмите «Продолжить».</string>
+    <plurals name="notif_updates_failed">
+        <item quantity="one">Не удалось проверить %d тайтл</item>
+        <item quantity="few">Не удалось проверить %d тайтла</item>
+        <item quantity="many">Не удалось проверить %d тайтлов</item>
+        <item quantity="other">Не удалось проверить %d тайтла</item>
+    </plurals>
+    <plurals name="notif_auto_download">
+        <item quantity="one">%d новая глава поставлена в загрузку</item>
+        <item quantity="few">%d новые главы поставлены в загрузку</item>
+        <item quantity="many">%d новых глав поставлено в загрузку</item>
+        <item quantity="other">%d новой главы поставлено в загрузку</item>
+    </plurals>
+    <string name="download_error_network">Нет подключения к сети</string>
+    <string name="download_error_timeout">Сервер не ответил вовремя</string>
+    <string name="download_error_http">Ошибка сервера %d</string>
+    <string name="download_error_webview">Сайт требует проверку: откройте источник в WebView</string>
+    <string name="download_error_space">Недостаточно места</string>
+    <string name="download_error_not_image">Сервер прислал веб-страницу вместо изображения</string>
+    <string name="download_error_not_file">Сервер прислал веб-страницу вместо файла (возможно, нужен вход)</string>
+    <string name="download_error_no_pages">Источник не вернул страниц</string>
+    <string name="notif_action_pause">Пауза</string>
+    <string name="notif_action_retry">Повторить</string>
+    <string name="notif_action_resume">Продолжить</string>
+    <string name="sync_folder_legacy">У папки «%1$s» старый идентификатор. Безопасный перенос пока недоступен. Сохраните резервную копию; для синхронизации остальных данных отключите перенос файлов книг.</string>
+    <string name="sync_folder_similar">Папка, похожая на «%1$s», уже существует с другим идентификатором. Сохраните обе копии; безопасное объединение пока недоступно.</string>
+    <string name="sync_folder_diverged">Папка «%1$s» изменена на нескольких устройствах. Сохраните все копии: автоматическое разрешение конфликта пока недоступно.</string>
+    <string name="sync_folder_revision_missing">Не найдена сохранённая версия порядка страниц папки «%1$s». Восстановите резервную копию перед синхронизацией.</string>
+    <string name="sync_folder_page_changed">Сохранённая страница «%1$s» изменилась или её имя использовано повторно. Сохраните обе версии; автоматическое разрешение пока недоступно.</string>
+    <string name="sync_folder_page_missing">Сохранённая страница «%1$s» удалена или не может быть однозначно найдена. Восстановите её или сохраните обе версии до разрешения конфликта.</string>
+    <string name="sync_annotation_conflict">Обнаружены конфликтующие изменения аннотации на разных устройствах. Конфликтующие изменения аннотации не применены. Сохраните обе копии и резервные копии; автоматическое разрешение конфликта пока недоступно.</string>
+    <string name="sync_annotation_no_proof">Для удаления аннотации нет надёжной сохранённой версии. Данные не удалены. Сохраните резервные копии и используйте одну обновлённую версию Yomu на всех устройствах.</string>
+    <string name="sync_annotation_duplicate">У двух аннотаций совпадает идентификатор синхронизации. Данные не изменены. Сохраните резервную копию перед разрешением конфликта.</string>
+</resources>

@@ -1,0 +1,32 @@
+[
+ {
+  "pkg": "eu.kanade.tachiyomi.extension.all.mangadex",
+  "file": "tachiyomi-all.mangadex-v1.6.1.apk",
+  "versionCode": 106001,
+  "signingKey": "9add655a78e96c4ec7a53ef89dccb557cb5d767489fac5e785d671a5a75d4da2"
+ },
+ {
+  "pkg": "eu.kanade.tachiyomi.extension.all.mangaplus",
+  "file": "tachiyomi-all.mangaplus-v1.6.68.apk",
+  "versionCode": 106068,
+  "signingKey": "9add655a78e96c4ec7a53ef89dccb557cb5d767489fac5e785d671a5a75d4da2"
+ },
+ {
+  "pkg": "eu.kanade.tachiyomi.extension.all.webtoons",
+  "file": "tachiyomi-all.webtoons-v1.6.3.apk",
+  "versionCode": 106003,
+  "signingKey": "9add655a78e96c4ec7a53ef89dccb557cb5d767489fac5e785d671a5a75d4da2"
+ },
+ {
+  "pkg": "eu.kanade.tachiyomi.extension.all.globalcomix",
+  "file": "tachiyomi-all.globalcomix-v1.6.2.apk",
+  "versionCode": 106002,
+  "signingKey": "9add655a78e96c4ec7a53ef89dccb557cb5d767489fac5e785d671a5a75d4da2"
+ },
+ {
+  "pkg": "eu.kanade.tachiyomi.extension.ru.acomics",
+  "file": "tachiyomi-ru.acomics-v1.6.10.apk",
+  "versionCode": 106010,
+  "signingKey": "9add655a78e96c4ec7a53ef89dccb557cb5d767489fac5e785d671a5a75d4da2"
+ }
+]

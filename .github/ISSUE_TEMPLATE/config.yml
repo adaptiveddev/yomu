@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Последняя версия / Latest release
+    url: https://github.com/adxptived/yomu/releases/latest
+    about: APK и список изменений — возможно, ошибка уже исправлена / APKs and what's new, the bug may already be fixed.
+  - name: Ночная сборка / Nightly build
+    url: https://github.com/adxptived/yomu/releases/tag/nightly
+    about: Сборка последнего коммита main — проверьте на ней, прежде чем сообщать / The newest commit on main.

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manga_chapter_finished">Chapter finished</string>
+    <string name="manga_next_chapter">Next chapter</string>
+    <string name="manga_prev_chapter">Previous chapter</string>
+    <string name="manga_no_next">This is the last chapter. Tap to open the menu.</string>
+    <string name="manga_page_error">Could not load the page</string>
+    <string name="manga_tap_prev">Back</string>
+    <string name="manga_tap_next">Forward</string>
+    <string name="manga_tap_menu">Menu</string>
+
+    <!-- Settings of the image reader (reader sheet and app settings) -->
+    <string name="mr_mode">Reading mode</string>
+    <string name="mr_dir_ltr">Left to right</string>
+    <string name="mr_dir_rtl">Right to left</string>
+    <string name="mr_dir_vertical">Vertical</string>
+    <string name="mr_dir_webtoon">Webtoon</string>
+    <string name="mr_dir_ltr_sum">Like a book: the next page is on the right. Comics, manhwa, most translations.</string>
+    <string name="mr_dir_rtl_sum">Japanese order: the next page is on the left. For manga printed right to left.</string>
+    <string name="mr_dir_vertical_sum">One page at a time, swipe up for the next one.</string>
+    <string name="mr_dir_webtoon_sum">A continuous strip: for webtoons and long-strip manhua.</string>
+    <string name="mr_scale">Page size</string>
+    <string name="mr_scale_screen">Fit screen</string>
+    <string name="mr_scale_width">Fit width</string>
+    <string name="mr_scale_height">Fit height</string>
+    <string name="mr_scale_original">Original</string>
+    <string name="mr_pages">Pages</string>
+    <string name="mr_background">Background</string>
+    <string name="mr_bg_black">Black</string>
+    <string name="mr_bg_gray">Gray</string>
+    <string name="mr_bg_white">White</string>
+    <string name="mr_dual">Two pages in landscape</string>
+    <string name="mr_animation">Page turn animation</string>
+    <string name="mr_animation_sum">Off: taps and keys turn pages instantly</string>
+    <string name="mr_crop">Crop white borders</string>
+    <string name="mr_page_number">Page number</string>
+    <string name="mr_preload">Pages loaded ahead</string>
+    <string name="mr_webtoon_padding">Side margins</string>
+    <string name="mr_webtoon_gaps">Gaps between pages</string>
+    <string name="mr_image">Image</string>
+    <string name="mr_brightness">Brightness</string>
+    <string name="mr_contrast">Contrast</string>
+    <string name="mr_gray">Grayscale</string>
+    <string name="mr_invert">Invert colours</string>
+    <string name="mr_reset_filters">Reset image settings</string>
+    <string name="mr_tap_zones">Tap zones</string>
+    <string name="mr_zone_l">L-shape</string>
+    <string name="mr_zone_kindle">Kindle</string>
+    <string name="mr_zone_edges">Edges</string>
+    <string name="mr_zone_lr">Left / right</string>
+    <string name="mr_zone_off">Off</string>
+    <string name="mr_invert_zones">Invert tap zones</string>
+    <string name="mr_show_zones">Show tap zones on opening</string>
+    <string name="mr_preview_zones">Show tap zones now</string>
+    <string name="mr_volume_keys">Turn pages with volume keys</string>
+    <string name="mr_invert_volume">Volume up turns forward</string>
+    <string name="mr_off">Off</string>
+</resources>

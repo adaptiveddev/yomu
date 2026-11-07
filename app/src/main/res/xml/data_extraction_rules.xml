@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android backup: settings and the database only; books, caches and drafts are excluded (use the in-app backup for files). -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="." />
+        <include domain="file" path="datastore/" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="." />
+        <include domain="file" path="datastore/" />
+        <include domain="file" path="books/" />
+        <include domain="file" path="covers/" />
+        <include domain="file" path="dictionaries/" />
+        <include domain="file" path="fonts/" />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="yomu_background">#121318</color>
+    <bool name="yomu_light_bars">false</bool>
+    <color name="widget_background">#F21B1C22</color>
+    <color name="widget_surface">#FF262731</color>
+    <color name="widget_on_background">#E4E1E9</color>
+    <color name="widget_on_background_variant">#C5C5DA</color>
+    <color name="widget_accent">#BCC2FF</color>
+    <color name="widget_track">#3A3D55</color>
+</resources>

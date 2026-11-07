@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="share_no_app">No app can open this</string>
+    <string name="error_action_failed">Something went wrong. The details are in the error log (Settings → Advanced).</string>
+</resources>

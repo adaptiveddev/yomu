@@ -1,0 +1,4 @@
+• Smooth tab switching: opened tabs stay ready in the background and a tab starts loading as soon as you touch the bar.
+• Fixed a crash when a title page in the catalog failed to load.
+• After a crash, Yomu offers to send or copy the report on the next start.
+• Sources with one source per language (MangaDex, Wikisource, NHentai…): switch the language in the source's top bar, keeping your search and filters.

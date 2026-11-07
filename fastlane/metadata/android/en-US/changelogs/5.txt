@@ -1,0 +1,7 @@
+• Crashes no longer close the app: a failed action shows a short message and is logged.
+• Incompatible extensions and broken sites no longer crash the catalog or search.
+• Without WebView a helpful screen instead of a crash.
+• Storage full: the download queue pauses with the reason.
+• Download notifications open Downloads and offer Pause, Retry, Resume.
+• A title whose source is gone offers migration.
+• Fixes in the PDF reader, webtoon mode, EPUB editor and Downloads.

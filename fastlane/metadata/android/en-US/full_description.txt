@@ -1,0 +1,29 @@
+<p><b>Yomu</b> (読む, "to read") is an open source reader for books, PDF, comics and manga, made for reading in foreign languages. Tap a word to see its meaning and translation, save it with the sentence it came from and review it later with flashcards. Yomu also has a built-in book and manga editor and an online catalog in the spirit of Mihon.</p>
+
+<p><b>Reading</b></p>
+<ul>
+<li>EPUB, PDF, FB2, MOBI/AZW3, DOCX, TXT, HTML, CBZ/ZIP, CBR/RAR, CB7/7Z and folders of images</li>
+<li>Library with covers, collections, tags, filters, sorting, search, bulk actions, metadata editing of many books at once, folder scanning and a “Continue reading” home-screen widget</li>
+<li>Text: custom fonts, spacing, margins, themes, pages or scrolling, vertical text, tap zones, volume keys, text-to-speech with highlighting and sleep timer, search, reading history and statistics</li>
+<li>Word documents: reflowed text or a print-like page layout with A4 pages, headers, footnotes and tables</li>
+<li>Manga: left-to-right, right-to-left, vertical and webtoon modes, zoom, spreads, border cropping, image filters; a configurable long-press menu (radial or list)</li>
+<li>PDF: zoom, search, text selection, passwords, night mode, margin cropping; highlights are also saved in the file</li>
+</ul>
+
+<p><b>Languages</b></p>
+<ul>
+<li>Floating selection toolbar with configurable buttons: highlight, note, dictionary, translate, speak, search, share, your own links and apps</li>
+<li>Offline dictionaries: StarDict, DSL, JMdict, Wiktionary (kaikki.org); online dictionary as a fallback</li>
+<li>Translation offline (ML Kit) and online (Google, DeepL, LibreTranslate or any OpenAI-compatible LLM with your own key); bilingual book mode</li>
+<li>Saved words with context, spaced repetition (SM-2), daily goal, export to CSV/Anki and AnkiDroid</li>
+</ul>
+
+<p><b>Notes</b> — colored highlights, Markdown notes with #tags, bookmarks, quote images; export to Markdown (Obsidian), JSON, HTML, TXT and Readwise CSV.</p>
+
+<p><b>Editor</b> — EPUB metadata, cover, chapters, table of contents, visual chapter editing, XHTML/CSS with syntax highlighting, search and replace with regex, cleanup and validation. Translation of chosen chapters. Manga pages: order, rotation, cropping, color correction, spreads, recompression, ComicInfo, page translation with OCR lettered into the image. Undo/redo survives restarts.</p>
+
+<p><b>Catalog</b> — OPDS catalogs (Project Gutenberg, Standard Ebooks, Feedbooks, your Calibre/Kavita/Komga server), Gutendex, Open Library, Mihon/Tachiyomi extensions (MangaDex, MANGA Plus, Webtoons, GlobalComix and AComics built in), light novel sources (RanobeLib, NovelBin); favorites, chapter updates, global search, download queue and offline reading. Import your library from a Mihon/Tachiyomi backup; tracking with Shikimori, AniList and MyAnimeList.</p>
+
+<p><b>Privacy</b> — no ads, no analytics, no account. Network is used only when you ask for it or by schedules you enable. Backups and sync go to a folder or WebDAV server you choose. Trackers are contacted only after you sign in to them.</p>
+
+<p>Note: offline translation, language detection and OCR use Google ML Kit, which is not open source and needs Google Play services. Everything else works without it.</p>

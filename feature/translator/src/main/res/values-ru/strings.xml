@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tr_auto">Определить язык</string>
+    <string name="tr_swap">Поменять языки</string>
+    <string name="tr_speak_source">Прочитать оригинал вслух</string>
+    <string name="tr_speak_translation">Прочитать перевод вслух</string>
+    <string name="tr_save_word">Сохранить в мои слова</string>
+    <string name="tr_cached">из кэша</string>
+    <string name="tr_engine_auto">Автоматически</string>
+    <string name="tr_model_missing">Офлайн-пакет языка ещё не скачан.</string>
+    <string name="tr_download_models">Скачать пакет</string>
+    <string name="tr_title">Перевод</string>
+    <string name="packs_title">Офлайн-пакеты языков</string>
+    <string name="packs_summary">Пакеты позволяют переводить без интернета. Каждый занимает около %1$d МБ.</string>
+    <string name="packs_wifi_only">Скачивать только по Wi-Fi</string>
+    <string name="packs_downloaded">Скачанные (%1$d)</string>
+    <string name="packs_available">Доступные</string>
+    <string name="packs_ready">Готов к работе офлайн</string>
+    <string name="packs_builtin">Встроенный</string>
+    <string name="packs_size">Около %1$d МБ</string>
+    <string name="packs_download">Скачать</string>
+    <string name="packs_delete_title">Удалить «%1$s»?</string>
+    <string name="packs_delete_text">Пакет будет удалён с устройства. Его можно скачать снова.</string>
+</resources>

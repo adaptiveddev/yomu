@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="compat_webview_required">Для этого источника нужен WebView</string>
+    <string name="compat_webview_outdated">Обновите приложение WebView — с ним источники работают надёжнее</string>
+    <string name="compat_cloudflare_failed">Не удалось пройти проверку Cloudflare. Откройте источник в WebView, пройдите проверку и повторите.</string>
+</resources>

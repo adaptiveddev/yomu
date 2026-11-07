@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manga_chapter_finished">Глава прочитана</string>
+    <string name="manga_next_chapter">Следующая глава</string>
+    <string name="manga_prev_chapter">Предыдущая глава</string>
+    <string name="manga_no_next">Это последняя глава. Нажмите, чтобы открыть меню.</string>
+    <string name="manga_page_error">Не удалось загрузить страницу</string>
+    <string name="manga_tap_prev">Назад</string>
+    <string name="manga_tap_next">Вперёд</string>
+    <string name="manga_tap_menu">Меню</string>
+
+    <string name="mr_mode">Режим чтения</string>
+    <string name="mr_dir_ltr">Слева направо</string>
+    <string name="mr_dir_rtl">Справа налево</string>
+    <string name="mr_dir_vertical">Вертикально</string>
+    <string name="mr_dir_webtoon">Лента</string>
+    <string name="mr_dir_ltr_sum">Как в книге: следующая страница справа. Комиксы, манхва, большинство переводов.</string>
+    <string name="mr_dir_rtl_sum">Японский порядок: следующая страница слева. Для манги, свёрстанной справа налево.</string>
+    <string name="mr_dir_vertical_sum">По одной странице, следующая — свайпом вверх.</string>
+    <string name="mr_dir_webtoon_sum">Сплошная лента: для вебтунов и маньхуа.</string>
+    <string name="mr_scale">Размер страницы</string>
+    <string name="mr_scale_screen">По экрану</string>
+    <string name="mr_scale_width">По ширине</string>
+    <string name="mr_scale_height">По высоте</string>
+    <string name="mr_scale_original">Исходный</string>
+    <string name="mr_pages">Страницы</string>
+    <string name="mr_background">Фон</string>
+    <string name="mr_bg_black">Чёрный</string>
+    <string name="mr_bg_gray">Серый</string>
+    <string name="mr_bg_white">Белый</string>
+    <string name="mr_dual">Две страницы в альбомной ориентации</string>
+    <string name="mr_animation">Анимация перелистывания</string>
+    <string name="mr_animation_sum">Если выключить, тапы и кнопки листают мгновенно</string>
+    <string name="mr_crop">Обрезать белые поля</string>
+    <string name="mr_page_number">Номер страницы</string>
+    <string name="mr_preload">Загружать страниц заранее</string>
+    <string name="mr_webtoon_padding">Поля по бокам</string>
+    <string name="mr_webtoon_gaps">Промежутки между страницами</string>
+    <string name="mr_image">Изображение</string>
+    <string name="mr_brightness">Яркость</string>
+    <string name="mr_contrast">Контраст</string>
+    <string name="mr_gray">Оттенки серого</string>
+    <string name="mr_invert">Инверсия цветов</string>
+    <string name="mr_reset_filters">Сбросить настройки изображения</string>
+    <string name="mr_tap_zones">Зоны нажатия</string>
+    <string name="mr_zone_l">Г-образные</string>
+    <string name="mr_zone_kindle">Kindle</string>
+    <string name="mr_zone_edges">Края</string>
+    <string name="mr_zone_lr">Лево / право</string>
+    <string name="mr_zone_off">Выкл.</string>
+    <string name="mr_invert_zones">Поменять зоны местами</string>
+    <string name="mr_show_zones">Показывать зоны при открытии</string>
+    <string name="mr_preview_zones">Показать зоны сейчас</string>
+    <string name="mr_volume_keys">Листать кнопками громкости</string>
+    <string name="mr_invert_volume">Громкость вверх — вперёд</string>
+    <string name="mr_off">Выкл.</string>
+</resources>

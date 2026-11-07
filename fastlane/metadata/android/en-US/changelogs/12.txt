@@ -1,0 +1,10 @@
+• Import from Mihon / Tachiyomi (.tachibk).
+• Tracking: Shikimori, AniList, MyAnimeList.
+• Light novels online: RanobeLib, NovelBin.
+• "Continue reading" home-screen widget.
+• Manga editor: translate a page with OCR.
+• Visual chapter editor; translate chosen chapters only.
+• Edit metadata of several books at once.
+• PDF highlights are saved in the file too.
+• Sync via folder or WebDAV, with deletions and the online library.
+• Configurable long-press menus: radial or list.

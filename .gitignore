@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/
+.DS_Store
+build/
+/captures
+.externalNativeBuild
+.cxx
+*.keystore
+# The shared debug key (public on purpose, signs only the .debug app): see app/build.gradle.kts.
+!/gradle/debug.keystore
+*.jks
+keystore.properties
+/dist/

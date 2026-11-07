@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_highlight">Highlight</string>
+    <string name="action_underline">Underline</string>
+    <string name="action_strike">Strikethrough</string>
+    <string name="action_note">Note</string>
+    <string name="action_quote">Save quote</string>
+    <string name="action_meaning">Meaning</string>
+    <string name="action_translate">Translate</string>
+    <string name="action_save_word">Save word</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_share">Share</string>
+    <string name="action_share_image">Share as image</string>
+    <string name="action_search_book">Search in book</string>
+    <string name="action_search_web">Search the web</string>
+    <string name="action_speak">Read aloud</string>
+    <string name="action_sentence">Select sentence</string>
+    <string name="action_paragraph">Select paragraph</string>
+    <string name="action_bookmark">Bookmark</string>
+    <string name="action_custom">Custom actions</string>
+    <string name="action_delete_highlight">Delete highlight</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_green">Green</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_pink">Pink</string>
+    <string name="color_purple">Purple</string>
+    <string name="style_highlight">Highlight</string>
+    <string name="style_underline">Underline</string>
+    <string name="style_strike">Strikethrough</string>
+
+    <string name="annotations_title">Annotations</string>
+    <string name="annotations_all_title">All annotations</string>
+    <string name="annotations_tab_highlights">Highlights</string>
+    <string name="annotations_tab_notes">Notes</string>
+    <string name="annotations_tab_bookmarks">Bookmarks</string>
+    <string name="annotations_tab_quotes">Quotes</string>
+    <string name="annotations_search">Search annotations</string>
+    <string name="annotations_empty_title">Nothing here yet</string>
+    <string name="annotations_empty_message">Select text while reading to highlight it, add a note or save a quote.</string>
+    <string name="annotations_bookmarks_empty">Tap the bookmark icon while reading to remember a place.</string>
+    <string name="annotations_no_results">No annotations match the filter</string>
+    <string name="annotations_export">Export</string>
+    <string name="annotations_import_readwise">Import Readwise CSV</string>
+    <string name="annotations_exported">Annotations exported</string>
+    <string name="annotations_imported">Imported %1$d highlights, skipped %2$d (book not in library)</string>
+    <string name="annotations_deleted">Annotation deleted</string>
+    <string name="annotations_open">Open in book</string>
+    <string name="annotations_edit_note">Edit note</string>
+    <string name="annotations_add_note">Add note</string>
+    <string name="annotations_favorite">Add to favorites</string>
+    <string name="annotations_unfavorite">Remove from favorites</string>
+    <string name="annotations_favorites_only">Favorites</string>
+    <string name="annotations_all_colors">All colours</string>
+    <string name="annotations_sort_position">By position</string>
+    <string name="annotations_sort_date">By date</string>
+    <string name="annotations_mark_quote">Mark as quote</string>
+    <string name="annotations_unmark_quote">Remove from quotes</string>
+    <string name="annotations_position">%1$s · %2$d%%</string>
+    <string name="annotations_count">%1$d items</string>
+    <string name="annotations_export_failed">Export failed: %1$s</string>
+    <string name="annotations_rename_bookmark">Rename bookmark</string>
+
+    <string name="note_title">Note</string>
+    <string name="note_hint">Write a note. Markdown is supported.</string>
+    <string name="note_edit">Edit</string>
+    <string name="note_preview">Preview</string>
+    <string name="note_empty_preview">Nothing to preview</string>
+
+    <string name="quote_share_title">Share quote</string>
+    <string name="quote_style_light">Light card</string>
+    <string name="quote_style_dark">Dark card</string>
+
+    <string name="export_markdown">Markdown (Obsidian)</string>
+    <string name="export_json">JSON</string>
+    <string name="export_html">HTML</string>
+    <string name="export_txt">Plain text</string>
+    <string name="export_readwise">Readwise CSV</string>
+    <string name="page_action_translate">Translate page</string>
+    <string name="page_action_save">Save page</string>
+    <string name="page_action_share">Share page</string>
+    <string name="page_action_copy_text">Copy text</string>
+    <string name="page_action_bookmark">Bookmark</string>
+    <string name="page_action_set_cover">Set as cover</string>
+    <string name="page_action_note">Note</string>
+</resources>

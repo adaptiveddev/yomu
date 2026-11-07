@@ -1,0 +1,6 @@
+• Fixed "No access to the file" for downloaded books and the MangaDex JSON error.
+• Mihon/Tachiyomi extensions and repositories; MangaDex, MANGA Plus, Webtoons, GlobalComix, AComics built in.
+• Print-like page layout for Word documents.
+• Page N of M, go to page, reader presets, status line.
+• History tab and reading statistics.
+• New signing key: back up, uninstall 1.0.0, install, restore.

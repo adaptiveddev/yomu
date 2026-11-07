@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="downloads_title">Загрузки</string>
+    <string name="downloads_empty">Загрузок нет</string>
+    <string name="downloads_empty_hint">Здесь появятся книги из OPDS-каталогов и главы для офлайн-чтения.</string>
+    <string name="downloads_running">Скачиваются</string>
+    <string name="downloads_queued">В очереди</string>
+    <string name="downloads_failed">Ошибки</string>
+    <string name="downloads_finished">Завершённые</string>
+    <string name="downloads_pause">Пауза</string>
+    <string name="downloads_resume">Продолжить</string>
+    <string name="downloads_cancel">Отменить</string>
+    <string name="downloads_remove">Убрать из списка</string>
+    <string name="downloads_pause_all">Приостановить все</string>
+    <string name="downloads_resume_all">Продолжить все</string>
+    <string name="downloads_clear_finished">Очистить завершённые</string>
+    <string name="downloads_pages">Страниц: %1$d из %2$d</string>
+    <string name="downloads_paused">На паузе</string>
+    <string name="downloads_cancelled">Отменено</string>
+    <string name="downloads_done">Готово</string>
+    <string name="downloads_waiting">Ожидание…</string>
+    <string name="downloads_clear_cache">Очистить кэш</string>
+    <string name="downloads_clear_cache_text">Будут удалены кэш страниц, обложек и временные файлы. Книги и скачанные главы останутся.</string>
+    <string name="storage_total">Занято: %1$s</string>
+    <string name="storage_books">Книги</string>
+    <string name="storage_chapters">Скачанные главы</string>
+    <string name="storage_converted">Сконвертированные книги</string>
+    <string name="storage_covers">Обложки</string>
+    <string name="storage_cache">Кэш</string>
+    <string name="downloads_retry_failed">Повторить неудачные загрузки</string>
+    <string name="downloads_retry_all">Повторить все</string>
+    <string name="downloads_clear_queue">Очистить очередь</string>
+    <string name="downloads_clear_queue_text">Убрать все ожидающие, приостановленные и неудачные загрузки? Текущие загрузки будут отменены, скачанные главы и книги останутся.</string>
+    <string name="downloads_move_to_top">В начало очереди</string>
+    <string name="downloads_retrying">Повтор %1$d из %2$d: %3$s</string>
+</resources>

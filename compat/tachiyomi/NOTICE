@@ -1,0 +1,7 @@
+Yomu — Tachiyomi/Mihon extension compatibility layer
+
+Files under src/main/kotlin/eu/kanade/tachiyomi/ are adapted from Mihon
+(https://github.com/mihonapp/mihon), Copyright 2015 Javier Tomás and the Mihon Open Source Project,
+licensed under the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0).
+Changes: removed Mihon-specific DI/UI dependencies (Metro, Compose, i18n, preferences),
+simplified the Cloudflare WebView interceptor, made the network stack configurable by the host.

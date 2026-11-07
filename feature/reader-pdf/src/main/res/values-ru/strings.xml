@@ -1,0 +1,6 @@
+<resources>
+    <string name="pdf_reflow_show_page">Показать страницу</string>
+    <string name="pdf_reflow_hide_page">Скрыть страницу</string>
+    <string name="pdf_reflow_no_text">Текст не извлечён; показана исходная страница.</string>
+    <string name="pdf_reflow_text_error">Не удалось извлечь текст; показана страница.</string>
+</resources>

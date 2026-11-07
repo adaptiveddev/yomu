@@ -1,0 +1,17 @@
+Bundled source extensions
+=========================
+
+The APK files in this folder are unmodified builds of community extensions for Mihon/Tachiyomi, published by the
+Keiyoushi project (https://github.com/keiyoushi/extensions, signing certificate SHA-256
+9add655a78e96c4ec7a53ef89dccb557cb5d767489fac5e785d671a5a75d4da2) under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0).
+
+Only extensions for official platforms and open catalogs are bundled:
+  * MangaDex            (eu.kanade.tachiyomi.extension.all.mangadex, 1.6.1)
+  * MANGA Plus          (eu.kanade.tachiyomi.extension.all.mangaplus, 1.6.68)
+  * Webtoons.com        (eu.kanade.tachiyomi.extension.all.webtoons, 1.6.3)
+  * GlobalComix         (eu.kanade.tachiyomi.extension.all.globalcomix, 1.6.2)
+  * AComics             (eu.kanade.tachiyomi.extension.ru.acomics, 1.6.10)
+
+Yomu loads them through its Tachiyomi compatibility layer; they can be removed, and updated from any store signed with
+the same key.

@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="process_text_label">Найти в Yomu</string>
+    <string name="import_failed_count">с ошибкой: %1$d</string>
+    <string name="onboarding_skip">Пропустить</string>
+    <string name="onboarding_back">Назад</string>
+    <string name="onboarding_next">Далее</string>
+    <string name="onboarding_start">Начать</string>
+    <string name="onboarding_welcome_title">Добро пожаловать в Yomu</string>
+    <string name="onboarding_welcome_text">Читалка книг, комиксов и манги, которая помогает учить языки.</string>
+    <string name="onboarding_feature_read">EPUB, PDF, FB2, MOBI, DOCX, TXT, CBZ/CBR и папки с картинками</string>
+    <string name="onboarding_feature_words">Тап по слову — словарь, перевод фраз и повторение сохранённых слов</string>
+    <string name="onboarding_feature_catalog">Поиск книг и манги в OPDS-каталогах и онлайн-источниках</string>
+    <string name="onboarding_feature_editor">Правка книг и комиксов во встроенном редакторе</string>
+    <string name="onboarding_folder_title">Где лежат ваши книги?</string>
+    <string name="onboarding_folder_text">Выберите папку: Yomu добавит из неё книги и будет следить за новыми.</string>
+    <string name="onboarding_folder_pick">Выбрать папку</string>
+    <string name="onboarding_folder_another">Добавить ещё папку</string>
+    <string name="onboarding_folder_chosen">Папка «%1$s» добавлена</string>
+    <string name="onboarding_folder_hint">Этот шаг можно пропустить и позже импортировать отдельные файлы из библиотеки.</string>
+    <string name="onboarding_language_title">Язык перевода</string>
+    <string name="onboarding_language_text">На этот язык будут переводиться слова и фразы. Его можно поменять в настройках.</string>
+    <plurals name="import_result">
+        <item quantity="one">Добавлена %d книга</item>
+        <item quantity="few">Добавлено %d книги</item>
+        <item quantity="many">Добавлено %d книг</item>
+        <item quantity="other">Добавлено %d книги</item>
+    </plurals>
+    <string name="add_extension_repo">Добавить репозиторий расширений</string>
+    <!-- Значки приложения (Настройки → Оформление → Значок приложения) -->
+    <string name="icon_classic">Классика</string>
+    <string name="icon_spark">Искра</string>
+    <string name="icon_ribbon">Лента</string>
+    <string name="icon_fox">Лис</string>
+    <string name="icon_hanko">Ханко</string>
+    <string name="icon_gaze">Взгляд</string>
+    <string name="icon_manga">Манга</string>
+    <!-- Сбой при прошлом запуске (1.9.0) -->
+    <string name="crash_title">Yomu неожиданно закрылась</string>
+    <string name="crash_text">В прошлый раз приложение упало. В отчёте — ошибка, экран, где она случилась, и модель телефона: отправьте его разработчику, чтобы ошибку исправили. Без вас ничего не отправляется.</string>
+    <string name="crash_send">Отправить отчёт</string>
+    <!-- «Что нового» — один раз после обновления -->
+    <string name="whats_new_title">Что нового в Yomu</string>
+    <string name="whats_new_ok">Понятно</string>
+    <string name="whats_new_all">Все изменения</string>
+    <string-array name="whats_new_2_0_4">
+        <item>Локальные книги и мангу из файлов теперь можно привязать к AniList, MyAnimeList и Shikimori. Главы указываются вручную; прогресс по страницам автоматически не отправляется.</item>
+        <item>В резервные копии с файлами теперь входят книги, скачанные через синхронизацию WebDAV.</item>
+    </string-array>
+    <string-array name="whats_new_2_0_3">
+        <item>Необязательная синхронизация файлов книг через WebDAV: включите её на каждом устройстве в настройках резервного копирования. Сервер может читать файлы; удалённые локально книги могут восстановиться, папки с картинками не поддерживаются.</item>
+    </string-array>
+    <string-array name="whats_new_2_0_2">
+        <item>Прерванная загрузка обновления продолжается, если у релиза есть контрольная сумма; перед открытием установщика проверяются пакет и сертификат APK.</item>
+        <item>Повреждённый файл синхронизации больше не перезаписывается.</item>
+        <item>Зашифрованные EPUB теперь показывают ошибку неподдерживаемого формата, а не нечитаемый текст.</item>
+    </string-array>
+    <string-array name="whats_new_2_0_1">
+        <item>Профиль: новые вкладки «Трекинг» и «Загрузки». «Трекинг» показывает все тайтлы, привязанные к MyAnimeList, AniList или Shikimori, — статус, главы и оценку, обновляет их разом и отправляет изменения, которые ждут отправки.</item>
+        <item>Исправлен Shikimori: сервис переехал на shikimori.io, а запросы на старый адрес теряли вход.</item>
+        <item>Трекинг надёжнее: одновременные запросы больше не сбивают вход, ошибка сервера больше не выходит из аккаунта, а изменения, сделанные без входа, отправляются сразу после входа.</item>
+        <item>Синхронизация через WebDAV работает и с серверами, которые сжимают файлы на лету.</item>
+        <item>Пакетная правка метаданных больше не трогает язык, который вы оставили как есть.</item>
+    </string-array>
+    <string-array name="whats_new_2_0_0">
+        <item>Переезжаете с Mihon или Tachiyomi? «Настройки → Резервные копии и синхронизация → Импорт из Mihon / Tachiyomi» перенесёт библиотеку, категории, прочитанные главы и трекинг из копии .tachibk.</item>
+        <item>Трекинг в Shikimori, AniList и MyAnimeList: привяжите тайтл кнопкой «Трекинг» на его странице — прочитанные главы попадут в ваш список сами.</item>
+        <item>Ранобэ онлайн: источники новелл (RanobeLib, NovelBin) в каталоге, главы открываются в читалке книг.</item>
+        <item>Виджет «Продолжить чтение» для главного экрана.</item>
+        <item>Редактор манги: «Перевести страницу (OCR)» распознаёт текст страницы, переводит его и вписывает в картинку; каждое облачко можно поправить.</item>
+        <item>Редактор книг: глава правится так, как выглядит, без HTML, а перевести можно только выбранные главы.</item>
+        <item>Библиотека: выделите несколько книг и измените авторов, серию, теги и статус сразу у всех.</item>
+        <item>Выделения в PDF сохраняются и в самом файле — их видят другие PDF-приложения (настройки «Манга и PDF»).</item>
+        <item>Синхронизация через общую папку или WebDAV: синхронизируются и удаления, и онлайн-библиотека, по желанию — сама. Обновите до 2.0 все синхронизируемые устройства.</item>
+        <item>Меню долгого нажатия: круговое или списком, с вашими действиями и их порядком («Настройки → Меню долгого нажатия»).</item>
+    </string-array>
+    <string-array name="whats_new_1_9_0">
+        <item>Вкладки переключаются плавно: открытая вкладка остаётся готовой в фоне, поэтому возврат к ней больше не собирает экран заново, а новая начинает загружаться, как только палец коснулся панели.</item>
+        <item>Исправлено: приложение закрывалось, если страница тайтла в каталоге не загрузилась.</item>
+        <item>После сбоя Yomu при следующем запуске предложит отправить или скопировать отчёт: ошибку, экран, где она случилась, и шаги перед ней.</item>
+        <item>Источники, у которых по источнику на язык (MangaDex, Wikisource, NHentai и другие): язык переключается прямо в верхней панели источника — вместе с поиском и фильтрами.</item>
+    </string-array>
+    <string-array name="whats_new_1_8_0">
+        <item>Вкладка «Профиль» вместо «Истории»: время чтения, серии, достижения, статистика и история в одном месте — и карточкой можно поделиться.</item>
+        <item>Нижняя панель теперь парит над содержимым без подложки — списки прокручиваются под ней.</item>
+        <item>Каталог: фильтры списка источников (языки, содержимое, тип, 18+, закреплённые) сохраняются после перезапуска. Каталог открывается без подвисания.</item>
+        <item>Фильтры источников: теги, которые расширение загружает в фоне, появляются сами, «Сбросить» работает всегда, а длинные списки тегов больше не тормозят.</item>
+        <item>Зоны нажатий в манге больше не показываются при каждом открытии (настройки читалки → «Показывать зоны при открытии»).</item>
+    </string-array>
+    <string-array name="whats_new_1_7_0">
+        <item>Семь значков приложения на выбор: «Настройки → Оформление → Значок приложения». На Android 13 и новее значок подстраивается под тему.</item>
+        <item>Обновления прямо в приложении: «О приложении → Проверить обновления» скачивает APK для вашего телефона, сверяет контрольную сумму и открывает установщик.</item>
+        <item>Можно включить проверку раз в день — тогда о новой версии подскажут точка на «Настройках» и карточка вверху настроек.</item>
+        <item>Этот список — один раз после каждого обновления.</item>
+    </string-array>
+    <!-- Вкладка «Профиль» (1.8.0) -->
+    <string name="profile_title">Профиль</string>
+    <string name="profile_tab_overview">Обзор</string>
+    <string name="profile_tab_stats">Статистика</string>
+    <string name="profile_tab_history">История</string>
+    <string name="profile_default_name">Читатель</string>
+    <string name="profile_set_name">Нажмите, чтобы задать имя и аватар</string>
+    <string name="profile_edit">Изменить профиль</string>
+    <string name="profile_name">Имя</string>
+    <string name="profile_avatar">Аватар</string>
+    <string name="profile_since">Читает в Yomu с %1$s</string>
+    <string name="profile_no_reading">Откройте книгу — здесь появятся время, серии и достижения.</string>
+    <string name="profile_total_time">Всего за чтением</string>
+    <string name="profile_open_stats">Статистика</string>
+    <string name="profile_today">Сегодня: %1$d из %2$d мин</string>
+    <string name="profile_stat_books">Книг прочитано</string>
+    <string name="profile_stat_titles">Произведений</string>
+    <string name="profile_stat_streak">Дней подряд</string>
+    <string name="profile_stat_best">Лучшая серия</string>
+    <string name="profile_stat_pages">Страниц прочитано</string>
+    <string name="profile_stat_days">Дней с чтением</string>
+    <string name="profile_stat_words">Слов сохранено</string>
+    <string name="profile_stat_longest">Самая долгая сессия</string>
+    <string name="profile_milestones">Достижения</string>
+    <string name="profile_ms_hours">Время чтения</string>
+    <string name="profile_ms_streak">Лучшая серия</string>
+    <string name="profile_ms_books">Прочитанные книги</string>
+    <string name="profile_ms_pages">Страницы</string>
+    <string name="profile_ms_words">Словарный запас</string>
+    <string name="profile_ms_progress">%1$s / %2$s %3$s</string>
+    <string name="profile_ms_done">Все уровни пройдены</string>
+    <string name="profile_unit_hours">ч</string>
+    <string name="profile_unit_days">дн.</string>
+    <string name="profile_unit_books">кн.</string>
+    <string name="profile_unit_pages">стр.</string>
+    <string name="profile_unit_words">сл.</string>
+    <string name="profile_top">Больше всего читали</string>
+    <string name="profile_recent">Недавно читали</string>
+    <string name="profile_all_history">Вся история</string>
+    <string name="profile_share_section">Поделиться и перенести</string>
+    <string name="profile_share_hint">Профиль хранится на этом устройстве — аккаунт и сервер не нужны. Поделитесь им картинкой или текстом либо перенесите всё на другой телефон резервной копией.</string>
+    <string name="profile_share_card">Карточка статистики</string>
+    <string name="profile_share_card_sum">Картинка со временем чтения, серией и книгами</string>
+    <string name="profile_share_text">Статистика текстом</string>
+    <string name="profile_share_text_sum">Для чата или поста</string>
+    <string name="profile_share_history">История чтения (CSV)</string>
+    <string name="profile_share_history_sum">Таблица для Excel или Google Таблиц</string>
+    <string name="profile_share_backup">Отправить резервную копию</string>
+    <string name="profile_share_backup_sum">Библиотека, прогресс, история, статистика, слова и настройки без файлов книг: откройте её в Yomu на другом устройстве, чтобы восстановить</string>
+    <string name="profile_backup_settings">Резервное копирование и синхронизация</string>
+    <string name="profile_backup_settings_sum">Автоматические копии, синхронизация через папку или WebDAV</string>
+    <string name="profile_duration_m">%1$d мин</string>
+    <string name="profile_duration_h">%1$d ч</string>
+    <string name="profile_duration_hm">%1$d ч %2$d мин</string>
+    <string name="profile_card_title">Моё чтение</string>
+    <string name="profile_card_total">за чтением</string>
+    <string name="profile_card_footer">Yomu · %1$s</string>
+    <string name="profile_text_header">📚 %1$s: моё чтение в Yomu</string>
+    <string name="profile_text_time">⏱ Время за чтением: %1$s</string>
+    <string name="profile_text_books">📖 Прочитано книг: %1$d</string>
+    <string name="profile_text_streak">🔥 Серия: %1$s (лучшая: %2$s)</string>
+    <string name="profile_text_pages">📄 Прочитано страниц: %1$s</string>
+    <string name="profile_text_words">🗂 Сохранено слов: %1$s</string>
+    <string name="profile_text_top">🏆 Больше всего читаю: %1$s</string>
+    <string name="profile_text_footer">Yomu — читалка книг, комиксов и манги</string>
+    <plurals name="profile_days">
+        <item quantity="one">%d день</item>
+        <item quantity="few">%d дня</item>
+        <item quantity="many">%d дней</item>
+        <item quantity="other">%d дня</item>
+    </plurals>
+    <string name="track_login_ok">Вход в %1$s выполнен: %2$s</string>
+    <string name="track_login_ok_anon">Вход в %1$s выполнен</string>
+    <string name="track_login_failed">Не удалось войти в %1$s: %2$s</string>
+    <string name="widget_continue_label">Продолжить чтение</string>
+    <string name="widget_continue_description">Книги и онлайн-тайтлы, которые вы читаете: продолжение в одно касание.</string>
+    <string name="widget_continue_empty">Пока ничего не читается. Откройте книгу в Yomu — она появится здесь.</string>
+    <plurals name="widget_unread_chapters">
+        <item quantity="one">%1$d непрочитанная глава</item>
+        <item quantity="few">%1$d непрочитанные главы</item>
+        <item quantity="many">%1$d непрочитанных глав</item>
+        <item quantity="other">%1$d непрочитанной главы</item>
+    </plurals>
+
+    <!-- Профиль: вкладки «Трекинг» и «Загрузки» (2.0.1) -->
+    <string name="profile_tab_tracking">Трекинг</string>
+    <string name="profile_tab_downloads">Загрузки</string>
+    <string name="profile_downloads_settings">Настройки загрузок</string>
+    <string name="profile_track_refresh">Обновить с сервисов</string>
+    <string name="profile_track_settings">Настройки трекинга</string>
+    <string name="profile_track_accounts">Аккаунты</string>
+    <string name="profile_track_manage">Управление</string>
+    <string name="profile_track_signed_in">Вход выполнен</string>
+    <string name="profile_track_signed_out">Вход не выполнен</string>
+    <plurals name="profile_track_pending">
+        <item quantity="one">%1$d изменение ещё не отправлено</item>
+        <item quantity="few">%1$d изменения ещё не отправлены</item>
+        <item quantity="many">%1$d изменений ещё не отправлено</item>
+        <item quantity="other">%1$d изменения ещё не отправлены</item>
+    </plurals>
+    <string name="profile_track_send">Отправить</string>
+    <string name="profile_track_empty">Нет отслеживаемых тайтлов</string>
+    <string name="profile_track_empty_hint">Откройте онлайн-тайтл или локальную книгу и нажмите «Трекинг». Для онлайн-глав прогресс обновляется автоматически, для локальных файлов главы указываются вручную.</string>
+    <string name="profile_track_empty_signed_out">Войдите в MyAnimeList, AniList или Shikimori, затем связывайте тайтлы кнопкой «Трекинг» на их странице.</string>
+    <string name="profile_track_sign_in">Войти</string>
+    <string name="profile_track_all">Все · %1$d</string>
+    <string name="profile_track_refreshed">Записи трекинга обновлены</string>
+    <plurals name="profile_track_refresh_failed">
+        <item quantity="one">Не удалось прочитать %1$d запись: %2$s</item>
+        <item quantity="few">Не удалось прочитать %1$d записи: %2$s</item>
+        <item quantity="many">Не удалось прочитать %1$d записей: %2$s</item>
+        <item quantity="other">Не удалось прочитать %1$d записи: %2$s</item>
+    </plurals>
+    <string name="profile_track_sent">Все изменения отправлены</string>
+    <plurals name="profile_track_left">
+        <item quantity="one">%1$d изменение ждёт отправки: нет сети или сервис не ответил</item>
+        <item quantity="few">%1$d изменения ждут отправки: нет сети или сервис не ответил</item>
+        <item quantity="many">%1$d изменений ждут отправки: нет сети или сервис не ответил</item>
+        <item quantity="other">%1$d изменения ждут отправки: нет сети или сервис не ответил</item>
+    </plurals>
+</resources>

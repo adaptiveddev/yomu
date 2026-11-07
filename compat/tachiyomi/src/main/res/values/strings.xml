@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="compat_webview_required">WebView is required to open this source</string>
+    <string name="compat_webview_outdated">Please update the WebView app for better compatibility</string>
+    <string name="compat_cloudflare_failed">Failed to bypass Cloudflare. Open the source in WebView, solve the check and try again.</string>
+</resources>

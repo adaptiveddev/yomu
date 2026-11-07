@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tr_auto">Detect language</string>
+    <string name="tr_swap">Swap languages</string>
+    <string name="tr_speak_source">Read the original aloud</string>
+    <string name="tr_speak_translation">Read the translation aloud</string>
+    <string name="tr_save_word">Save to my words</string>
+    <string name="tr_cached">from cache</string>
+    <string name="tr_engine_auto">Automatic</string>
+    <string name="tr_model_missing">The offline language pack is not downloaded yet.</string>
+    <string name="tr_download_models">Download pack</string>
+    <string name="tr_title">Translation</string>
+    <string name="packs_title">Offline language packs</string>
+    <string name="packs_summary">Packs let you translate without internet. Each pack takes about %1$d MB.</string>
+    <string name="packs_wifi_only">Download over Wi-Fi only</string>
+    <string name="packs_downloaded">Downloaded (%1$d)</string>
+    <string name="packs_available">Available</string>
+    <string name="packs_ready">Ready to use offline</string>
+    <string name="packs_builtin">Built in</string>
+    <string name="packs_size">About %1$d MB</string>
+    <string name="packs_download">Download</string>
+    <string name="packs_delete_title">Delete %1$s?</string>
+    <string name="packs_delete_text">The pack will be removed from the device. You can download it again later.</string>
+</resources>

@@ -1,0 +1,19 @@
+{
+  "full_gradle_build_performed": false,
+  "apk_created": false,
+  "wrapper_files_retrieved": [
+    "gradlew",
+    "gradlew.bat",
+    "gradle/wrapper/gradle-wrapper.jar"
+  ],
+  "xml_errors": [],
+  "toml_errors": [],
+  "javascript_checks": [
+    {
+      "file": "feature/reader-epub/src/main/assets/yomu/reader.js",
+      "ok": true,
+      "error": ""
+    }
+  ],
+  "kotlin_files": 112
+}
