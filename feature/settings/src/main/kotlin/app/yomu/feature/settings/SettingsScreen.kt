@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.CallToAction
 import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.TrackChanges
 import androidx.compose.material.icons.outlined.BugReport
@@ -104,7 +105,8 @@ enum class SettingsSection(val title: Int, val summary: Int, val icon: ImageVect
     DOWNLOADS(R.string.set_downloads, R.string.set_downloads_sum, Icons.Outlined.Download, listOf(R.string.set_download_wifi, R.string.set_parallel, R.string.set_page_threads, R.string.set_auto_download_new, R.string.set_download_ahead, R.string.set_download_retries, R.string.set_auto_delete, R.string.set_pack_cbz, R.string.set_storage, R.string.set_clear_cache)),
     NETWORK(R.string.set_network, R.string.set_network_sum, Icons.Outlined.DataUsage, listOf(R.string.set_download_wifi, R.string.set_net_update_wifi, R.string.set_models_wifi, R.string.set_data_saver, R.string.set_covers_mobile, R.string.set_warn_mobile, R.string.set_traffic, R.string.set_traffic_reset)),
     BACKUP(R.string.set_backup, R.string.set_backup_sum, Icons.Outlined.Backup, listOf(R.string.set_backup_create, R.string.set_backup_restore, R.string.set_mihon_import, R.string.set_auto_backup, R.string.set_backup_folder, R.string.set_backup_keep, R.string.set_reset_all)),
-    SYNC(R.string.set_sync_section, R.string.set_sync_section_sum, Icons.Outlined.CloudSync, listOf(R.string.set_sync, R.string.set_sync_now, R.string.set_sync_method, R.string.set_sync_folder, R.string.set_webdav_url, R.string.set_sync_check, R.string.set_sync_on_start, R.string.set_sync_on_exit, R.string.set_sync_interval, R.string.set_sync_catalog, R.string.set_sync_deletions)),
+    SYNC(R.string.set_sync_section, R.string.set_sync_section_sum, Icons.Outlined.CloudSync, listOf(R.string.set_sync, R.string.set_sync_now, R.string.set_sync_method, R.string.set_sync_folder, R.string.set_webdav_url, R.string.set_sync_check, R.string.set_sync_on_start, R.string.set_sync_on_exit, R.string.set_sync_interval, R.string.set_sync_catalog, R.string.set_sync_deletions, R.string.set_sync_problems)),
+    SYNC_PROBLEMS(R.string.set_sync_problems, R.string.set_sync_problems_sum, Icons.Outlined.ErrorOutline, emptyList(), visible = false),
     SECURITY(R.string.set_security, R.string.set_security_sum, Icons.Outlined.Lock, listOf(R.string.set_app_lock, R.string.set_change_pin, R.string.set_biometric, R.string.set_lock_timeout, R.string.set_secure_screen)),
     FONTS(R.string.set_fonts, R.string.set_fonts_sum, Icons.Outlined.FontDownload, listOf(R.string.set_font_import)),
     ADVANCED(R.string.set_advanced, R.string.set_advanced_sum, Icons.Outlined.Tune, listOf(R.string.set_verbose_logging, R.string.set_error_log, R.string.set_reset_onboarding, R.string.set_reset_hints)),
@@ -149,7 +151,10 @@ fun SettingsScreen(viewModel: SettingsViewModel, links: SettingsLinks, onBack: (
         }
     }
     BackHandler(enabled = section != null && section != initialSection) {
-        section = if (section == SettingsSection.LOGS) SettingsSection.ADVANCED else if (section == SettingsSection.STORAGE) SettingsSection.DOWNLOADS else null
+        section = if (section == SettingsSection.LOGS) SettingsSection.ADVANCED
+        else if (section == SettingsSection.STORAGE) SettingsSection.DOWNLOADS
+        else if (section == SettingsSection.SYNC_PROBLEMS) SettingsSection.SYNC
+        else null
     }
 
     val current = section
@@ -162,7 +167,12 @@ fun SettingsScreen(viewModel: SettingsViewModel, links: SettingsLinks, onBack: (
                     navigationIcon = {
                         val back: (() -> Unit)? = when {
                             current != null && current != initialSection -> ({
-                                section = if (current == SettingsSection.LOGS) SettingsSection.ADVANCED else if (current == SettingsSection.STORAGE) SettingsSection.DOWNLOADS else null
+                                section = when (current) {
+                                    SettingsSection.LOGS -> SettingsSection.ADVANCED
+                                    SettingsSection.STORAGE -> SettingsSection.DOWNLOADS
+                                    SettingsSection.SYNC_PROBLEMS -> SettingsSection.SYNC
+                                    else -> null
+                                }
                             })
                             else -> onBack
                         }
@@ -291,6 +301,7 @@ private fun SectionContent(s: SettingsSection, vm: SettingsViewModel, links: Set
         SettingsSection.SELECTION -> SelectionSection(vm)
         SettingsSection.NAVIGATION -> NavigationSection(vm)
         SettingsSection.QUICK_ACTIONS -> QuickActionsSection(vm, onOpenSelection = { onOpen(SettingsSection.SELECTION) })
+        SettingsSection.SYNC_PROBLEMS -> SyncProblemsSection(vm)
         else -> ScrollSection {
             when (s) {
                 SettingsSection.APPEARANCE -> AppearanceSection(vm)
@@ -303,7 +314,7 @@ private fun SectionContent(s: SettingsSection, vm: SettingsViewModel, links: Set
                 SettingsSection.STORAGE -> StorageSection(vm)
                 SettingsSection.NETWORK -> NetworkSection(vm)
                 SettingsSection.BACKUP -> BackupSection(vm, onOpenSync = { onOpen(SettingsSection.SYNC) })
-                SettingsSection.SYNC -> SyncSection(vm)
+                SettingsSection.SYNC -> SyncSection(vm, onOpenProblems = { onOpen(SettingsSection.SYNC_PROBLEMS) })
                 SettingsSection.TRACKING -> TrackingSection(vm)
                 SettingsSection.SECURITY -> SecuritySection(vm)
                 SettingsSection.ADVANCED -> AdvancedSection(vm, onOpenLogs = { onOpen(SettingsSection.LOGS) })

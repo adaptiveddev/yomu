@@ -73,7 +73,7 @@ private fun Hint(text: String) {
 // region Sync
 
 @Composable
-internal fun ColumnScope.SyncSection(vm: SettingsViewModel) {
+internal fun ColumnScope.SyncSection(vm: SettingsViewModel, onOpenProblems: () -> Unit) {
     val s = vm.settings
     val backend by s.syncBackend.state()
     val folder by s.syncFolder.state()
@@ -90,10 +90,12 @@ internal fun ColumnScope.SyncSection(vm: SettingsViewModel) {
     val last = if (lastSync > 0) DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(lastSync)) else null
     PreferenceItem(stringResource(R.string.set_sync_now), last?.let { stringResource(R.string.set_last_time, it) }, enabled = configured, onClick = vm::syncNow, icon = settingIcon(R.string.set_sync_now))
     if (lastError.isNotBlank()) {
-        Row(Modifier.padding(horizontal = Dimens.l, vertical = Dimens.xs), horizontalArrangement = Arrangement.spacedBy(Dimens.s)) {
-            Icon(Icons.Outlined.ErrorOutline, null, tint = MaterialTheme.colorScheme.error)
-            Text(stringResource(R.string.set_sync_failed, lastError), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        }
+        PreferenceItem(
+            stringResource(R.string.set_sync_problems),
+            stringResource(R.string.set_sync_failed, lastError),
+            icon = Icons.Outlined.ErrorOutline,
+            onClick = onOpenProblems,
+        )
     }
 
     PreferenceHeader(stringResource(R.string.set_sync_target))

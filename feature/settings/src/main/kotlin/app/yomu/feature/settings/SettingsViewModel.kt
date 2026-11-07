@@ -13,6 +13,7 @@ import app.yomu.core.datastore.Pref
 import app.yomu.data.backup.BackupManager
 import app.yomu.data.backup.MihonImporter
 import app.yomu.data.backup.SyncManager
+import app.yomu.data.backup.SyncProblemInfo
 import app.yomu.data.source.ExtensionManager
 import app.yomu.data.tracking.TrackerManager
 import app.yomu.data.tracking.TrackSyncWorker
@@ -157,6 +158,22 @@ class SettingsViewModel(
             .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_check_ok)) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         busy.value = false
+    }
+
+    // Sync conflicts (the problems of the last failed sync)
+
+    val syncProblems = MutableStateFlow<List<SyncProblemInfo>>(emptyList())
+
+    fun loadSyncProblems() = viewModelScope.launch(ScreenErrors) { syncProblems.value = sync.problems() }
+
+    fun dismissSyncProblem(id: String) = viewModelScope.launch(ScreenErrors) {
+        sync.dismissProblem(id)
+        loadSyncProblems()
+    }
+
+    fun clearSyncProblems() = viewModelScope.launch(ScreenErrors) {
+        sync.clearProblems()
+        loadSyncProblems()
     }
 
     // Mihon / Tachiyomi

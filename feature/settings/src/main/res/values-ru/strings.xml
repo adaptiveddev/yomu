@@ -452,6 +452,24 @@
     <string name="set_sync_failed">Последняя синхронизация не удалась: %1$s</string>
     <string name="set_sync_all_devices">Используйте одну и ту же новую версию Yomu на всех устройствах: старые версии могут не сохранить версии страниц папок.</string>
 
+    <!-- 2.0: sync conflicts -->
+    <string name="set_sync_problems">Конфликты синхронизации</string>
+    <string name="set_sync_problems_sum">Что остановило последнюю синхронизацию</string>
+    <string name="set_sync_problems_hint">Синхронизация остановлена на этих проблемах: ничего не удалено и не перезаписано. Устраните причину и запустите синхронизацию снова. Скрытые записи исчезают, а успешная синхронизация очищает весь список.</string>
+    <string name="set_sync_problems_none">Нерешённых проблем нет: последняя синхронизация прошла успешно либо её ошибка не была конфликтом.</string>
+    <string name="set_sync_problems_clear">Скрыть все</string>
+    <string name="set_sync_problems_dismiss">Скрыть</string>
+    <string name="set_sync_problem_error">Синхронизация не выполнена</string>
+    <string name="set_sync_problem_annotation_conflict">Конфликтующие изменения выделения, заметки или закладки</string>
+    <string name="set_sync_problem_annotation_no_proof">Удаление выделения не удаётся подтвердить</string>
+    <string name="set_sync_problem_annotation_duplicate">Дубли аннотаций</string>
+    <string name="set_sync_problem_folder_legacy">Старый идентификатор папки изображений</string>
+    <string name="set_sync_problem_folder_similar">Есть похожая папка изображений с другим идентификатором</string>
+    <string name="set_sync_problem_folder_diverged">Конфликтующие изменения папки изображений</string>
+    <string name="set_sync_problem_folder_missing_revision">Нет исходной базы позиций папки изображений</string>
+    <string name="set_sync_problem_folder_changed_page">Содержимое сохранённой страницы изменилось</string>
+    <string name="set_sync_problem_folder_missing_page">Сохранённая страница отсутствует</string>
+
     <!-- 2.0: tracking -->
     <string name="set_tracking">Трекинг</string>
     <string name="set_tracking_sum">Shikimori, AniList, MyAnimeList</string>

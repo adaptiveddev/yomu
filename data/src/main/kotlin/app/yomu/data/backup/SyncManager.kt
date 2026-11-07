@@ -70,6 +70,7 @@ class SyncManager(
                 }
                 settings.lastSyncAt.set(System.currentTimeMillis())
                 settings.lastSyncError.set("")
+                SyncProblemStore(context).clear()
                 changed
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -78,10 +79,37 @@ class SyncManager(
                     is AnnotationSyncProblem -> e.forDisplay(context)
                     else -> e
                 }
+                recordProblem(e)
                 settings.lastSyncError.set(displayed.message?.take(300) ?: displayed.javaClass.simpleName)
                 throw displayed
             }
         }
+    }
+
+    /** The problems of the last failed sync, for the conflicts screen. */
+    suspend fun problems(): List<SyncProblemInfo> = withContext(Dispatchers.IO) { SyncProblemStore(context).load() }
+
+    /** Forgets one recorded problem (the user dismissed it on the conflicts screen). */
+    suspend fun dismissProblem(id: String) = withContext(Dispatchers.IO) {
+        val store = SyncProblemStore(context)
+        store.save(store.load().filterNot { it.id == id })
+    }
+
+    /** Forgets all recorded problems without resolving them. */
+    suspend fun clearProblems() = withContext(Dispatchers.IO) { SyncProblemStore(context).clear() }
+
+    private fun recordProblem(error: Exception) {
+        try {
+            val store = SyncProblemStore(context)
+            val known = store.load()
+            val info = when (error) {
+                is SyncProblem -> error.record(System.currentTimeMillis())
+                // Plain failures (network, missing files, ...) are recorded too so the screen explains a stopped sync.
+                else -> SyncProblemInfo(id = "error", kind = "error", subject = "", detail = error.message.orEmpty(), at = System.currentTimeMillis())
+            }
+            // One failure of the same kind replaces the previous record instead of piling up.
+            store.save(known.filterNot { it.id == info.id } + info)
+        } catch (_: Exception) { }
     }
 
     internal suspend fun runOnce(backend: SyncBackend): Int {
@@ -221,6 +249,8 @@ class SyncManager(
             // keeping the pre-restore bases would misinterpret those as intentional remote unlinks.
             File(context.filesDir, "sync-tracking").deleteRecursively()
             File(context.filesDir, "sync-books").deleteRecursively()
+            // Recorded problems describe the pre-restore state; a restored device starts clean.
+            SyncProblemStore(context).clear()
         }
     }
 }
