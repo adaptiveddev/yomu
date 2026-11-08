@@ -29,9 +29,17 @@ class FolderRemotePositionsTest {
         assertEquals(.5f, translated.bookmarks.single().progress, .001f)
         assertTrue(state.books[0].locator!!.contains("\"chapter\":1"))
     }
-    @Test fun missingReferencedPageAbortsEntireTranslation() {
+    @Test fun missingReferencedPageResetsProgressAndKeepsRecords() {
         val shortened = before.copy(pages = listOf(before.pages[0]))
-        assertTrue(runCatching { FolderRemotePositions.translate(state, before, shortened) }.exceptionOrNull() is IOException)
+        val translated = FolderRemotePositions.translate(state, before, shortened)
+        // The reading position on the removed page restarts; every record survives, none is dropped.
+        assertTrue(translated.books[0].locator!!.contains("\"chapter\":0"))
+        assertEquals(0f, translated.books[0].progress, 0.0001f)
+        assertEquals(2, translated.books.size)
+        assertEquals(1, translated.highlights.size)
+        assertEquals(1, translated.notes.size)
+        assertEquals(1, translated.bookmarks.size)
+        // The input state is untouched (pure transform).
         assertTrue(state.books[0].locator!!.contains("\"chapter\":1"))
     }
     @Test fun wrongIdentityAndMalformedPositionAreRejected() {

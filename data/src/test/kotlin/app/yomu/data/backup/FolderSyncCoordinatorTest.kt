@@ -47,7 +47,8 @@ class FolderSyncCoordinatorTest {
         private val settings = AppSettings(context)
         val books = BookRepositoryImpl(context, db, covers)
         private val importer = ImportService(context, books, settings, covers)
-        val sync = FolderSyncCoordinator(context, db, importer)
+        val recorded = mutableListOf<SyncProblemInfo>()
+        val sync = FolderSyncCoordinator(context, db, importer) { recorded += it }
         val manager = SyncManager(context, db, settings, { okhttp3.OkHttpClient() }, importer)
         suspend fun syncAll(server: Server, files: Boolean = true): Int {
             settings.syncBookFiles.set(files)
@@ -141,7 +142,7 @@ class FolderSyncCoordinatorTest {
     }
     @After fun close() { runBlocking { devices.firstOrNull()?.resetSettings() }; devices.forEach { it.db.close() }; root.deleteRecursively() }
 
-    @Test fun removedBookmarkedPageIsRejectedBeforePublishingNewIndex() = runBlocking {
+    @Test fun removedBookmarkedPageIsSkippedWithAProblemUntilTheUserDecides() = runBlocking {
         val a = Device("preflight"); val remote = Server()
         val folder = File(a.context.filesDir, "original").apply { mkdirs() }
         File(folder, "1.jpg").writeText("one"); File(folder, "2.jpg").writeText("two")
@@ -150,11 +151,13 @@ class FolderSyncCoordinatorTest {
         a.sync.sync(remote, "target")
         val before = remote.index!!.copyOf()
         File(folder, "2.jpg").delete()
-        assertTrue(runCatching { a.sync.sync(remote, "target") }.exceptionOrNull() is IOException)
+        a.sync.sync(remote, "target")
+        // The ambiguous folder is skipped with a recorded problem, not published blindly.
+        assertTrue(a.db.books().get(book)!!.fileHash!!.let { a.recorded.any { p -> p.kind == "folder_missing_page" && p.target == book.toString() } })
         assertArrayEquals(before, remote.index)
         assertTrue(a.db.annotations().allBookmarks().single().locatorJson.contains("1"))
     }
-    @Test fun replacingBookmarkedImageAtSameNameIsAConflictBeforePublication() = runBlocking {
+    @Test fun replacingBookmarkedImageAtSameNameIsSkippedWithAProblemUntilTheUserDecides() = runBlocking {
         val a = Device("replacement"); val remote = Server()
         val folder = File(a.context.filesDir, "original").apply { mkdirs() }
         val image = File(folder, "1.jpg").apply { writeText("old page") }
@@ -164,12 +167,17 @@ class FolderSyncCoordinatorTest {
         val before = remote.index!!.copyOf()
         val savedPosition = a.db.annotations().allBookmarks().single().locatorJson
         image.writeText("different image")
-        assertTrue(runCatching { a.sync.sync(remote, "target") }.exceptionOrNull() is IOException)
+        a.sync.sync(remote, "target")
+        assertTrue(a.recorded.any { it.kind == "folder_changed_page" && it.target == book.toString() })
         assertArrayEquals(before, remote.index)
+        assertEquals(savedPosition, a.db.annotations().allBookmarks().single().locatorJson)
+        // The explicit publication remaps what it can and keeps the annotation dangling.
+        val report = a.sync.publishLocalVersion(book, remote, "target")
+        assertTrue(report.isNotEmpty())
         assertEquals(savedPosition, a.db.annotations().allBookmarks().single().locatorJson)
     }
 
-    @Test fun remotelyBookmarkedPageIsCheckedBeforePublishingDeletion() = runBlocking {
+    @Test fun remotelyBookmarkedPageSurvivesAPublishedDeletionAsDangling() = runBlocking {
         val a = Device("preflight-a"); val b = Device("preflight-b"); val remote = Server()
         val folder = File(a.context.filesDir, "original").apply { mkdirs() }
         File(folder, "1.jpg").writeText("one"); File(folder, "2.jpg").writeText("two")
@@ -179,11 +187,12 @@ class FolderSyncCoordinatorTest {
         b.db.annotations().insertBookmark(BookmarkEntity(0, bId, "{\"chapter\":1}", "remote only", 1f, 15))
         b.syncAll(remote)
         assertTrue(a.db.annotations().allBookmarks().isEmpty())
-        val before = remote.index!!.copyOf()
         File(folder, "2.jpg").delete()
-        assertTrue(runCatching { a.syncAll(remote) }.exceptionOrNull() is IOException)
-        assertArrayEquals(before, remote.index)
+        a.syncAll(remote)
+        // The deletion publishes; the other device's bookmark on the removed page survives in the
+        // shared metadata as a dangling reference (its owner resolves it on their side).
         assertTrue(FolderMetadataSnapshotCodec.decode(remote.metadata!!).state.bookmarks.any { it.title == "remote only" })
+        assertEquals(1, FolderManifestCodec.decode(remote.index!!).folders.single().pages.size)
     }
 
     @Test fun reimportedFolderDoesNotSilentlyDiscardItsOldSharedIdentity() = runBlocking {
@@ -212,7 +221,9 @@ class FolderSyncCoordinatorTest {
         val book = a.addFolder(folder)
         a.db.openHelper.writableDatabase.execSQL("DELETE FROM folder_sync_bases WHERE targetId = ? AND folderId = ?", arrayOf(FolderRevisionCommit.LOCAL, id))
         a.db.progress().upsert(ReadingProgressEntity(book, "{\"chapter\":0}", 1f, 10))
-        assertTrue(runCatching { a.sync.sync(remote, "target") }.exceptionOrNull() is IOException)
+        a.sync.sync(remote, "target")
+        // The folder is skipped with a recorded problem; nothing is guessed or published.
+        assertTrue(a.recorded.any { it.kind == "folder_missing_revision" && it.target == book.toString() })
         assertNull(remote.index)
         assertEquals("{\"chapter\":0}", a.db.progress().get(book)!!.locatorJson)
     }
@@ -245,15 +256,15 @@ class FolderSyncCoordinatorTest {
         File(folder, "2.jpg").writeText("two"); File(folder, "3.jpg").writeText("three")
         val aId = a.addFolder(folder)
         a.db.progress().upsert(ReadingProgressEntity(aId, "{\"chapter\":1}", 1f, 10))
-        assertEquals(0, a.sync.sync(remote, "target"))
-        assertEquals(1, b.sync.sync(remote, "target"))
+        assertEquals(0, a.sync.sync(remote, "target").changed)
+        assertEquals(1, b.sync.sync(remote, "target").changed)
         val bBook = b.db.books().all().single()
         assertEquals(id, bBook.fileHash)
         b.db.progress().upsert(ReadingProgressEntity(bBook.id, "{\"chapter\":1}", 1f, 10))
         b.db.annotations().insertBookmark(BookmarkEntity(0, bBook.id, "{\"chapter\":0}", "Bookmark", 0f, 5))
         File(folder, "1.jpg").writeText("one")
-        assertEquals(0, a.sync.sync(remote, "target"))
-        assertEquals(1, b.sync.sync(remote, "target"))
+        assertEquals(0, a.sync.sync(remote, "target").changed)
+        assertEquals(1, b.sync.sync(remote, "target").changed)
         assertTrue(a.db.progress().all().single().locatorJson.contains("\"chapter\":2"))
         assertTrue(b.db.progress().all().single().locatorJson.contains("\"chapter\":2"))
         assertTrue(b.db.annotations().allBookmarks().single().locatorJson.contains("\"chapter\":1"))

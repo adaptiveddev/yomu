@@ -110,6 +110,40 @@ class SyncManager(
         }
     }
 
+    /** "Publish my version" of a folder whose page changes stopped the sync, then syncs. */
+    suspend fun publishFolderVersion(bookId: Long): List<String> = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            try {
+                val backend = backend()
+                val folders = backend as? FolderFilesTransport
+                    ?: throw IOException("The sync target does not transfer image folders")
+                val report = FolderSyncCoordinator(context, db, importer, ::persistProblemInfo)
+                    .publishLocalVersion(bookId, folders, backend.id)
+                cycle(backend)
+                report
+            } catch (e: Exception) {
+                throw failed(e)
+            }
+        }
+    }
+
+    /** "Accept the other version" of a folder whose page changes stopped the sync, then syncs. */
+    suspend fun acceptFolderVersion(bookId: Long): List<String> = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            try {
+                val backend = backend()
+                val folders = backend as? FolderFilesTransport
+                    ?: throw IOException("The sync target does not transfer image folders")
+                val report = FolderSyncCoordinator(context, db, importer, ::persistProblemInfo)
+                    .acceptRemoteVersion(bookId, folders, backend.id)
+                cycle(backend)
+                report
+            } catch (e: Exception) {
+                throw failed(e)
+            }
+        }
+    }
+
     private suspend fun failed(e: Exception): Throwable {
         if (e is kotlinx.coroutines.CancellationException) return e
         val displayed = when (e) {
@@ -209,7 +243,10 @@ class SyncManager(
                 catch (e: Exception) { if (e !is SyncProblem) recordProblem(e) }
             }
         }
-        val importedFolders = if (fileSync && backend is FolderFilesTransport) FolderSyncCoordinator(context, db, importer).sync(backend, backend.id, folderSnapshot) else 0
+        val folderResult = if (fileSync && backend is FolderFilesTransport) {
+            FolderSyncCoordinator(context, db, importer, ::persistProblemInfo).sync(backend, backend.id, folderSnapshot)
+        } else FolderSyncCoordinator.FolderSyncResult(0, emptySet())
+        val importedFolders = folderResult.changed
         val options = SyncMerger.Options(catalog = settings.syncCatalog.get(), deletions = settings.syncDeletions.get(), device = deviceName())
         val stableFolders = db.books().all().filter { it.format == "FOLDER" && it.fileHash?.let(FolderManifestCodec::validId) == true }
         val outcome = if (folderSnapshot != null || stableFolders.isNotEmpty()) {
@@ -220,6 +257,7 @@ class SyncManager(
                     ?: throw IOException("Folder position revision is missing: ${book.title}")
             }
             mergeFolderMetadataAndWrite(context, db, backend, file, folderSnapshot, base, System.currentTimeMillis(), options, revisions.values.toList(),
+                pendingEdits = folderResult.pendingEdits,
                 legacyRemote = if (folderSnapshot == null) remote else null)
         } else mergeAndWrite(db, backend, file, remote, base, System.currentTimeMillis(), options)
         // Only after the file was written: the base describes what the shared file and this device agree on.

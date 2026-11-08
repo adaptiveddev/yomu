@@ -11,7 +11,12 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 
 /** Syncs folders with stable identities; legacy path-based identities still require safe migration. */
-internal class FolderSyncCoordinator(private val context: Context, private val db: YomuDatabase, private val importer: ImportService) {
+internal class FolderSyncCoordinator(
+    private val context: Context,
+    private val db: YomuDatabase,
+    private val importer: ImportService,
+    private val recordProblem: (SyncProblemInfo) -> Unit = {},
+) {
     private val indexMarker = "__index__"
 
     /** Legacy folders have no portable ID or trustworthy page-position baseline. */
@@ -24,7 +29,11 @@ internal class FolderSyncCoordinator(private val context: Context, private val d
             legacy.id.toString())
     }
 
-    suspend fun sync(transport: FolderFilesTransport, target: String, remoteMetadata: FolderMetadataSnapshot? = null): Int {
+    /** Re-frames a position problem under the folder's name and book id for the conflicts screen. */
+    private fun problemOf(kind: FolderSyncProblem.Kind, title: String, bookId: Long, detail: String): Nothing =
+        throw FolderSyncProblem(kind, title, detail, bookId.toString())
+
+    suspend fun sync(transport: FolderFilesTransport, target: String, remoteMetadata: FolderMetadataSnapshot? = null): FolderSyncResult {
         requirePortableFolderIdentities()
         val previous = transport.readFolderIndex()
         val baseRows = db.folderSyncBases().forTarget(target)
@@ -68,14 +77,25 @@ internal class FolderSyncCoordinator(private val context: Context, private val d
         }
         // A local base records what every saved page number meant. Never reconstruct it
         // from today's files: the folder may have changed since those positions were saved.
-        // Check all positions before publishing an index, then recheck during the commit.
+        // Ambiguous folders do not stop the others: their file part is skipped, the problem is
+        // recorded and the conflicts screen offers publishing or accepting a version explicitly.
+        val pending = LinkedHashMap<String, FolderSyncProblem>()
         for ((id, pair) in local) {
             val localBase = FolderRevisionCommit.localRevision(db, id)
-                ?: throw FolderSyncProblem(FolderSyncProblem.Kind.MISSING_REVISION, pair.first.title, "Local folder position revision is missing; restore a backup: ${pair.first.title}")
+            if (localBase == null) {
+                pending[id] = FolderSyncProblem(FolderSyncProblem.Kind.MISSING_REVISION, pair.first.title,
+                    "Local folder position revision is missing; restore a backup: ${pair.first.title}", pair.first.id.toString())
+                continue
+            }
             val desired = if (FolderMerge.decide(bases[id], pair.second, remote[id]) == FolderMerge.Decision.UPLOAD)
                 pair.second else remote[id] ?: pair.second
-            FolderPositions.preflight(db, pair.first.id, localBase, desired)
+            try {
+                FolderPositions.preflight(db, pair.first.id, localBase, desired)
+            } catch (e: FolderSyncProblem) {
+                pending[id] = FolderSyncProblem(e.kind, pair.first.title, "${pair.first.title}: ${e.message}", pair.first.id.toString())
+            }
         }
+        for (problem in pending.values) recordProblem(problem.record(System.currentTimeMillis()))
         // Also protect positions that exist only on another device. The metadata snapshot
         // carries its own page revisions; translate against the planned index before writing.
         // This is a preflight, not an atomic cross-document commit: concurrent writes can
@@ -83,6 +103,9 @@ internal class FolderSyncCoordinator(private val context: Context, private val d
         if (remoteMetadata != null) {
             val planned = remote.toMutableMap()
             for ((id, pair) in local) {
+                // A pending folder keeps its published revision: its positions are translated
+                // against the old pages here, and against the new ones at the explicit commit.
+                if (id in pending) continue
                 if (FolderMerge.decide(bases[id], pair.second, remote[id]) == FolderMerge.Decision.UPLOAD)
                     planned[id] = pair.second
             }
@@ -91,6 +114,7 @@ internal class FolderSyncCoordinator(private val context: Context, private val d
         }
         var dirty = false
         for ((id, pair) in local) {
+            if (id in pending) continue // the publication decision is on the conflicts screen
             if (FolderMerge.decide(bases[id], pair.second, remote[id]) == FolderMerge.Decision.UPLOAD) {
                 FolderFileTransfer.upload(context, Uri.parse(pair.first.uri), pair.second, transport)
                 remote[id] = pair.second
@@ -101,6 +125,7 @@ internal class FolderSyncCoordinator(private val context: Context, private val d
         var changed = 0
         // A downloaded version is installed only after validation. Old copies are deliberately retained.
         for ((id, pair) in local) {
+            if (id in pending) continue // the publication decision is on the conflicts screen
             val book = pair.first; val observed = pair.second; val beforeTarget = bases[id]
             val destination = remote[id] ?: throw IOException("Folder disappeared from index")
             val localBase = FolderRevisionCommit.localRevision(db, id)
@@ -147,6 +172,65 @@ internal class FolderSyncCoordinator(private val context: Context, private val d
             }
         }
         if (previous != null || dirty) db.folderSyncBases().upsert(FolderSyncBaseEntity(target, indexMarker, "known"))
-        return changed
+        return FolderSyncResult(changed, pending.keys)
+    }
+
+    /** Changed folders whose position references are ambiguous: their file part was skipped. */
+    internal data class FolderSyncResult(val changed: Int, val pendingEdits: Set<String>)
+
+    /**
+     * Conflict screen's "publish my version": uploads the local pages, publishes the manifest and
+     * commits the new revision, remapping positions leniently — unambiguous references follow,
+     * the reading position on a changed/removed page restarts the book, annotations keep their
+     * locators and are reported. Returns the reported page paths.
+     */
+    suspend fun publishLocalVersion(bookId: Long, transport: FolderFilesTransport, target: String): List<String> {
+        val book = db.books().get(bookId) ?: throw IOException("The folder is no longer in the library")
+        val id = book.fileHash ?: throw IOException("The folder has no identity")
+        if (!FolderManifestCodec.validId(id)) throw IOException("Migrate the folder to a stable identity first: ${book.title}")
+        val base = FolderRevisionCommit.localRevision(db, id)
+            ?: throw FolderSyncProblem(FolderSyncProblem.Kind.MISSING_REVISION, book.title, "Local folder position revision is missing; restore a backup: ${book.title}", bookId.toString())
+        val previous = transport.readFolderIndex()
+        val manifest = previous?.let { FolderManifestCodec.decode(it.bytes) } ?: FolderManifest()
+        val observed = FolderSnapshot.snapshot(context, Uri.parse(book.uri), id, book.title)
+        if (observed.pages == base.pages) throw IOException("The folder has no local page changes to publish: ${book.title}")
+        val targetRow = db.folderSyncBases().forTarget(target).firstOrNull { it.folderId == id }
+        val targetBase = targetRow?.let { FolderManifestCodec.decode(it.revisionJson.toByteArray()).folders.singleOrNull() }
+        if (targetRow == null) FolderRevisionCommit.initialize(db, target, bookId, base)
+        FolderFileTransfer.upload(context, Uri.parse(book.uri), observed, transport)
+        val entries = manifest.folders.filter { it.id != id } + observed
+        transport.writeFolderIndex(FolderManifestCodec.encode(FolderManifest(folders = entries)), previous)
+        return FolderRevisionCommit.applyLenient(db, target, bookId, base, observed, book.uri, targetBase ?: base, book.isLinked)
+    }
+
+    /**
+     * Conflict screen's "accept the other version": installs the remote revision of one folder,
+     * remapping positions leniently. A locally edited folder refuses here — publish your version
+     * instead. Returns the reported page paths.
+     */
+    suspend fun acceptRemoteVersion(bookId: Long, transport: FolderFilesTransport, target: String): List<String> {
+        val book = db.books().get(bookId) ?: throw IOException("The folder is no longer in the library")
+        val id = book.fileHash ?: throw IOException("The folder has no identity")
+        if (!FolderManifestCodec.validId(id)) throw IOException("Migrate the folder to a stable identity first: ${book.title}")
+        val base = FolderRevisionCommit.localRevision(db, id)
+            ?: throw FolderSyncProblem(FolderSyncProblem.Kind.MISSING_REVISION, book.title, "Local folder position revision is missing; restore a backup: ${book.title}", bookId.toString())
+        val manifest = transport.readFolderIndex()?.let { FolderManifestCodec.decode(it.bytes) } ?: FolderManifest()
+        val destination = manifest.folders.firstOrNull { it.id == id }
+            ?: throw IOException("The folder is missing from the folder index: ${book.title}")
+        if (destination.pages == base.pages) throw IOException("The folder has no other version to accept: ${book.title}")
+        val observed = FolderSnapshot.snapshot(context, Uri.parse(book.uri), id, book.title)
+        if (observed.pages != base.pages) throw IOException("The folder changed locally; publish your version instead: ${book.title}")
+        val targetRow = db.folderSyncBases().forTarget(target).firstOrNull { it.folderId == id }
+        val targetBase = targetRow?.let { FolderManifestCodec.decode(it.revisionJson.toByteArray()).folders.singleOrNull() }
+        if (targetRow == null) FolderRevisionCommit.initialize(db, target, bookId, base)
+        val stage = FolderFileTransfer.download(context, destination, transport)
+        val uri = Uri.fromFile(stage).toString()
+        try {
+            val report = FolderRevisionCommit.applyLenient(db, target, bookId, base, destination, uri, targetBase ?: base, book.isLinked)
+            return report
+        } finally {
+            val referenced = withContext(NonCancellable) { try { db.books().byUri(uri) != null } catch (_: Exception) { true } }
+            if (!referenced) stage.deleteRecursively()
+        }
     }
 }

@@ -76,6 +76,12 @@ internal fun SyncProblemsSection(vm: SettingsViewModel) {
                     onMigrate = if (problem.kind == "folder_legacy") {
                         target?.let { id -> { vm.migrateLegacyFolder(id) } }
                     } else null,
+                    onPublish = if (problem.kind == "folder_changed_page" || problem.kind == "folder_missing_page") {
+                        target?.let { id -> { vm.publishFolderVersion(id) } }
+                    } else null,
+                    onAcceptRemote = if (problem.kind == "folder_changed_page" || problem.kind == "folder_missing_page") {
+                        target?.let { id -> { vm.acceptFolderVersion(id) } }
+                    } else null,
                 )
             }
             item(key = "clear") {
@@ -92,6 +98,8 @@ private fun SyncProblemRow(
     onAdopt: (() -> Unit)?,
     onTakeRemote: (() -> Unit)?,
     onMigrate: (() -> Unit)? = null,
+    onPublish: (() -> Unit)? = null,
+    onAcceptRemote: (() -> Unit)? = null,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = Dimens.l, vertical = Dimens.s),
@@ -130,11 +138,13 @@ private fun SyncProblemRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (onAdopt != null || onTakeRemote != null || onMigrate != null) {
+            if (onAdopt != null || onTakeRemote != null || onMigrate != null || onPublish != null || onAcceptRemote != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.s), modifier = Modifier.padding(top = Dimens.xxs)) {
                     if (onAdopt != null) TextButton(onAdopt) { Text(stringResource(R.string.set_sync_problem_adopt)) }
                     if (onTakeRemote != null) TextButton(onTakeRemote) { Text(stringResource(R.string.set_sync_problem_take_remote)) }
                     if (onMigrate != null) TextButton(onMigrate) { Text(stringResource(R.string.set_sync_problem_migrate_folder)) }
+                    if (onPublish != null) TextButton(onPublish) { Text(stringResource(R.string.set_sync_problem_publish_folder)) }
+                    if (onAcceptRemote != null) TextButton(onAcceptRemote) { Text(stringResource(R.string.set_sync_problem_accept_folder)) }
                 }
             }
         }

@@ -20,6 +20,7 @@ internal suspend fun mergeFolderMetadataAndWrite(
     now: Long,
     options: SyncMerger.Options,
     destinations: List<FolderEntry>,
+    pendingEdits: Set<String> = emptySet(),
     legacyRemote: SyncState? = null,
 ): SyncMerger.Outcome = db.withTransaction {
     if (remote != null && legacyRemote != null) throw IOException("Ambiguous sync metadata source")
@@ -37,6 +38,7 @@ internal suspend fun mergeFolderMetadataAndWrite(
         val expected = byId[id] ?: throw IOException("Folder revision missing for ${book.title}")
         val revision = FolderRevisionCommit.localRevision(db, id) ?: throw IOException("Folder position revision missing for ${book.title}")
         if (revision.pages != expected.pages) throw IOException("Folder positions refer to a different revision: ${book.title}")
+        if (id in pendingEdits) continue // edited locally; the publication decision is pending
         val observed = FolderSnapshot.snapshot(context, Uri.parse(book.uri), id, book.title)
         if (observed.pages != revision.pages) throw IOException("Folder changed during sync: ${book.title}")
     }

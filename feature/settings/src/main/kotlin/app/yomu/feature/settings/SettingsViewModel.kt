@@ -206,6 +206,26 @@ class SettingsViewModel(
         busy.value = false
     }
 
+    /** "Publish my version" of a folder whose page changes stopped the sync. */
+    fun publishFolderVersion(folderId: Long) = viewModelScope.launch(ScreenErrors) {
+        busy.value = true
+        runCatchingApp { sync.publishFolderVersion(folderId) }
+            .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
+            .onFailure { _events.send(SettingsEvent.Failure(it)) }
+        loadSyncProblems()
+        busy.value = false
+    }
+
+    /** "Accept the other version" of a folder whose page changes stopped the sync. */
+    fun acceptFolderVersion(folderId: Long) = viewModelScope.launch(ScreenErrors) {
+        busy.value = true
+        runCatchingApp { sync.acceptFolderVersion(folderId) }
+            .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
+            .onFailure { _events.send(SettingsEvent.Failure(it)) }
+        loadSyncProblems()
+        busy.value = false
+    }
+
     // Mihon / Tachiyomi
 
     /** Result of the last import, shown in a dialog until closed. */

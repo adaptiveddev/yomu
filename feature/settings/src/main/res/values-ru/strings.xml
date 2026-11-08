@@ -472,6 +472,8 @@
     <string name="set_sync_problem_adopt">Принять мою версию</string>
     <string name="set_sync_problem_take_remote">Загрузить другую версию</string>
     <string name="set_sync_problem_migrate_folder">Перевести на стабильный идентификатор</string>
+    <string name="set_sync_problem_publish_folder">Опубликовать мою версию</string>
+    <string name="set_sync_problem_accept_folder">Принять другую версию</string>
 
     <!-- 2.0: tracking -->
     <string name="set_tracking">Трекинг</string>

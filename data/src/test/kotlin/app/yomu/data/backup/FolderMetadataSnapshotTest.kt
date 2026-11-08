@@ -25,9 +25,12 @@ class FolderMetadataSnapshotTest {
         assertTrue(runCatching { FolderMetadataSnapshotCodec.encode(snapshot.copy(revisions = listOf(old, old))) }.exceptionOrNull() is IOException)
         assertTrue(runCatching { FolderMetadataSnapshotCodec.translate(snapshot, emptyList()) }.exceptionOrNull() is IOException)
     }
-    @Test fun removedSavedPageNeverProducesPartialSnapshot() {
+    @Test fun removedSavedPageResetsProgressInsteadOfAborting() {
         val removed = old.copy(pages = listOf(old.pages[1]))
-        assertTrue(runCatching { FolderMetadataSnapshotCodec.translate(snapshot, listOf(removed)) }.exceptionOrNull() is IOException)
+        val translated = FolderMetadataSnapshotCodec.translate(snapshot, listOf(removed))
+        // The reading position on the removed page restarts the book; no record is dropped.
+        assertEquals(removed, translated.revisions.single())
+        assertTrue(translated.state.books.single().locator!!.contains("\"chapter\":0"))
         assertEquals(old, snapshot.revisions.single())
         assertTrue(snapshot.state.books.single().locator!!.contains("\"chapter\":0"))
     }
