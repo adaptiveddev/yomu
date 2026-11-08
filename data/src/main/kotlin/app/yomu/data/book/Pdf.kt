@@ -23,6 +23,12 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 data class PdfLink(val bounds: RectF, val page: Int?, val uri: String?)
+
+/** One visual text line of a PDF page with its bounding box (page points, origin top-left). */
+data class PdfLine(val text: String, val left: Float, val top: Float, val right: Float, val bottom: Float) {
+    val height: Float get() = bottom - top
+    val centerX: Float get() = (left + right) / 2f
+}
 data class PdfTextHit(val page: Int, val start: Int, val length: Int, val snippet: String)
 
 /** Thread safe wrapper around a pdfium document. All calls are serialised because pdfium is not re-entrant. */
@@ -33,6 +39,7 @@ class PdfSource private constructor(private val core: PdfiumCore, private val do
     // Filled from whichever thread a caller resumes on.
     private val sizes = ConcurrentHashMap<Int, Pair<Int, Int>>()
     private val texts = ConcurrentHashMap<Int, String>()
+    private val lines = ConcurrentHashMap<Int, List<PdfLine>>()
 
     @Volatile private var closed = false
 
@@ -79,6 +86,55 @@ class PdfSource private constructor(private val core: PdfiumCore, private val do
             }
         }
     }.also { texts[index] = it }
+
+    /**
+     * The page's text as visual lines with their bounding boxes (page points, origin top-left).
+     * Built from per-character boxes, so the reading geometry survives for reflow. Empty for
+     * scanned pages without a text layer.
+     */
+    suspend fun lines(index: Int): List<PdfLine> = lines[index] ?: withDoc { d ->
+        d.openPage(index).use { p ->
+            val h = p.getPageHeightPoint().toFloat()
+            p.openTextPage().use { t ->
+                val n = t.textPageCountChars()
+                if (n <= 0) return@withDoc emptyList<PdfLine>()
+                val text = t.textPageGetText(0, n).orEmpty()
+                val out = mutableListOf<PdfLine>()
+                val sb = StringBuilder()
+                var left = Float.MAX_VALUE; var right = -Float.MAX_VALUE
+                var top = Float.MAX_VALUE; var bottom = -Float.MAX_VALUE
+                var baseline = Float.MAX_VALUE
+                fun close() {
+                    if (sb.isNotEmpty()) {
+                        out += PdfLine(sb.toString(), left, top, right, bottom)
+                        sb.clear()
+                        left = Float.MAX_VALUE; right = -Float.MAX_VALUE
+                        top = Float.MAX_VALUE; bottom = -Float.MAX_VALUE
+                        baseline = Float.MAX_VALUE
+                    }
+                }
+                for (i in 0 until n) {
+                    val c = text.getOrNull(i) ?: break
+                    if (c == '\r' || c == '\n' || c == '\t') { close(); continue }
+                    val box = t.textPageGetCharBox(i) ?: continue
+                    // The native box is in PDF user space (origin bottom-left, bottom < top).
+                    val charBottom = h - box.bottom
+                    val charTop = h - box.top
+                    val charHeight = charBottom - charTop
+                    // A baseline jump beyond most of the character height starts a new line.
+                    if (sb.isNotEmpty() && kotlin.math.abs(charBottom - baseline) > charHeight.coerceAtLeast(1f) * 0.6f) close()
+                    baseline = charBottom
+                    sb.append(c)
+                    left = minOf(left, box.left.coerceAtMost(box.right))
+                    right = maxOf(right, box.right.coerceAtLeast(box.left))
+                    top = minOf(top, charTop)
+                    bottom = maxOf(bottom, charBottom)
+                }
+                close()
+                out
+            }
+        }
+    }.also { lines[index] = it }
 
     /** Rectangles (in page points, origin top-left) covering the characters [start, start+length). */
     suspend fun rects(index: Int, start: Int, length: Int): List<RectF> = withDoc { d ->

@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.yomu.core.common.QuietErrors
+import app.yomu.data.book.PdfReflow
 import app.yomu.data.book.PdfReflowText
 import app.yomu.domain.model.Highlight
 import app.yomu.domain.model.HighlightStyle
@@ -293,18 +294,27 @@ private fun ReflowView(controller: PdfController, listener: PdfListener, s: Text
         modifier = Modifier.fillMaxSize().background(bg).pointerInput(Unit) { detectTapGestures { listener.onTap(it.x, it.y) } },
     ) {
         items(controller.pageCount, key = { it }) { index ->
-            var text by remember(index) { mutableStateOf<String?>(null) }
+            var paragraphs by remember(index) { mutableStateOf<List<String>?>(null) }
             var showPage by remember(index) { mutableStateOf(false) }
             var textError by remember(index) { mutableStateOf(false) }
             LaunchedEffect(index) {
-                try { text = controller.pdf.text(index) }
+                try {
+                    // Geometric reflow from the page's text lines; a scanned page (no text layer)
+                    // falls back to the plain-text reconstruction.
+                    val pageLines = controller.pdf.lines(index)
+                    paragraphs = if (pageLines.isEmpty()) {
+                        PdfReflowText.paragraphs(controller.pdf.text(index).orEmpty())
+                    } else {
+                        val (width, _) = controller.pdf.pageSize(index)
+                        PdfReflow.paragraphs(pageLines, width.toFloat())
+                    }
+                }
                 catch (e: CancellationException) { throw e }
-                catch (_: Exception) { textError = true; text = "" }
+                catch (_: Exception) { textError = true; paragraphs = emptyList() }
             }
             Column(Modifier.padding(horizontal = s.marginHorizontal.dp, vertical = 8.dp)) {
                 Text("— ${index + 1} —", color = fg.copy(alpha = 0.5f), style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.CenterHorizontally))
-                val paragraphs = remember(text) { PdfReflowText.paragraphs(text.orEmpty()) }
-                paragraphs.forEach { p ->
+                paragraphs?.forEach { p ->
                     Text(
                         p,
                         color = fg,
@@ -314,8 +324,8 @@ private fun ReflowView(controller: PdfController, listener: PdfListener, s: Text
                         modifier = Modifier.padding(bottom = (s.paragraphSpacing * 16).dp),
                     )
                 }
-                if (text != null) {
-                    if (paragraphs.isEmpty()) {
+                if (paragraphs != null) {
+                    if (paragraphs.orEmpty().isEmpty()) {
                         Text(stringResource(if (textError) R.string.pdf_reflow_text_error else R.string.pdf_reflow_no_text), color = fg.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
                         PdfPage(controller, index, listener, Modifier.fillMaxWidth(), renderScale = 1f)
                     } else {
