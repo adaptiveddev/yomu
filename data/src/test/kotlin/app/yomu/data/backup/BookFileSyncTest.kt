@@ -191,12 +191,15 @@ class BookFileSyncTest {
 
     @Test fun samePrefixDifferentFileIsReportedNotOverwritten() = runBlocking {
         val a = Device("a"); val b = Device("b"); val remote = FakeServer()
+        val problems = mutableListOf<SyncProblemInfo>()
         val prefix = ByteArray(1024 * 1024) { 'a'.code.toByte() }
         val first = prefix + "first".toByteArray(); val second = prefix + "other".toByteArray()
         a.add("first.txt", first); b.add("other.txt", second)
         a.sync.sync(remote)
         val before = remote.index!!.copyOf()
-        try { b.sync.sync(remote); fail("Expected conflict") } catch (e: IOException) { assertTrue(e.message!!.contains("Different files")) }
+        val reported = BookFileSync(b.context, b.db, b.importer) { problems += it }.sync(remote)
+        assertEquals(0, reported)
+        assertEquals(listOf("book_collision"), problems.map { it.kind })
         assertArrayEquals(before, remote.index)
         assertEquals(1, remote.blobs.size)
         assertEquals(1, b.db.books().all().size)
@@ -222,8 +225,11 @@ class BookFileSyncTest {
         val blobBefore = remote.blobs.values.single().copyOf()
         val localFile = File(android.net.Uri.parse(a.db.books().get(id)!!.uri).path!!)
         localFile.writeText("edited book content with a different length")
-        val error = runCatching { a.sync.sync(remote) }.exceptionOrNull()
-        assertTrue(error is IOException && error.message!!.contains("Conflict"))
+        val problems = mutableListOf<SyncProblemInfo>()
+        val imported = BookFileSync(a.context, a.db, a.importer) { problems += it }.sync(remote)
+        assertEquals(0, imported)
+        assertEquals(listOf("book_changed"), problems.map { it.kind })
+        assertEquals(listOf(id.toString()), problems.map { it.target })
         assertEquals(id, a.db.books().all().single().id)
         assertEquals("my note", a.db.annotations().allHighlights().single().text)
         assertEquals(0.4f, a.db.progress().all().single().progress, 0.0001f)
@@ -293,11 +299,11 @@ class BookFileSyncTest {
     }
 
     @Test fun fileSyncIsOptInByDefault() = runBlocking {
-        assertFalse(AppSettings(app).syncBookFiles.get())
+        assertFalse(AppSettings(app).syncBookFiles.default)
     }
 
     @Test fun rejectsMalformedIndexWithoutReplacingIt() {
-        listOf("{}", "not json", "{\"version\":2,\"books\":[]}", "{\"version\":1,\"books\":[{\"bookHash\":\"bad\",\"sha256\":\"bad\",\"size\":2,\"name\":\"a\"}]}").forEach {
+        listOf("{}", "not json", "{\"version\":3,\"books\":[]}", "{\"version\":1,\"books\":[{\"bookHash\":\"bad\",\"sha256\":\"bad\",\"size\":2,\"name\":\"a\"}]}").forEach {
             try { BookFileSync.decodeIndex(it.toByteArray()); fail("Expected error for $it") } catch (_: IOException) { }
         }
     }

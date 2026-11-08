@@ -56,35 +56,70 @@ class SyncManager(
     suspend fun syncNow(): Int = mutex.withLock {
         withContext(Dispatchers.IO) {
             try {
-                val backend = backend()
-                var attempt = 0
-                var changed: Int
-                while (true) {
-                    try {
-                        changed = runOnce(backend)
-                        break
-                    } catch (e: SyncConflictException) {
-                        // Another device wrote the file between our read and write: merge with its version.
-                        if (++attempt >= 3) throw e
-                    }
-                }
+                val changed = cycle(backend())
                 settings.lastSyncAt.set(System.currentTimeMillis())
                 settings.lastSyncError.set("")
                 SyncProblemStore(context).clear()
                 changed
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                val displayed = when (e) {
-                    is FolderSyncProblem -> e.forDisplay(context)
-                    is AnnotationSyncProblem -> e.forDisplay(context)
-                    else -> e
-                }
-                recordProblem(e)
-                settings.lastSyncError.set(displayed.message?.take(300) ?: displayed.javaClass.simpleName)
-                throw displayed
+                throw failed(e)
             }
         }
     }
+
+    /**
+     * Adopts the current local file of a changed book as its new version ("keep my version"): the
+     * book keeps its progress, annotations and tracker bindings, other devices follow the
+     * replacement marker. Runs a full sync afterwards.
+     */
+    suspend fun adoptChangedBook(bookId: Long) = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            try {
+                val backend = backend()
+                adoption(backend).adopt(bookId)
+                cycle(backend)
+            } catch (e: Exception) {
+                throw failed(e)
+            }
+        }
+    }
+
+    /** Replaces a locally changed book file with the version another device adopted. */
+    suspend fun takeRemoteBookVersion(bookId: Long) = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            try {
+                val backend = backend()
+                adoption(backend).follow(bookId, forced = true)
+                cycle(backend)
+            } catch (e: Exception) {
+                throw failed(e)
+            }
+        }
+    }
+
+    private suspend fun failed(e: Exception): Throwable {
+        if (e is kotlinx.coroutines.CancellationException) return e
+        val displayed = when (e) {
+            is FolderSyncProblem -> e.forDisplay(context)
+            is AnnotationSyncProblem -> e.forDisplay(context)
+            else -> e
+        }
+        recordProblem(e)
+        settings.lastSyncError.set(displayed.message?.take(300) ?: displayed.javaClass.simpleName)
+        return displayed
+    }
+
+    private suspend fun cycle(backend: SyncBackend): Int {
+        var attempt = 0
+        while (true) {
+            try { return runOnce(backend) } catch (e: SyncConflictException) {
+                // Another device wrote the file between our read and write: merge with its version.
+                if (++attempt >= 3) throw e
+            }
+        }
+    }
+
+    private fun adoption(backend: SyncBackend) = BookAdoption(context, db, settings, backend, backend.id, ::persistProblemInfo)
 
     /** The problems of the last failed sync, for the conflicts screen. */
     suspend fun problems(): List<SyncProblemInfo> = withContext(Dispatchers.IO) { SyncProblemStore(context).load() }
@@ -98,23 +133,29 @@ class SyncManager(
     /** Forgets all recorded problems without resolving them. */
     suspend fun clearProblems() = withContext(Dispatchers.IO) { SyncProblemStore(context).clear() }
 
-    private fun recordProblem(error: Exception) {
+    private fun persistProblemInfo(info: SyncProblemInfo) {
         try {
             val store = SyncProblemStore(context)
-            val known = store.load()
-            val info = when (error) {
-                is SyncProblem -> error.record(System.currentTimeMillis())
-                // Plain failures (network, missing files, ...) are recorded too so the screen explains a stopped sync.
-                else -> SyncProblemInfo(id = "error", kind = "error", subject = "", detail = error.message.orEmpty(), at = System.currentTimeMillis())
-            }
-            // One failure of the same kind replaces the previous record instead of piling up.
-            store.save(known.filterNot { it.id == info.id } + info)
+            store.save(store.load().filterNot { it.id == info.id } + info)
         } catch (_: Exception) { }
+    }
+
+    private fun recordProblem(error: Exception) {
+        val info = when (error) {
+            is SyncProblem -> error.record(System.currentTimeMillis(), (error as? BookFileSyncProblem)?.bookId?.toString())
+            // Plain failures (network, missing files, ...) are recorded too so the screen explains a stopped sync.
+            else -> SyncProblemInfo(id = "error", kind = "error", subject = "", detail = error.message.orEmpty(), at = System.currentTimeMillis())
+        }
+        persistProblemInfo(info)
     }
 
     internal suspend fun runOnce(backend: SyncBackend): Int {
         val lease = FolderReadSyncGate.sync(db)
         try {
+        // A partially written adoption must resume before anything else touches the documents;
+        // syncing over it could mistake the half-migrated book for a different one.
+        if (BookAdoption.loadJournal(context) != null)
+            throw IOException("An interrupted book adoption must be resumed before syncing; open Settings → Sync conflicts")
         val file = backend.read()
         val document = file?.let { decodeDocument(it.bytes) }
         val remote = document?.state
@@ -126,7 +167,25 @@ class SyncManager(
         // File transfer is opt-in on each device. Shared-folder providers cannot guarantee atomic compare-and-swap.
         val fileSync = settings.syncBookFiles.get()
         if (fileSync && backend is FolderFilesTransport) FolderSyncCoordinator(context, db, importer).requirePortableFolderIdentities()
-        val imported = if (fileSync && backend is BookFilesTransport) BookFileSync(context, db, importer).sync(backend, backend.id) else 0
+        val filesResult = if (fileSync && backend is BookFilesTransport) {
+            BookFileSync(context, db, importer, ::persistProblemInfo).syncDetailed(backend, backend.id)
+        } else BookFileSync.SyncFilesResult(0, emptyList(), emptyList())
+        val imported = filesResult.imported
+        if (fileSync && backend is BookFilesTransport) {
+            val adoption = BookAdoption(context, db, settings, backend, backend.id, ::persistProblemInfo)
+            // Follow other devices' replacement markers (their index entry is the commit point),
+            // then adopt self-modified PDF versions. Per-book failures do not stop the other books.
+            for (id in filesResult.followBooks) {
+                try { adoption.follow(id, forced = false) }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) { if (e !is SyncProblem) recordProblem(e) }
+            }
+            for (id in filesResult.changedBooks) {
+                try { adoption.autoAdopt(id) }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) { if (e !is SyncProblem) recordProblem(e) }
+            }
+        }
         val importedFolders = if (fileSync && backend is FolderFilesTransport) FolderSyncCoordinator(context, db, importer).sync(backend, backend.id, folderSnapshot) else 0
         val options = SyncMerger.Options(catalog = settings.syncCatalog.get(), deletions = settings.syncDeletions.get(), device = deviceName())
         val stableFolders = db.books().all().filter { it.format == "FOLDER" && it.fileHash?.let(FolderManifestCodec::validId) == true }

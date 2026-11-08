@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,7 +63,17 @@ internal fun SyncProblemsSection(vm: SettingsViewModel) {
             }
         } else {
             items(problems, key = { "${it.id}#${it.at}" }) { problem ->
-                SyncProblemRow(problem, onDismiss = { vm.dismissSyncProblem(problem.id) })
+                val target = problem.target?.toLongOrNull()
+                SyncProblemRow(
+                    problem,
+                    onDismiss = { vm.dismissSyncProblem(problem.id) },
+                    onAdopt = if (problem.kind == "book_changed" || problem.kind == "book_update_conflict") {
+                        target?.let { id -> { vm.adoptChangedBook(id) } }
+                    } else null,
+                    onTakeRemote = if (problem.kind == "book_update_conflict") {
+                        target?.let { id -> { vm.takeRemoteBookVersion(id) } }
+                    } else null,
+                )
             }
             item(key = "clear") {
                 PreferenceItem(stringResource(R.string.set_sync_problems_clear), icon = Icons.Outlined.ClearAll, onClick = vm::clearSyncProblems)
@@ -72,7 +83,12 @@ internal fun SyncProblemsSection(vm: SettingsViewModel) {
 }
 
 @Composable
-private fun SyncProblemRow(problem: SyncProblemInfo, onDismiss: () -> Unit) {
+private fun SyncProblemRow(
+    problem: SyncProblemInfo,
+    onDismiss: () -> Unit,
+    onAdopt: (() -> Unit)?,
+    onTakeRemote: (() -> Unit)?,
+) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = Dimens.l, vertical = Dimens.s),
         verticalAlignment = Alignment.Top,
@@ -110,6 +126,12 @@ private fun SyncProblemRow(problem: SyncProblemInfo, onDismiss: () -> Unit) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (onAdopt != null || onTakeRemote != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Dimens.s), modifier = Modifier.padding(top = Dimens.xxs)) {
+                    if (onAdopt != null) TextButton(onAdopt) { Text(stringResource(R.string.set_sync_problem_adopt)) }
+                    if (onTakeRemote != null) TextButton(onTakeRemote) { Text(stringResource(R.string.set_sync_problem_take_remote)) }
+                }
+            }
         }
         IconButton(onClick = onDismiss) { Icon(Icons.Outlined.Close, stringResource(R.string.set_sync_problems_dismiss)) }
     }

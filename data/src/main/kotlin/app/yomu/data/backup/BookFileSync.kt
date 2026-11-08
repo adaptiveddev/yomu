@@ -29,10 +29,31 @@ interface BookFilesTransport {
     suspend fun <T> readBook(sha256: String, consume: (InputStream) -> T): T
 }
 
+/** Content digest of a book file: full SHA-256, size and the "library identity" hash. */
+internal data class Digest(val sha256: String, val size: Long, val bookHash: String)
+
+/** A per-book file sync problem: sync continues for the other books; this book's file part is skipped. */
+internal class BookFileSyncProblem(val kind: Kind, subject: String, detail: String, val bookId: Long) : IOException(detail), SyncProblem {
+    enum class Kind { CHANGED, COLLISION, UPDATE_CONFLICT, ADOPTION_BLOCKED }
+    override val kindTag: String = when (kind) {
+        Kind.CHANGED -> "book_changed"
+        Kind.COLLISION -> "book_collision"
+        Kind.UPDATE_CONFLICT -> "book_update_conflict"
+        Kind.ADOPTION_BLOCKED -> "book_adoption_blocked"
+    }
+    override val subject: String = subject.take(100)
+}
+
 @Serializable
 internal data class BookFileEntry(val bookHash: String, val sha256: String, val size: Long, val name: String)
+
+/**
+ * v2 adds [replaced]: identities of files that were deliberately re-registered after a change
+ * (including Yomu's own PDF annotation writes), old identity → current identity. Chains collapse
+ * onto the current identity; the old entry is removed, its blob stays on the server untouched.
+ */
 @Serializable
-internal data class BookFileIndex(val version: Int = 1, val books: List<BookFileEntry> = emptyList())
+internal data class BookFileIndex(val version: Int = 1, val books: List<BookFileEntry> = emptyList(), val replaced: Map<String, String> = emptyMap())
 @Serializable
 internal data class BookFileBase(val version: Int = 1, val syncId: String, val present: Set<String> = emptySet(), val suppressed: Set<String> = emptySet(), val indexKnown: Boolean = false)
 
@@ -41,8 +62,18 @@ internal data class BookFileBase(val version: Int = 1, val syncId: String, val p
  * successful sync suppress re-import on that device, but do not delete copies on other devices or server blobs.
  * A changed file / prefix-hash collision is surfaced as a conflict, never overwritten.
  */
-internal class BookFileSync(private val context: Context, private val db: YomuDatabase, private val importer: ImportService) {
+internal class BookFileSync(
+    private val context: Context,
+    private val db: YomuDatabase,
+    private val importer: ImportService,
+    /** Records per-book problems (changed file, collision) for the conflicts screen; sync continues. */
+    private val onProblem: (SyncProblemInfo) -> Unit = {},
+) {
+    internal data class SyncFilesResult(val imported: Int, val changedBooks: List<Long>, val followBooks: List<Long>)
+
     private data class LocalSnapshot(val bookId: Long, val hash: String, val uri: Uri, val digest: Digest, val title: String)
+
+    private fun problem(p: BookFileSyncProblem) = onProblem(p.record(System.currentTimeMillis(), p.bookId.toString()))
 
     private suspend fun verifyLocalSnapshots(snapshots: List<LocalSnapshot>) {
         for (snapshot in snapshots) {
@@ -55,7 +86,9 @@ internal class BookFileSync(private val context: Context, private val db: YomuDa
             if (actual != snapshot.digest) throw IOException("Book changed during synchronization: ${snapshot.title}")
         }
     }
-    suspend fun sync(transport: BookFilesTransport, syncId: String = "test"): Int {
+    suspend fun sync(transport: BookFilesTransport, syncId: String = "test"): Int = syncDetailed(transport, syncId).imported
+
+    suspend fun syncDetailed(transport: BookFilesTransport, syncId: String = "test"): SyncFilesResult {
         var attempt = 0
         while (true) {
             try { return syncOnce(transport, syncId) } catch (e: SyncConflictException) {
@@ -64,11 +97,13 @@ internal class BookFileSync(private val context: Context, private val db: YomuDa
         }
     }
 
-    private suspend fun syncOnce(transport: BookFilesTransport, syncId: String): Int {
-        val base = readBase(syncId)
+    private suspend fun syncOnce(transport: BookFilesTransport, syncId: String): SyncFilesResult {
+        val base = readBase(context, syncId)
         val file = transport.readBookIndex()
         if (file == null && base?.indexKnown == true) throw IOException("Book sync index is missing; restore it before syncing")
-        val entries = decodeIndex(file?.bytes).books.associateByTo(LinkedHashMap()) { it.bookHash }
+        val index = decodeIndex(file?.bytes)
+        val replaced = index.replaced
+        val entries = index.books.associateByTo(LinkedHashMap()) { it.bookHash }
         val local = db.books().all().filter { it.format != "FOLDER" && it.fileHash != null }
         if (local.map { it.fileHash }.toSet().size != local.size)
             throw IOException("Duplicate book identifier prevents safe file sync; resolve the conflict before syncing")
@@ -78,6 +113,8 @@ internal class BookFileSync(private val context: Context, private val db: YomuDa
         val suppressed = ((base?.suppressed.orEmpty() + (base?.present.orEmpty() - localHashes)) - localHashes).toMutableSet()
         val present = HashSet<String>()
         val snapshots = mutableListOf<LocalSnapshot>()
+        val changedBooks = mutableListOf<Long>()
+        val followBooks = mutableListOf<Long>()
         var added = false
         for (book in local) {
             currentCoroutineContext().ensureActive()
@@ -85,19 +122,43 @@ internal class BookFileSync(private val context: Context, private val db: YomuDa
             val uri = Uri.parse(book.uri)
             val available = try { Files.open(context, uri).use { it.read() }; true } catch (_: Exception) { false }
             if (!available) {
-                if (entries[key] == null) throw IOException("Cannot read local book: ${book.title}")
+                if (entries[key] == null && key !in replaced) throw IOException("Cannot read local book: ${book.title}")
+                if (key in replaced) followBooks += book.id // The follow step repairs the missing file from the new version.
                 continue // A copy from WebDAV can repair the missing file below.
             }
             val original = Files.open(context, uri).use { digest(it) }
             if (original.size <= 0) throw IOException("Cannot sync an empty book: ${book.title}")
-            if (original.bookHash != key) throw IOException("Conflict: local book changed since import: ${book.title}; no file was replaced. Keep a backup and resolve the conflict before syncing")
-            present += key
-            snapshots += LocalSnapshot(book.id, key, uri, original, book.title)
+            if (original.bookHash != key) {
+                // The file changed after the import (an external edit, or this device's own PDF
+                // annotation write). The file part of this book is skipped; metadata keeps syncing.
+                // The conflicts screen offers adoption; self-modified PDFs adopt automatically later
+                // in the same run.
+                problem(BookFileSyncProblem(
+                    if (key in replaced) BookFileSyncProblem.Kind.UPDATE_CONFLICT else BookFileSyncProblem.Kind.CHANGED,
+                    book.title,
+                    "The local file of \"${book.title}\" no longer matches the synchronized identity; no file was replaced",
+                    book.id,
+                ))
+                changedBooks += book.id
+                continue
+            }
+            if (key in replaced) {
+                // Another device re-registered this book under a new identity and the local copy is
+                // unchanged: adopt the replacement (the follow step downloads the new version).
+                followBooks += book.id
+                present += key
+                snapshots += LocalSnapshot(book.id, key, uri, original, book.title)
+                continue
+            }
             val existing = entries[key]
             if (existing != null) {
                 if (existing.sha256 != original.sha256 || existing.size != original.size) {
-                    throw IOException("Different files have the same library identifier: ${book.title}; resolve the conflict before syncing")
+                    problem(BookFileSyncProblem(BookFileSyncProblem.Kind.COLLISION, book.title,
+                        "Different files have the same library identifier: ${book.title}", book.id))
+                    continue
                 }
+                present += key
+                snapshots += LocalSnapshot(book.id, key, uri, original, book.title)
                 continue
             }
             val snapDir = File(context.cacheDir, "book-sync").apply { mkdirs() }
@@ -112,15 +173,21 @@ internal class BookFileSync(private val context: Context, private val db: YomuDa
             val fallbackExt = extensions.firstOrNull() ?: "bin"
             val displayName = Files.displayName(context, uri)?.takeIf { it.isNotBlank() } ?: book.title
             entries[key] = BookFileEntry(key, original.sha256, original.size, safeName(displayName, extensions, fallbackExt))
+            present += key
+            snapshots += LocalSnapshot(book.id, key, uri, original, book.title)
             added = true
         }
         verifyLocalSnapshots(snapshots)
         if (added) transport.writeBookIndex(json.encodeToString(BookFileIndex.serializer(), BookFileIndex(books = entries.values.toList())).toByteArray(), file)
 
+        // Replacement markers: never install a replaced version behind this device's back.
+        // Locally known books get it via the follow step (or a conflict record); locally deleted
+        // books keep their suppression under the new identity.
+        val skipVersions = replaced.filterKeys { it in localHashes || it in suppressed }.values
         var imported = 0
         for (entry in entries.values) {
             currentCoroutineContext().ensureActive()
-            if (entry.bookHash in present || entry.bookHash in suppressed) continue
+            if (entry.bookHash in present || entry.bookHash in suppressed || entry.bookHash in skipVersions) continue
             val directory = File(context.filesDir, "synced-books").apply { mkdirs() }
             // Random paths avoid overwriting any other book, including on case-insensitive providers.
             val suffix = "." + entry.name.substringAfterLast('.', "bin").take(12).filter { it.isLetterOrDigit() }.ifBlank { "bin" }
@@ -160,39 +227,8 @@ internal class BookFileSync(private val context: Context, private val db: YomuDa
         val after = db.books().all().filter { it.format != "FOLDER" }.mapNotNull { it.fileHash }.toSet()
         suppressed.addAll(localHashes - after)
         suppressed.removeAll(after)
-        saveBase(BookFileBase(syncId = syncId, present = after, suppressed = suppressed, indexKnown = file != null || added))
-        return imported
-    }
-
-    private fun baseFile(syncId: String): AtomicFile {
-        val digest = MessageDigest.getInstance("SHA-256").digest(syncId.toByteArray()).joinToString("") { "%02x".format(it) }
-        return AtomicFile(File(File(context.filesDir, "sync-books").apply { mkdirs() }, "$digest.json"))
-    }
-    private fun readBase(syncId: String): BookFileBase? {
-        val file = baseFile(syncId)
-        val backup = File(file.baseFile.path + ".bak")
-        val pending = File(file.baseFile.path + ".new")
-        if (!file.baseFile.exists() && !backup.exists()) {
-            if (pending.exists()) throw IOException("Incomplete book sync base")
-            return null
-        }
-        val base = try {
-            file.openRead().use { input ->
-                val bytes = readSyncBytes(input, MAX_INDEX_BYTES)
-                if (bytes.size > MAX_INDEX_BYTES) throw IOException("Book sync base is too large")
-                json.decodeFromString(BookFileBase.serializer(), SyncJson.text(bytes))
-            }
-        } catch (e: Exception) { throw IOException("Invalid book sync base", e) }
-        if (base.version != 1 || base.syncId != syncId || (base.present + base.suppressed).any { !it.matches(bookHashPattern) })
-            throw IOException("Invalid book sync base")
-        return base
-    }
-    private fun saveBase(base: BookFileBase) {
-        val bytes = json.encodeToString(BookFileBase.serializer(), base).toByteArray()
-        if (bytes.size > MAX_INDEX_BYTES) throw IOException("Book sync base is too large")
-        val file = baseFile(base.syncId)
-        val output = file.startWrite()
-        try { output.write(bytes); file.finishWrite(output) } catch (e: Exception) { file.failWrite(output); throw e }
+        saveBase(context, BookFileBase(syncId = syncId, present = after, suppressed = suppressed, indexKnown = file != null || added))
+        return SyncFilesResult(imported, changedBooks.toList(), followBooks.toList())
     }
 
     companion object {
@@ -202,7 +238,50 @@ internal class BookFileSync(private val context: Context, private val db: YomuDa
         private const val PREFIX_LIMIT = 1024L * 1024
         private const val MAX_INDEX_BYTES = 4 * 1024 * 1024
 
-        internal data class Digest(val sha256: String, val size: Long, val bookHash: String)
+        private fun baseFile(context: Context, syncId: String): AtomicFile {
+            val digest = MessageDigest.getInstance("SHA-256").digest(syncId.toByteArray()).joinToString("") { "%02x".format(it) }
+            return AtomicFile(File(File(context.filesDir, "sync-books").apply { mkdirs() }, "$digest.json"))
+        }
+
+        private fun readBase(context: Context, syncId: String): BookFileBase? {
+            val file = baseFile(context, syncId)
+            val backup = File(file.baseFile.path + ".bak")
+            val pending = File(file.baseFile.path + ".new")
+            if (!file.baseFile.exists() && !backup.exists()) {
+                if (pending.exists()) throw IOException("Incomplete book sync base")
+                return null
+            }
+            val base = try {
+                file.openRead().use { input ->
+                    val bytes = readSyncBytes(input, MAX_INDEX_BYTES)
+                    if (bytes.size > MAX_INDEX_BYTES) throw IOException("Book sync base is too large")
+                    json.decodeFromString(BookFileBase.serializer(), SyncJson.text(bytes))
+                }
+            } catch (e: Exception) { throw IOException("Invalid book sync base", e) }
+            if (base.version != 1 || base.syncId != syncId || (base.present + base.suppressed).any { !it.matches(bookHashPattern) })
+                throw IOException("Invalid book sync base")
+            return base
+        }
+
+        private fun saveBase(context: Context, base: BookFileBase) {
+            val bytes = json.encodeToString(BookFileBase.serializer(), base).toByteArray()
+            if (bytes.size > MAX_INDEX_BYTES) throw IOException("Book sync base is too large")
+            val file = baseFile(context, base.syncId)
+            val output = file.startWrite()
+            try { output.write(bytes); file.finishWrite(output) } catch (e: Exception) { file.failWrite(output); throw e }
+        }
+
+        /** After an adoption the book's present/suppressed identities follow the new content identity. */
+        internal fun remapBaseIdentity(context: Context, syncId: String, mapping: Map<String, String>) {
+            val base = readBase(context, syncId) ?: return
+            val remapped = base.copy(
+                present = base.present.map { mapping[it] ?: it }.toSet(),
+                suppressed = base.suppressed.map { mapping[it] ?: it }.toSet(),
+            )
+            if ((remapped.present + remapped.suppressed).any { !it.matches(bookHashPattern) })
+                throw IOException("Invalid book identity after adoption")
+            saveBase(context, remapped)
+        }
 
         internal fun digest(input: InputStream): Digest {
             val sha = MessageDigest.getInstance("SHA-256")
@@ -239,13 +318,19 @@ internal class BookFileSync(private val context: Context, private val db: YomuDa
                 val root = json.parseToJsonElement(SyncJson.text(bytes)).jsonObject
                 require("version" in root && "books" in root)
                 val index = json.decodeFromJsonElement(BookFileIndex.serializer(), root)
-                require(index.version == 1)
-                require(index.books.size == index.books.map { it.bookHash }.toSet().size)
+                require(index.version in 1..2)
+                val ids = index.books.map { it.bookHash }
+                require(index.books.size == ids.toSet().size)
                 index.books.forEach { e ->
                     require(e.sha256.matches(sha256Pattern) && e.bookHash.matches(bookHashPattern) && e.size > 0)
                     require(e.bookHash.substringAfter(':').toLongOrNull() == e.size)
                     require(e.name.isNotBlank() && e.name.length <= 200 && e.name == Files.sanitize(e.name))
                 }
+                if (index.version >= 2) {
+                    require(index.replaced.keys.all { it.matches(bookHashPattern) && it !in ids.toSet() })
+                    require(index.replaced.values.all { it in ids.toSet() })
+                    require(index.replaced.keys.none { it == index.replaced[it] })
+                } else require(index.replaced.isEmpty())
                 return index
             } catch (e: Exception) { throw IOException("Invalid book sync index; it was not overwritten", e) }
         }

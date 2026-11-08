@@ -176,6 +176,26 @@ class SettingsViewModel(
         loadSyncProblems()
     }
 
+    /** "Keep my version": the changed local file becomes the book's new version and syncs. */
+    fun adoptChangedBook(bookId: Long) = viewModelScope.launch(ScreenErrors) {
+        busy.value = true
+        runCatchingApp { sync.adoptChangedBook(bookId) }
+            .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
+            .onFailure { _events.send(SettingsEvent.Failure(it)) }
+        loadSyncProblems()
+        busy.value = false
+    }
+
+    /** "Take the other device's version": the local file is replaced by the adopted remote version. */
+    fun takeRemoteBookVersion(bookId: Long) = viewModelScope.launch(ScreenErrors) {
+        busy.value = true
+        runCatchingApp { sync.takeRemoteBookVersion(bookId) }
+            .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
+            .onFailure { _events.send(SettingsEvent.Failure(it)) }
+        loadSyncProblems()
+        busy.value = false
+    }
+
     // Mihon / Tachiyomi
 
     /** Result of the last import, shown in a dialog until closed. */

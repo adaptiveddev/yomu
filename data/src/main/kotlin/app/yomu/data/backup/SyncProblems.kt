@@ -28,6 +28,8 @@ data class SyncProblemInfo(
     val subject: String,
     val detail: String,
     val at: Long,
+    /** Machine-addressable target of a resolution action (a bookId, a folder identity, ...), null if none. */
+    val target: String? = null,
 )
 
 /**
@@ -87,10 +89,11 @@ internal class SyncProblemStore(context: Context) {
     }
 }
 
-internal fun SyncProblem.record(at: Long): SyncProblemInfo = SyncProblemInfo(
-    id = "${kindTag}:${subject}",
+internal fun SyncProblem.record(at: Long, target: String? = null): SyncProblemInfo = SyncProblemInfo(
+    id = "${kindTag}:${target ?: subject}",
     kind = kindTag,
     subject = subject,
     detail = (this as? IOException)?.message.orEmpty(),
     at = at,
+    target = target,
 )

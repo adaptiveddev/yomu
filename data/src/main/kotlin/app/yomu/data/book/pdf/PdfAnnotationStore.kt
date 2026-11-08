@@ -134,6 +134,37 @@ class PdfAnnotationStore(
     }
 
     /**
+     * Whether the file's only change since [oldIdentity] was Yomu's own annotation append: the
+     * recorded base length still equals the old identity's size, the base bytes still hash to the
+     * old identity's prefix and the appended bytes still match the manifest. Sync uses this to
+     * adopt self-written versions automatically instead of stopping with a conflict.
+     */
+    internal fun isOwnAppendage(bookId: Long, uri: Uri, oldIdentity: String): Boolean {
+        val m = manifest(bookId) ?: return false
+        val oldSize = oldIdentity.substringAfter(':').toLongOrNull() ?: return false
+        val prefix = oldIdentity.substringBefore(':')
+        if (m.base != oldSize) return false
+        return runCatching {
+            open(uri, write = false).use { pfd ->
+                FileInputStream(pfd.fileDescriptor).channel.use { ch ->
+                    if (ch.size() != m.length || crc(ch, m.base, m.length) != m.crc) return@use false
+                    val sha = java.security.MessageDigest.getInstance("SHA-1")
+                    val buf = ByteArray(64 * 1024)
+                    var left = minOf(m.base, 1024L * 1024L)
+                    ch.position(0)
+                    while (left > 0) {
+                        val n = ch.read(java.nio.ByteBuffer.wrap(buf, 0, minOf(buf.size.toLong(), left).toInt()))
+                        if (n <= 0) return@use false
+                        sha.update(buf, 0, n)
+                        left -= n
+                    }
+                    sha.digest().joinToString("") { "%02x".format(it) } == prefix
+                }
+            }
+        }.getOrDefault(false)
+    }
+
+    /**
      * Highlights Yomu wrote into the file on another device (or before the library was restored) that the library
      * does not have; done once per book, before the first write.
      */
