@@ -77,14 +77,14 @@ class BackupManager(private val context: Context, private val db: YomuDatabase, 
                 listOf("books", "synced-books", "covers", "downloads/books", "fonts").forEach { sub ->
                     val dir = File(context.filesDir, sub)
                     dir.walkTopDown().filter { it.isFile && !it.name.endsWith(".part") }.forEach { f ->
-                        zip.putNextEntry(ZipEntry("files/" + f.relativeTo(context.filesDir).path))
+                        zip.putNextEntry(ZipEntry("files/" + f.relativeTo(context.filesDir).invariantSeparatorsPath))
                         f.inputStream().use { it.copyTo(zip) }
                         zip.closeEntry()
                     }
                 }
             } else {
                 File(context.filesDir, "covers").walkTopDown().filter { it.isFile }.forEach { f ->
-                    zip.putNextEntry(ZipEntry("files/" + f.relativeTo(context.filesDir).path))
+                    zip.putNextEntry(ZipEntry("files/" + f.relativeTo(context.filesDir).invariantSeparatorsPath))
                     f.inputStream().use { it.copyTo(zip) }
                     zip.closeEntry()
                 }

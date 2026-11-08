@@ -42,6 +42,11 @@
     <string name="whats_new_title">What\'s new in Yomu</string>
     <string name="whats_new_ok">Got it</string>
     <string name="whats_new_all">All changes</string>
+    <string-array name="whats_new_2_0_6">
+        <item>MangaUpdates tracking: sign in with your username, search, bind titles, sync chapters and rating. Imported from Mihon backups too.</item>
+        <item>PDF reflow now reads two-column pages in the right order, drops page numbers and rebuilds paragraphs.</item>
+        <item>Kitsu keeps the privacy flag of your entries and sends start/finish dates.</item>
+    </string-array>
     <string-array name="whats_new_2_0_5">
         <item>Sync conflicts are resolved in the app: changed book files, image folders and their pages, book deletions — changed copies are kept until you choose.</item>
         <item>Legacy image folders migrate to stable identities; pages can be replaced, added or removed with a visible report.</item>
