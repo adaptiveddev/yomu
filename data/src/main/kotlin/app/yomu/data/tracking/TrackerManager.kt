@@ -48,6 +48,7 @@ class TrackerManager(
         MyAnimeListTracker(store, keys, client),
         ShikimoriTracker(store, keys, client),
         KitsuTracker(store, keys, client),
+        MangaUpdatesTracker(store, keys, client),
     ),
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

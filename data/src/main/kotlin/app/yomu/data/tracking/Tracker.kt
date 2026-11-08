@@ -120,6 +120,7 @@ abstract class Tracker(
             TrackService.MYANIMELIST -> keys.malClientId
             TrackService.SHIKIMORI -> keys.shikimoriClientId
             TrackService.KITSU -> ""
+            TrackService.MANGAUPDATES -> ""
         }
     }
 

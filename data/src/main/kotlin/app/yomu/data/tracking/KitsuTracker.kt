@@ -104,6 +104,8 @@ class KitsuTracker(store: TrackerStore, keys: TrackerKeys, client: () -> OkHttpC
     private fun parseEntry(value: JsonElement, remoteId: Long): TrackEntry {
         val id = value["id"].str()?.toLongOrNull()?.takeIf { it > 0 } ?: throw TrackerException("Kitsu: invalid library entry ID")
         val a = value["attributes"].obj() ?: throw TrackerException("Kitsu: invalid library entry")
+        if (a["private"].str() !in listOf("true", "false")) throw TrackerException("Kitsu: missing privacy flag")
+        val privacy = a["private"].str() == "true"
         val progress = a["progress"].int()?.takeIf { it >= 0 } ?: throw TrackerException("Kitsu: invalid progress")
         if (!a.containsKey("ratingTwenty")) throw TrackerException("Kitsu: missing rating")
         val rating = if (a["ratingTwenty"] is JsonNull) 0 else a["ratingTwenty"].int()?.takeIf { it in 2..20 } ?: throw TrackerException("Kitsu: invalid rating")
@@ -116,7 +118,7 @@ class KitsuTracker(store: TrackerStore, keys: TrackerKeys, client: () -> OkHttpC
             "dropped" -> TrackStatus.DROPPED
             else -> throw TrackerException("Kitsu: unsupported library status")
         }
-        return TrackEntry(service, remoteId, id, "", "", status, rating / 2f, progress.toFloat(), startedAt = millisOf(a["startedAt"].str()), finishedAt = millisOf(a["finishedAt"].str()))
+        return TrackEntry(service, remoteId, id, "", "", status, rating / 2f, progress.toFloat(), startedAt = millisOf(a["startedAt"].str()), finishedAt = millisOf(a["finishedAt"].str()), privacy = privacy)
     }
     override suspend fun save(entry: TrackEntry): TrackEntry {
         val existing = find(entry.remoteId)
@@ -135,6 +137,11 @@ class KitsuTracker(store: TrackerStore, keys: TrackerKeys, client: () -> OkHttpC
                 put("status", status); put("reconsuming", entry.status == TrackStatus.REREADING)
                 put("progress", entry.lastChapterRead.toInt().coerceAtLeast(0))
                 if (entry.score <= 0f) put("ratingTwenty", JsonNull) else put("ratingTwenty", (entry.score * 2).roundToInt().coerceIn(2, 20))
+                // The user's privacy choice must survive every update; new entries start public.
+                put("private", existing?.privacy ?: entry.privacy)
+                // Dates: null clears them on the service, matching the local "not set" state.
+                put("startedAt", dayOf(entry.startedAt)?.toString())
+                put("finishedAt", dayOf(entry.finishedAt)?.toString())
             }
             if (existing == null) putJsonObject("relationships") {
                 putJsonObject("user") { putJsonObject("data") { put("type", "users"); put("id", user.toString()) } }

@@ -8,6 +8,7 @@ enum class TrackService(val id: Int, val displayName: String, val site: String) 
     ANILIST(2, "AniList", "https://anilist.co"),
     KITSU(3, "Kitsu", "https://kitsu.io"),
     SHIKIMORI(4, "Shikimori", "https://shikimori.io"),
+    MANGAUPDATES(7, "MangaUpdates", "https://www.mangaupdates.com"),
     ;
 
     companion object {
@@ -57,6 +58,8 @@ data class TrackEntry(
     val totalChapters: Int = 0,
     val startedAt: Long = 0,
     val finishedAt: Long = 0,
+    /** Kitsu only: the entry is hidden from other users. Preserved on every update. */
+    val privacy: Boolean = false,
 )
 
 object TrackProgress {
@@ -95,6 +98,14 @@ object MihonTracking {
             4 -> TrackStatus.DROPPED
             6 -> TrackStatus.PLAN_TO_READ
             7 -> TrackStatus.REREADING
+            else -> TrackStatus.READING
+        }
+        // MangaUpdates: the code is the list id (0 Reading, 1 Wish, 2 Complete, 3 Unfinished, 4 On Hold).
+        TrackService.MANGAUPDATES.id -> when (code) {
+            1 -> TrackStatus.PLAN_TO_READ
+            2 -> TrackStatus.COMPLETED
+            3 -> TrackStatus.DROPPED
+            4 -> TrackStatus.ON_HOLD
             else -> TrackStatus.READING
         }
         else -> when (code) {

@@ -59,14 +59,32 @@ class KitsuTrackerTest {
         assertEquals("42", server.takeRequest().requestUrl!!.queryParameter("filter[userId]"))
         val patch = server.takeRequest(); val body = patch.body.readUtf8()
         assertEquals("PATCH", patch.method); assertTrue(patch.path!!.endsWith("/99"))
-        assertTrue(body.contains("\"reconsuming\":true")); assertTrue(body.contains("\"ratingTwenty\":17")); assertFalse(body.contains("private"))
+        assertTrue(body.contains("\"reconsuming\":true")); assertTrue(body.contains("\"ratingTwenty\":17"))
+        // The private flag the user set on the service must survive the update.
+        assertTrue(body.contains("\"private\":true"))
     }
     @Test fun createAndDeleteUseCurrentAccount() = runBlocking {
         signed(); answer("""{"data":[]}"""); answer("""{"data":${resource()}}"""); answer("""{"data":[${resource()}]}"""); server.enqueue(MockResponse().setResponseCode(204))
         val item = TrackEntry(TrackService.KITSU, 12, title = "Title", url = "url")
         tracker.save(item); server.takeRequest(); val post = server.takeRequest(); val body = post.body.readUtf8()
-        assertEquals("POST", post.method); assertTrue(body.contains("\"libraryEntries\"")); assertTrue(body.contains("\"users\"")); assertTrue(body.contains("\"42\"")); assertTrue(body.contains("\"manga\"")); assertFalse(body.contains("private"))
+        assertEquals("POST", post.method); assertTrue(body.contains("\"libraryEntries\"")); assertTrue(body.contains("\"users\"")); assertTrue(body.contains("\"42\"")); assertTrue(body.contains("\"manga\""))
+        // New entries start public; dates are explicit nulls (they clear the value on the service).
+        assertTrue(body.contains("\"private\":false")); assertTrue(body.contains("\"startedAt\":null")); assertTrue(body.contains("\"finishedAt\":null"))
         tracker.delete(item); server.takeRequest(); assertEquals("DELETE", server.takeRequest().method)
+    }
+    @Test fun datesAreSentAndCleared() = runBlocking {
+        signed()
+        val started = 1_520_000_000_000L // 2018-03-02 UTC-ish; only the date part is sent
+        answer("""{"data":[${resource()}]}"""); answer("""{"data":${resource()}}""")
+        tracker.save(TrackEntry(TrackService.KITSU, 12, 99, "Title", "url", TrackStatus.READING, 8.5f, 5f, startedAt = started))
+        server.takeRequest() // find
+        val patch = server.takeRequest(); val body = patch.body.readUtf8()
+        assertTrue(body.contains("\"startedAt\":\"2018-03-02\""))
+        // A zero timestamp clears the date on the service (explicit null).
+        answer("""{"data":[${resource()}]}"""); answer("""{"data":${resource()}}""")
+        tracker.save(TrackEntry(TrackService.KITSU, 12, 99, "Title", "url", TrackStatus.READING, 8.5f, 5f))
+        server.takeRequest(); val cleared = server.takeRequest()
+        assertTrue(cleared.body.readUtf8().contains("\"startedAt\":null"))
     }
     @Test fun invalidListFailsClosed() = runBlocking {
         signed(); answer("""{"errors":[{"detail":"oops"}]}""")

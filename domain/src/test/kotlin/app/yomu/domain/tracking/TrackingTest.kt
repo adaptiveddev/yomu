@@ -44,6 +44,13 @@ class TrackingTest {
         assertEquals(8.5f, MihonTracking.score(3, 17f))
         assertEquals(TrackService.KITSU, TrackService.of(3))
         assertEquals(TrackService.SHIKIMORI, TrackService.of(4))
-        assertNull(TrackService.of(7))
+        assertEquals(TrackService.MANGAUPDATES, TrackService.of(7))
+        // MangaUpdates stores the list id as the status (0 Reading, 1 Wish, 2 Complete, 3 Unfinished, 4 On Hold).
+        assertEquals(TrackStatus.PLAN_TO_READ, MihonTracking.status(7, 1))
+        assertEquals(TrackStatus.COMPLETED, MihonTracking.status(7, 2))
+        assertEquals(TrackStatus.DROPPED, MihonTracking.status(7, 3))
+        assertEquals(TrackStatus.ON_HOLD, MihonTracking.status(7, 4))
+        assertEquals(TrackStatus.READING, MihonTracking.status(7, 0))
+        assertNull(TrackService.of(8))
     }
 }
