@@ -1,73 +1,73 @@
-# Как помочь проекту
+# Contributing to Yomu
 
-Спасибо за интерес к Yomu! Любая помощь полезна: сообщения об ошибках, проверка на устройствах, переводы интерфейса, расширения-источники и код.
+Thanks for your interest in Yomu! Any help is useful: bug reports, device testing, interface translations, extension sources and code.
 
-## Сообщить об ошибке
+## Reporting a bug
 
-1. Проверьте, нет ли её уже в issues и в [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
-2. Приложите версию приложения, модель устройства и версию Android, шаги воспроизведения.
-3. Если ошибка привела к падению — «Настройки → О приложении → Журнал ошибок → Поделиться». Журнал хранится только на устройстве и уходит только по вашему действию.
-4. Для проблем с конкретным файлом по возможности приложите сам файл (или минимальный пример) — без книг под авторским правом.
+1. Check whether it is already in the issues or in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+2. Attach the app version, the device model and Android version, and the reproduction steps.
+3. If the error caused a crash — Settings → About → Error log → Share. The log is stored only on the device and leaves it only on your action.
+4. For a problem with a specific file, attach the file itself (or a minimal sample) if possible — without copyrighted books.
 
-## Окружение
+## Environment
 
-- JDK 17 или 21, Android SDK (platform 36, build-tools 36). Путь к SDK — в `local.properties` (`sdk.dir=…`) или `ANDROID_HOME`.
-- Android Studio (последняя стабильная) — по желанию; проект собирается и из командной строки.
-- Gradle рассчитан на 4 ГБ RAM (`gradle.properties`); если памяти больше, можно поднять `-Xmx` и `org.gradle.workers.max`.
+- JDK 17 or 21, an Android SDK (platform 36, build-tools 36). The SDK path goes into `local.properties` (`sdk.dir=…`) or `ANDROID_HOME`.
+- Android Studio (latest stable) — optional; the project builds from the command line too.
+- Gradle expects 4 GB of RAM (`gradle.properties`); with more memory you can raise `-Xmx` and `org.gradle.workers.max`.
 
 ```bash
 ./gradlew assembleDebug    # APK: app/build/outputs/apk/debug/
-./gradlew test             # unit-тесты всех модулей + Robolectric smoke-тест
-./gradlew lint detekt      # статический анализ
+./gradlew test             # unit tests of all modules + the Robolectric smoke test
+./gradlew lint detekt      # static analysis
 ```
 
-## Структура
+## Structure
 
-Модули и потоки данных описаны в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), принятые решения — в [docs/DECISIONS.md](docs/DECISIONS.md). Коротко:
+Modules and data flows are described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), decisions in [docs/DECISIONS.md](docs/DECISIONS.md). Briefly:
 
-- `domain` — модели и чистая логика (без Android), `data` — репозитории, импорт, конвертеры, сеть, фоновые задачи;
-- `core:*` — общие UI-компоненты, БД (Room), настройки (DataStore), сеть (OkHttp);
-- `feature:*` — экраны (Compose + ViewModel + Koin-модуль);
-- `source-api` и `sources:*` — API и встроенные источники каталога.
+- `domain` — models and pure logic (no Android), `data` — repositories, import, converters, network, background work;
+- `core:*` — shared UI components, the DB (Room), settings (DataStore), the network (OkHttp);
+- `feature:*` — screens (Compose + ViewModel + a Koin module);
+- `source-api` and `sources:*` — the API and built-in catalog sources.
 
-## Правила кода
+## Code rules
 
-- Kotlin, идиоматичный и без устаревших API; форматирование — `kotlin.code.style=official` (detekt + formatting-правила).
-- Зависимости — только через `gradle/libs.versions.toml`; общие настройки модулей — convention plugins в `build-logic`.
-- **Все строки интерфейса — в `strings.xml`**, сразу на двух языках: `values/` (английский) и `values-ru/` (русский). Никакого хардкода текста в коде.
-- Никаких заглушек: не оставляйте `TODO()`, пустые экраны и кнопки без действия. Если функция пока упрощена — опишите это в `docs/KNOWN_LIMITATIONS.md`.
-- Значимое решение (новая библиотека, отказ от пункта плана, смена формата данных) — одной строкой в `docs/DECISIONS.md`.
-- Изменение схемы Room — только с миграцией и увеличением версии БД; резервные копии должны восстанавливаться в новых версиях.
-- Сеть — только по действию пользователя или по включённому им расписанию; никакой аналитики и трекеров (см. [docs/PRIVACY.md](docs/PRIVACY.md)).
-- UI: Material 3, компоненты из `core:ui` (`StateContent`, `EmptyState`, `ErrorState`, `Preference*`, `YomuSheet`), у кнопок-иконок — `contentDescription`, тач-цели не меньше 48 dp, проверка в светлой и тёмной теме.
+- Kotlin, idiomatic, without deprecated APIs; formatting — `kotlin.code.style=official` (detekt + formatting rules).
+- Dependencies only through `gradle/libs.versions.toml`; shared module settings — convention plugins in `build-logic`.
+- **Every UI string goes into `strings.xml`**, in both languages at once: `values/` (English) and `values-ru/` (Russian). No hardcoded text in code.
+- No stubs: do not leave `TODO()`, empty screens or buttons without an action. If a feature is simplified for now — describe it in `docs/KNOWN_LIMITATIONS.md`.
+- A significant decision (a new library, dropping a plan item, a data-format change) — one line in `docs/DECISIONS.md`.
+- A Room schema change — only with a migration and a DB version bump; backups must restore in new versions.
+- The network — only by user action or a schedule the user enabled; no analytics or trackers (see [docs/PRIVACY.md](docs/PRIVACY.md)).
+- UI: Material 3, components from `core:ui` (`StateContent`, `EmptyState`, `ErrorState`, `Preference*`, `YomuSheet`), icon buttons get a `contentDescription`, touch targets at least 48 dp, checked in light and dark themes.
 
-## Тесты
+## Tests
 
-- Логика (`domain`, `data`, `sources:*`, `feature:editor`, `feature:settings`) — JUnit 5 в `src/test`.
-- Приложение целиком — Robolectric + Roborazzi: `app/src/test/kotlin/app/yomu/AppSmokeTest.kt` поднимает настоящий граф Koin, проверяет, что создаются все ViewModel, и проходит основной сценарий со скриншотами:
+- Logic (`domain`, `data`, `sources:*`, `feature:editor`, `feature:settings`) — JUnit 5 in `src/test`.
+- The whole app — Robolectric + Roborazzi: `app/src/test/kotlin/app/yomu/AppSmokeTest.kt` builds the real Koin graph, checks that every ViewModel is created and walks the main scenario with screenshots:
 
 ```bash
 ./gradlew :app:testDebugUnitTest -Proborazzi.test.record=true
-# скриншоты: app/build/outputs/roborazzi/
+# screenshots: app/build/outputs/roborazzi/
 ```
 
-Новый парсер, конвертер или операция редактора — с тестом. Исправление ошибки — по возможности с тестом, который её воспроизводит.
+A new parser, converter or editor operation comes with a test. A bug fix comes, where possible, with a test reproducing it.
 
-## Pull request
+## Pull requests
 
-1. Ветка от `main`, одна логическая правка на PR.
-2. Перед отправкой: `./gradlew assembleDebug test lint` без ошибок.
-3. В описании — что и зачем изменено, как проверяли (устройство/эмулятор, версия Android), скриншоты для изменений UI.
-4. Коммиты — короткий заголовок в повелительном наклонении (`reader: fix TTS highlight on chapter change`).
+1. A branch from `main`, one logical change per PR.
+2. Before sending: `./gradlew assembleDebug test lint` without errors.
+3. In the description — what and why changed and how it was verified (device/emulator, Android version); screenshots for UI changes.
+4. Commits — a short imperative headline (`reader: fix TTS highlight on chapter change`).
 
-## Переводы
+## Translations
 
-Строки лежат в `*/src/main/res/values*/strings.xml` каждого модуля. Чтобы добавить язык: создайте `values-<код>/strings.xml` во всех модулях с ресурсами, добавьте код в `localeFilters` в `app/build.gradle.kts` (список языков для Android 13+ генерируется автоматически, `generateLocaleConfig = true`) и пункт в выбор языка (`feature/settings/.../SettingsSections.kt`). Плюральные формы — через `<plurals>`.
+Strings live in `*/src/main/res/values*/strings.xml` of each module. To add a language: create `values-<code>/strings.xml` in every module with resources, add the code to `localeFilters` in `app/build.gradle.kts` (the Android 13+ language list is generated automatically, `generateLocaleConfig = true`) and an entry in the language picker (`feature/settings/.../SettingsSections.kt`). Plurals go through `<plurals>`.
 
-## Расширения-источники
+## Extension sources
 
-Гайд по `source-api` с примером — [docs/EXTENSIONS.md](docs/EXTENSIONS.md). Расширения публикуются отдельно от приложения (свой APK или репозиторий `index.min.json`).
+The `source-api` guide with an example — [docs/EXTENSIONS.md](docs/EXTENSIONS.md). Extensions are published separately from the app (their own APK or an `index.min.json` repository).
 
-## Лицензия
+## License
 
-Отправляя изменения, вы соглашаетесь распространять их под [Apache License 2.0](LICENSE).
+By sending changes you agree to distribute them under the [Apache License 2.0](LICENSE).

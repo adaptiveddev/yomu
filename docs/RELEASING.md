@@ -1,32 +1,29 @@
-# Релизы и автосборка APK
+# Releases and automated APK builds
 
-Всё собирается в GitHub Actions — локально ничего подписывать не нужно.
+Everything is built in GitHub Actions — nothing needs to be signed locally.
 
-| Workflow | Когда запускается | Что делает |
+| Workflow | When it runs | What it does |
 |---|---|---|
-| [`ci.yml`](../.github/workflows/ci.yml) | push в `main`, pull request | debug-сборка, unit- и Robolectric-тесты, lint, release-сборка; APK и скриншоты — в артефактах запуска |
-| [`release.yml`](../.github/workflows/release.yml) | тег `v*` (или вручную) | тесты → release APK → **GitHub Release** с APK, `SHA256SUMS.txt`, `mapping.txt` и описанием из `CHANGELOG.md` |
-| [`nightly.yml`](../.github/workflows/nightly.yml) | после зелёного CI на `main` (или вручную) | пре-релиз **`nightly`** со сборкой последнего коммита |
+| [`ci.yml`](../.github/workflows/ci.yml) | a push to `main`, a pull request | a debug build, unit and Robolectric tests, lint, a release build; APKs and screenshots are run artifacts |
+| [`release.yml`](../.github/workflows/release.yml) | a `v*` tag (or manually) | tests → a release APK → a **GitHub Release** with the APKs, `SHA256SUMS.txt`, `mapping.txt` and a description from `CHANGELOG.md` |
+| [`nightly.yml`](../.github/workflows/nightly.yml) | after a green CI on `main` (or manually) | a **`nightly`** pre-release with the latest commit's build |
 
-Файлы релиза: `yomu-v1.7.0-arm64-v8a.apk` (телефоны и планшеты), `yomu-v1.7.0-x86_64.apk` (эмуляторы, x86),
-`SHA256SUMS.txt`, `yomu-v1.7.0-mapping.txt` (для расшифровки стектрейсов R8). «Проверить обновления» в приложении
-берёт последний релиз (не пре-релиз), скачивает APK для архитектуры устройства и сверяет его с `SHA256SUMS.txt`
-(см. [«Обновление из приложения»](#обновление-из-приложения)).
+Release files: `yomu-v2.0.6-arm64-v8a.apk` (phones and tablets), `yomu-v2.0.6-x86_64.apk` (emulators, x86),
+`SHA256SUMS.txt`, `yomu-v2.0.6-mapping.txt` (to decode R8 stack traces). "Check for updates" in the app
+takes the latest release (not a pre-release), downloads the APK for the device ABI and verifies it against `SHA256SUMS.txt`
+(see ["In-app updates"](#in-app-updates)).
 
-## 1. Один раз: ключ подписи в секретах репозитория
+## 1. Once: the signing key in the repository secrets
 
-Android ставит обновление поверх, только если APK подписан **тем же ключом**. Если у вас есть ключ, которым
-подписаны 1.3.1–1.5.0, — используйте его, иначе пользователям придётся удалять приложение (с резервной копией).
-Новый ключ создавайте, только если старого нет:
+Android installs an update over the old one only if the APK is signed with **the same key**. If you have the key that signed previous releases — use it, otherwise users will have to uninstall (with a backup). Create a new key only if there is no old one:
 
 ```bash
 keytool -genkeypair -v -keystore yomu-release.jks -alias yomu -keyalg RSA -keysize 4096 -validity 10000
 ```
 
-Сохраните `.jks` и пароли в надёжном месте (менеджер паролей + офлайн-копия): потерянный ключ не восстановить.
-В git его класть нельзя (`*.jks` уже в `.gitignore`).
+Keep the `.jks` and the passwords in a safe place (a password manager + an offline copy): a lost key cannot be recovered. It must not go into git (`*.jks` is already in `.gitignore`).
 
-Закодируйте файл в base64 одной строкой:
+Encode the file into base64 as one line:
 
 ```bash
 base64 -w0 yomu-release.jks > yomu-release.jks.b64                 # Linux
@@ -37,16 +34,16 @@ base64 -i yomu-release.jks | tr -d '\n' > yomu-release.jks.b64     # macOS
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("yomu-release.jks")) | Out-File -NoNewline yomu-release.jks.b64   # Windows
 ```
 
-GitHub → репозиторий → **Settings → Secrets and variables → Actions → New repository secret**:
+GitHub → repository → **Settings → Secrets and variables → Actions → New repository secret**:
 
-| Секрет | Значение |
+| Secret | Value |
 |---|---|
-| `YOMU_KEYSTORE_BASE64` | содержимое `yomu-release.jks.b64` |
-| `YOMU_KEYSTORE_PASSWORD` | пароль хранилища |
-| `YOMU_KEY_ALIAS` | алиас ключа (`yomu` в команде выше) |
-| `YOMU_KEY_PASSWORD` | пароль ключа (для PKCS12 обычно совпадает с паролем хранилища) |
+| `YOMU_KEYSTORE_BASE64` | the contents of `yomu-release.jks.b64` |
+| `YOMU_KEYSTORE_PASSWORD` | the store password |
+| `YOMU_KEY_ALIAS` | the key alias (`yomu` in the command above) |
+| `YOMU_KEY_PASSWORD` | the key password (for PKCS12 usually the same as the store password) |
 
-То же через [GitHub CLI](https://cli.github.com):
+The same via the [GitHub CLI](https://cli.github.com):
 
 ```bash
 gh secret set YOMU_KEYSTORE_BASE64 < yomu-release.jks.b64
@@ -56,10 +53,8 @@ gh secret set YOMU_KEY_PASSWORD
 rm yomu-release.jks.b64
 ```
 
-**Ключи трекеров** (необязательно, с 2.0.0): секреты `YOMU_ANILIST_CLIENT_ID`, `YOMU_MAL_CLIENT_ID`,
-`YOMU_SHIKIMORI_CLIENT_ID`, `YOMU_SHIKIMORI_CLIENT_SECRET` — релизная и ночная сборки встраивают их в APK, и
-пользователям не нужно регистрировать своё приложение в сервисах. Как получить — [TRACKING.md](TRACKING.md). Без них
-сборка проходит, а в «Настройки → Трекинг» пользователь вводит свой ключ.
+**Tracker keys** (optional, since 2.0.0): the `YOMU_ANILIST_CLIENT_ID`, `YOMU_MAL_CLIENT_ID`,
+`YOMU_SHIKIMORI_CLIENT_ID`, `YOMU_SHIKIMORI_CLIENT_SECRET` secrets — release and nightly builds embed them into the APK so users do not need to register their own app with the services. How to get them — [TRACKING.md](TRACKING.md). Without them the build passes and users enter their own key in Settings → Tracking.
 
 ```bash
 gh secret set YOMU_ANILIST_CLIENT_ID --body 12345
@@ -68,84 +63,73 @@ gh secret set YOMU_SHIKIMORI_CLIENT_ID
 gh secret set YOMU_SHIKIMORI_CLIENT_SECRET
 ```
 
-**Без секретов** всё тоже собирается, но APK подписаны временным debug-ключом (на каждом запуске — новым), поэтому
-релиз публикуется как пре-релиз с предупреждением: такие APK не ставятся поверх подписанной версии.
+**Without the secrets** everything still builds, but the APKs are signed with a temporary debug key (a new one per run), so the release is published as a pre-release with a warning: such APKs do not install over a signed version.
 
-**Debug-сборки** (артефакт `yomu-debug-apk` в `ci.yml`) с 1.9.0 подписываются общим ключом `gradle/debug.keystore`
-из репозитория — debug-APK разных запусков ставятся поверх друг друга. Этот ключ открытый и подписывает только
-`app.yomu.reader.debug`; release им не подписывается никогда. Тем же ключом подписывается локальная сборка
-`./gradlew assembleFast` — то же debug-приложение, но с R8 и без отладки (для проверки скорости и анимаций); в CI она
-не собирается.
+**Debug builds** (the `yomu-debug-apk` artifact in `ci.yml`) have been signed since 1.9.0 with the shared `gradle/debug.keystore` key from the repository — debug APKs from different runs install over each other. That key is public on purpose and signs only `app.yomu.reader.debug`; release is never signed with it. The local `./gradlew assembleFast` build is signed with the same key — the same debug app but with R8 and without debugging (for checking speed and animations); it is not built in CI.
 
-Если публикация падает с `403` / `Resource not accessible by integration`: **Settings → Actions → General →
+If publishing fails with `403` / `Resource not accessible by integration`: **Settings → Actions → General →
 Workflow permissions → Read and write permissions**.
 
-## 2. Выпуск версии
+## 2. Releasing a version
 
-1. `app/build.gradle.kts`: `versionCode` + 1, новый `versionName` (например, `9` и `"1.7.0"`).
-2. `CHANGELOG.md`: раздел `## 1.7.0` — он станет описанием релиза и окном обновления в приложении (до строки
-   `### Установка / Install`, которую добавляет workflow). Коротко — в
-   `fastlane/metadata/android/ru-RU/changelogs/<versionCode>.txt` и `en-US/…`.
-3. «Что нового» в приложении: массив `whats_new_1_7_0` (3–4 коротких пункта) в `app/src/main/res/values/strings.xml`
-   и `values-ru/strings.xml` и строка `WhatsNew(9, "1.7.0", R.array.whats_new_1_7_0)` в начало `WHATS_NEW`
-   (`app/src/main/kotlin/app/yomu/ui/WhatsNew.kt`). Если забыть, упадёт
-   `Release170LogicTest.whatsNewHasThisVersionInBothLanguages`.
-4. Закоммитьте, отправьте в `main`, дождитесь зелёного CI.
-5. Поставьте тег и отправьте его:
+1. `app/build.gradle.kts`: `versionCode` + 1, a new `versionName` (for example `18` and `"2.0.6"`).
+2. `CHANGELOG.md`: a `## 2.0.6` section — it becomes the release description and the in-app update dialog (up to the
+   `### Установка / Install` row the workflow adds). Short texts go into
+   `fastlane/metadata/android/ru-RU/changelogs/<versionCode>.txt` and `en-US/…`.
+3. The in-app "What's new": a `whats_new_2_0_6` array (3–4 short items) in `app/src/main/res/values/strings.xml`
+   and `values-ru/strings.xml` plus a `WhatsNew(18, "2.0.6", R.array.whats_new_2_0_6)` row at the top of `WHATS_NEW`
+   (`app/src/main/kotlin/app/yomu/ui/WhatsNew.kt`). Otherwise `Release170LogicTest.whatsNewHasThisVersionInBothLanguages` fails.
+4. Commit, push to `main`, wait for a green CI.
+5. Tag and push:
 
    ```bash
-   git tag -a v1.7.0 -m "Yomu 1.7.0"
-   git push origin v1.7.0
+   git tag -a v2.0.6 -m "Yomu 2.0.6"
+   git push origin v2.0.6
    ```
 
-6. **Actions → Release** (15–25 минут) — релиз появится в **Releases**, ссылки и контрольные суммы — в сводке запуска.
+6. **Actions → Release** (15–25 minutes) — the release appears in **Releases**, links and checksums are in the run summary.
 
-Тег должен совпадать с `versionName` (`v` + `1.7.0`), иначе workflow остановится до сборки с понятной ошибкой.
+The tag must match `versionName` (`v` + `2.0.6`), otherwise the workflow stops before building with a clear error.
 
-**Бета:** тег с суффиксом, например `v1.7.0-beta.1`, при `versionName = "1.7.0"` собирает версию `1.7.0-beta.1`
-и публикует пре-релиз (приложение его не предлагает как обновление).
+**A beta:** a suffixed tag, e.g. `v2.0.6-beta.1`, with `versionName = "2.0.6"` builds `2.0.6-beta.1`
+and publishes a pre-release (the app does not offer it as an update).
 
-**Вручную:** Actions → Release → Run workflow — можно указать тег (если его нет, он будет создан на выбранной ветке),
-сделать черновик или пропустить тесты.
+**Manually:** Actions → Release → Run workflow — you can specify a tag (if missing, it is created on the chosen branch),
+make a draft or skip the tests.
 
-**Переиздать** тот же тег после исправления:
+**Re-publishing** the same tag after a fix:
 
 ```bash
-gh release delete v1.7.0 --cleanup-tag --yes
-git tag -a v1.7.0 -m "Yomu 1.7.0" && git push origin v1.7.0
+gh release delete v2.0.6 --cleanup-tag --yes
+git tag -a v2.0.6 -m "Yomu 2.0.6" && git push origin v2.0.6
 ```
 
-## Обновление из приложения
+## In-app updates
 
-«Настройки → О приложении → Проверить обновления» (и проверка раз в день, если пользователь её включил) читает
-`releases/latest`: черновики, пре-релизы и `nightly` приложение не предлагает. Из ассетов берётся
-`yomu-vX.Y.Z-<ABI>.apk` для устройства и `SHA256SUMS.txt`: скачанный APK сверяется с ним и без совпадения не
-устанавливается. Поэтому имена файлов релиза не меняйте, а `SHA256SUMS.txt` выкладывайте вместе с APK (workflow
-делает и то и другое). Поверх установленной версии Android ставит обновление, только если ключ подписи тот же.
+"Settings → About → Check for updates" (and the daily check, if the user enabled it) reads `releases/latest`: drafts, pre-releases and `nightly` are not offered. The `yomu-vX.Y.Z-<ABI>.apk` for the device and `SHA256SUMS.txt` are taken from the assets: the downloaded APK is verified against them and is not installed on a mismatch. So do not rename release files and publish `SHA256SUMS.txt` together with the APKs (the workflow does both). Android installs an update over the installed version only if the signing key matches.
 
-## Ночные сборки
+## Nightly builds
 
-После каждого зелёного CI на `main` (если менялся не только `docs/`, `*.md`, `fastlane/`, `branding/`) пре-релиз
-`nightly` пересоздаётся. Ссылки не меняются:
+After every green CI on `main` (if more than `docs/`, `*.md`, `fastlane/`, `branding/` changed) the `nightly` pre-release is rebuilt. The links are permanent:
 
 - `https://github.com/adxptived/yomu/releases/download/nightly/yomu-nightly-arm64-v8a.apk`
 - `https://github.com/adxptived/yomu/releases/download/nightly/yomu-nightly-x86_64.apk`
 
-Версия — `1.7.0-nightly.<номер запуска>`, ключ — тот же, что у релизов (если секреты заданы).
+The version is `2.0.6-nightly.<run number>`, the key is the same as the releases' (when the secrets are set).
 
-## Проверка APK
+## Verifying an APK
 
 ```bash
 sha256sum -c SHA256SUMS.txt
-apksigner verify --print-certs yomu-v1.7.0-arm64-v8a.apk   # SHA-256 сертификата указан в описании релиза
+apksigner verify --print-certs yomu-v2.0.6-arm64-v8a.apk   # the certificate SHA-256 is in the release description
 ```
 
-## Локальная release-сборка
+## A local release build
 
 ```bash
 export YOMU_KEYSTORE_PATH=/path/yomu-release.jks YOMU_KEYSTORE_PASSWORD=… YOMU_KEY_ALIAS=yomu YOMU_KEY_PASSWORD=…
 ./gradlew assembleRelease                              # app/build/outputs/apk/release/
-./gradlew assembleRelease -Pyomu.versionSuffix=-test   # versionName 1.7.0-test
+./gradlew assembleRelease -Pyomu.versionSuffix=-test   # versionName 2.0.6-test
 ```
 
-Dependabot (`.github/dependabot.yml`) раз в неделю предлагает обновления Gradle-зависимостей и Actions.
+Dependabot (`.github/dependabot.yml`) offers Gradle dependency and Actions updates weekly.

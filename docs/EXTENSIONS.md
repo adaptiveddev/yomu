@@ -1,105 +1,91 @@
-# Расширения-источники
+# Extension sources
 
-Yomu работает с двумя видами расширений:
+Yomu works with two kinds of extensions:
 
-1. **Расширения Mihon/Tachiyomi** — готовые APK из репозиториев для Mihon. Основной способ добавить сайты с мангой и
-   комиксами: ничего писать не нужно.
-2. **Расширения на API Yomu** (`source-api`) — для книг и ранобэ или если нужно что-то своё (гайд ниже).
+1. **Mihon/Tachiyomi extensions** — ready APKs from Mihon repositories. The main way to add manga and comics sites: nothing to write.
+2. **Extensions on the Yomu API** (`source-api`) — for books and novels or when you need something custom (guide below).
 
-## Расширения Mihon/Tachiyomi
+## Mihon/Tachiyomi extensions
 
-### Встроенные
+### Built-in
 
-При первом запуске Yomu копирует в свою приватную папку (без системной установки) пять расширений из репозитория
-[Keiyoushi](https://github.com/keiyoushi/extensions) — неизменённые сборки, Apache-2.0, ключ подписи
-`9add655a78e96c4ec7a53ef89dccb557cb5d767489fac5e785d671a5a75d4da2`. Выбраны официальные платформы и открытые каталоги:
+On first launch Yomu copies five extensions from the [Keiyoushi](https://github.com/keiyoushi/extensions) repository into its private folder (without a system install) — unchanged builds, Apache-2.0, signing key `9add655a78e96c4ec7a53ef89dccb557cb5d767489fac5e785d671a5a75d4da2`. Official platforms and open catalogs were chosen:
 
-| Расширение | Пакет | Версия | Языки |
+| Extension | Package | Version | Languages |
 |---|---|---|---|
 | MangaDex | `eu.kanade.tachiyomi.extension.all.mangadex` | 1.6.1 | 61 |
-| MANGA Plus by SHUEISHA | `eu.kanade.tachiyomi.extension.all.mangaplus` | 1.6.68 | 9 (в том числе ru, en) |
+| MANGA Plus by SHUEISHA | `eu.kanade.tachiyomi.extension.all.mangaplus` | 1.6.68 | 9 (incl. ru, en) |
 | Webtoons.com | `eu.kanade.tachiyomi.extension.all.webtoons` | 1.6.3 | 7 |
 | GlobalComix | `eu.kanade.tachiyomi.extension.all.globalcomix` | 1.6.2 | 37 |
 | AComics | `eu.kanade.tachiyomi.extension.ru.acomics` | 1.6.10 | ru |
 
-Каждое проверено на живых сайтах через слой совместимости Yomu (`TachiyomiExtensionsLiveTest`): популярное и новое →
-карточка и список глав → страницы главы → загрузка первой картинки → поиск. Comikey проверку не прошёл (страницы глав
-не загружались за отведённое время) и не включён.
+Each was verified against the live sites through Yomu's compatibility layer (`TachiyomiExtensionsLiveTest`): popular and latest → card and chapter list → chapter pages → first image download → search. Comikey failed the check (chapter pages did not load in time) and is not included.
 
-- Встроенный MangaDex из версии 1.0 заменяется расширением с тем же id — избранное и прогресс сохраняются.
-- Встроенное расширение можно удалить — при следующем запуске оно не вернётся. Обновления приходят из любого
-  добавленного репозитория, который подписывает расширения тем же ключом.
+- The built-in MangaDex from version 1.0 is replaced by an extension with the same id — favorites and progress survive.
+- A built-in extension can be removed — it will not come back on the next launch. Updates come from any added repository that signs extensions with the same key.
 
-### Репозитории
+### Repositories
 
-«Каталог → ⋮ → Расширения → Репозитории → Добавить репозиторий». Подходит любой из адресов:
+"Catalog → ⋮ → Extensions → Repositories → Add repository". Any of these addresses works:
 
-- `index.min.json` или `repo.json` репозитория, его папка или страница на GitHub
-  (`https://github.com/owner/repo/tree/branch`) — индекс Yomu найдёт сам;
-- кнопка «Add to Mihon/Tachiyomi» на сайте репозитория: ссылки `tachiyomi://add-repo?url=…` и
-  `mihon://extension-store?url=…` открывают Yomu с подтверждением.
+- a repository's `index.min.json` or `repo.json`, its folder or GitHub page
+  (`https://github.com/owner/repo/tree/branch`) — Yomu finds the index itself;
+- the "Add to Mihon/Tachiyomi" button on a repository site: the `tachiyomi://add-repo?url=…` and
+  `mihon://extension-store?url=…` links open Yomu with a confirmation.
 
-Поддерживаются форматы legacy (`index.min.json` + `repo.json` с именем и `signingKeyFingerprint`) и index v2
-(protobuf или JSON, в том числе gzip). Как и Mihon, Yomu не поставляет списков репозиториев — добавляйте только те,
-которым доверяете.
+The legacy formats (`index.min.json` + `repo.json` with a name and `signingKeyFingerprint`) and index v2
+(protobuf or JSON, including gzip) are supported. Like Mihon, Yomu ships no repository lists — add only the ones you trust.
 
-На вкладке «Доступные» — поиск, фильтр по языкам («Языки»; по умолчанию язык устройства и английский), бейджи 18+,
-«Установить»; на вкладке «Установленные» — обновления («Обновить все»), удаление, настройки источников, «Установить из
-файла».
+The "Available" tab has search, a language filter ("Languages"; the device language and English by default), 18+ badges and "Install"; the "Installed" tab has updates ("Update all"), removal, source settings and "Install from file".
 
-### Доверие и подпись
+### Trust and signatures
 
-- Ключ подписи репозитория запоминается при добавлении: его расширения, подписанные этим ключом, считаются доверенными.
-  Если ключ у репозитория сменился, обновления блокируются, пока репозиторий не добавить заново.
-- Расширение с другой подписью (APK из файла или установленный в систему пакет) не загружается, пока пользователь не
-  нажмёт «Доверять» (запоминается пара `пакет:SHA-256 подписи`).
-- Расширения 18+ скрыты, пока не включён переключатель «Показывать расширения 18+».
+- A repository's signing key is remembered when it is added: its extensions signed with that key are trusted. If the repository's key changes, updates are blocked until the repository is added again.
+- An extension with a different signature (an APK from a file or a system-installed package) does not load until the user taps "Trust" (the `package:signature SHA-256` pair is remembered).
+- 18+ extensions are hidden until the "Show 18+ extensions" switch is on.
 
-### Совместимость
+### Compatibility
 
-- API расширений **lib 1.4 и 1.6** — тот же набор, что принимает Mihon (1.5 — несовместимый форк, не поддерживается).
-- Слой `compat/tachiyomi` реализует публичный API расширений: `eu.kanade.tachiyomi.source.*` (`Source`,
+- The extension API is **lib 1.4 and 1.6** — the same set Mihon accepts (1.5 is an incompatible fork, not supported).
+- The `compat/tachiyomi` layer implements the public extension API: `eu.kanade.tachiyomi.source.*` (`Source`,
   `CatalogueSource`, `HttpSource`, `ParsedHttpSource`, `ConfigurableSource`, `SourceFactory`, `ResolvableSource`,
-  `UnmeteredSource`), модели и фильтры, `NetworkHelper` (общий OkHttp, cookie из WebView, Cloudflare через встроенный
-  браузер, rate-limit), `JavaScriptEngine` (QuickJS), Injekt (`Application`, `Json`, `ProtoBuf`, `NetworkHelper`) и
-  `SharedPreferences` источника (экран «Настройки источника»). Библиотеки, которые расширения берут у приложения, — те
-  же, что в Mihon: OkHttp (с brotli и zstd), Jsoup, kotlinx.serialization (JSON, protobuf), coroutines, RxJava 1,
+  `UnmeteredSource`), models and filters, `NetworkHelper` (a shared OkHttp, WebView cookies, Cloudflare through the built-in
+  browser, rate limiting), `JavaScriptEngine` (QuickJS), Injekt (`Application`, `Json`, `ProtoBuf`, `NetworkHelper`) and a
+  source's `SharedPreferences` (the "Source settings" screen). The libraries extensions take from the app are the same as in Mihon: OkHttp (with brotli and zstd), Jsoup, kotlinx.serialization (JSON, protobuf), coroutines, RxJava 1,
   AndroidX Preference.
-- Расширения, которым нужны внутренние классы самого Mihon вне публичного API, не загрузятся — Yomu покажет их как
-  неработающие, остальные это не затронет.
-- Каталог и глобальный поиск по умолчанию используют источники на языке устройства и английском (иначе одни встроенные
-  расширения дают больше сотни языковых вариантов); «Все языки» и отдельные языки — чипами на экране «Каталог».
+- Extensions needing Mihon's own internals outside the public API will not load — Yomu shows them as broken, without affecting the others.
+- The catalog and global search use sources in the device language and English by default (otherwise the built-in extensions alone offer over a hundred language variants); "All languages" and individual languages are chips on the "Catalog" screen.
 
-## Свои расширения на API Yomu
+## Custom extensions on the Yomu API
 
-Источник — класс, реализующий `app.yomu.source.CatalogSource`. Встроенные источники (`sources/opds`, `sources/mangadex`, `sources/local`) написаны на том же API, их удобно брать за образец. API версии **1** (`EXTENSION_API_VERSION`).
+A source is a class implementing `app.yomu.source.CatalogSource`. The built-in sources (`sources/opds`, `sources/mangadex`, `sources/local`) are written on the same API and make good examples. The API version is **1** (`EXTENSION_API_VERSION`).
 
-### Что реализовать
+### What to implement
 
 ```kotlin
 interface CatalogSource : Source {           // Source: id, name, lang, content (MANGA/NOVEL/BOOK), supportsLatest
     suspend fun getPopular(page: Int): ItemsPage
     suspend fun getLatest(page: Int): ItemsPage
     suspend fun search(query: String, filters: FilterList, page: Int): ItemsPage
-    fun getFilterList(): FilterList                     // необязательно
-    suspend fun getDetails(item: SItem): SItem          // описание, жанры, статус, обложка
+    fun getFilterList(): FilterList                     // optional
+    suspend fun getDetails(item: SItem): SItem          // description, genres, status, cover
     suspend fun getChapters(item: SItem): List<SChapter>
-    suspend fun getPages(chapter: SChapter): List<Page> // манга: картинки главы
-    suspend fun getContent(chapter: SChapter): String   // ранобэ: HTML главы
-    suspend fun getDownloadLinks(book: SItem): List<SBookLink> // книги: файлы EPUB/PDF/FB2…
-    suspend fun browse(url: String, page: Int): ItemsPage      // вложенные каталоги (SItem.isNavigation)
-    fun imageHeaders(): Map<String, String>             // например Referer для картинок
+    suspend fun getPages(chapter: SChapter): List<Page> // manga: the chapter's images
+    suspend fun getContent(chapter: SChapter): String   // novels: the chapter's HTML
+    suspend fun getDownloadLinks(book: SItem): List<SBookLink> // books: EPUB/PDF/FB2… files
+    suspend fun browse(url: String, page: Int): ItemsPage      // nested catalogs (SItem.isNavigation)
+    fun imageHeaders(): Map<String, String>             // e.g. a Referer for images
 }
 ```
 
-- Для HTTP-сайтов наследуйтесь от `HttpSource`: общий `OkHttpClient` приложения (кеш, cookie из WebView, User-Agent), `get(url)`/`getText(url)`, `json` (kotlinx.serialization). `id` генерируется из `name`/`lang`/`versionId` (`SourceIds.generate`) — **не меняйте имя и язык** после публикации, иначе пропадёт избранное; для смены схемы увеличьте `versionId` и дайте пользователю миграцию.
-- Несколько языков/сайтов в одном APK — `SourceFactory.createSources()`.
-- Настраиваемые источники (адрес, логин) — `ConfigurableSource` (`configKeys` + `configure(values)`).
-- Ошибки: `SourceException(message)` — понятное сообщение пользователю; `HttpStatusException(code, url)`; `WebViewRequiredException(url)` — приложение откроет WebView, пользователь пройдёт Cloudflare/капчу, cookie попадут в OkHttp.
-- Фильтры декларативные: `Header`, `Separator`, `Text`, `CheckBox`, `TriState`, `Select`, `Sort`, `Group`. Состояние фильтров приложение сохраняет само (`FilterList.saveState`).
-- Модели: `SItem` (тайтл/книга; `url` — стабильный ключ внутри источника), `SChapter` (`url`, `name`, `number`, `dateUpload`, `scanlator`), `Page` (`index`, `url`, `imageUrl`), `ItemsPage(items, hasNextPage)`, `SBookLink(url, mimeType, title, size)`.
+- For HTTP sites inherit from `HttpSource`: the app's shared `OkHttpClient` (cache, WebView cookies, User-Agent), `get(url)`/`getText(url)`, `json` (kotlinx.serialization). `id` is generated from `name`/`lang`/`versionId` (`SourceIds.generate`) — **do not change the name or language** after publishing or favorites disappear; to change the scheme, bump `versionId` and give users a migration.
+- Several languages/sites in one APK — `SourceFactory.createSources()`.
+- Configurable sources (an address, a login) — `ConfigurableSource` (`configKeys` + `configure(values)`).
+- Errors: `SourceException(message)` — a clear message for the user; `HttpStatusException(code, url)`; `WebViewRequiredException(url)` — the app opens a WebView, the user passes Cloudflare/a captcha, and the cookies reach OkHttp.
+- Filters are declarative: `Header`, `Separator`, `Text`, `CheckBox`, `TriState`, `Select`, `Sort`, `Group`. The app saves filter state itself (`FilterList.saveState`).
+- Models: `SItem` (a title/book; `url` is the stable key inside the source), `SChapter` (`url`, `name`, `number`, `dateUpload`, `scanlator`), `Page` (`index`, `url`, `imageUrl`), `ItemsPage(items, hasNextPage)`, `SBookLink(url, mimeType, title, size)`.
 
-### Пример
+### Example
 
 ```kotlin
 package com.example.yomu.ext
@@ -137,32 +123,32 @@ class ExampleSource : HttpSource() {
 }
 ```
 
-### Упаковка в APK
+### Packaging into an APK
 
-1. Отдельный Android-проект (application) без активностей. `source-api` подключается как **`compileOnly`** (скопируйте модуль или соберите jar: `./gradlew :source-api:jar`). Kotlin stdlib, coroutines, kotlinx.serialization, OkHttp, Okio и Jsoup тоже `compileOnly` — во время работы классы берутся из приложения (их публичный API сохранён правилами R8 приложения).
-2. В `AndroidManifest.xml`:
+1. A separate Android (application) project without activities. `source-api` is connected as **`compileOnly`** (copy the module or build a jar: `./gradlew :source-api:jar`). Kotlin stdlib, coroutines, kotlinx.serialization, OkHttp, Okio and Jsoup are also `compileOnly` — at runtime the classes come from the app (their public API is kept by the app's R8 rules).
+2. In `AndroidManifest.xml`:
 
 ```xml
 <application android:label="Yomu: Example" android:icon="@mipmap/ic_launcher" android:hasCode="true">
-    <!-- Классы через «;», точка в начале = пакет приложения -->
+    <!-- Classes separated by ";", a leading dot = the app's package -->
     <meta-data android:name="yomu.extension.class" android:value=".ExampleSource" />
     <meta-data android:name="yomu.extension.api" android:value="1" />
-    <!-- 1 = контент 18+, скрывается пока пользователь не включит его в настройках -->
+    <!-- 1 = 18+ content, hidden until the user enables it in settings -->
     <meta-data android:name="yomu.extension.nsfw" android:value="0" />
 </application>
 ```
 
-3. Класс должен иметь публичный конструктор без параметров и реализовывать `CatalogSource` или `SourceFactory`. Не включайте R8-обфускацию для классов источника (или добавьте `-keep class com.example.yomu.ext.** { *; }`).
+3. The class must have a public parameterless constructor and implement `CatalogSource` or `SourceFactory`. Do not enable R8 obfuscation for the source classes (or add `-keep class com.example.yomu.ext.** { *; }`).
 
-### Установка и доверие
+### Installation and trust
 
-- **Установленные APK**: Yomu находит пакеты с meta-data `yomu.extension.class` (поэтому нужен `QUERY_ALL_PACKAGES`) и загружает их `PathClassLoader`.
-- **Репозитории**: «Каталог → ⋮ → Расширения → Репозитории» — URL на `index.min.json`. APK скачивается в приватную папку и загружается `DexClassLoader` без системной установки.
-- Расширение с неизвестной подписью не загружается, пока пользователь не нажмёт «Доверять» (запоминается пара `пакет:SHA-256 подписи`). Расширение с API новее поддерживаемого отклоняется.
+- **Installed APKs**: Yomu finds packages with the `yomu.extension.class` meta-data (hence `QUERY_ALL_PACKAGES`) and loads them with a `PathClassLoader`.
+- **Repositories**: "Catalog → ⋮ → Extensions → Repositories" — a URL to an `index.min.json`. The APK is downloaded into a private folder and loaded with a `DexClassLoader` without a system install.
+- An extension with an unknown signature does not load until the user taps "Trust" (the `package:signature SHA-256` pair is remembered). An extension with an API newer than supported is rejected.
 
-#### Формат репозитория (Yomu API)
+#### Repository format (the Yomu API)
 
-`https://example.org/repo/index.min.json`, APK лежат рядом в `apk/`:
+`https://example.org/repo/index.min.json`, APKs sit next to it in `apk/`:
 
 ```json
 [
@@ -174,7 +160,7 @@ class ExampleSource : HttpSource() {
 ]
 ```
 
-### Отладка
+### Debugging
 
-- Встроенные источники — живой пример: `sources/opds/OpdsSource.kt` (книги, навигация, OpenSearch), `sources/mangadex/MangaDexSource.kt` (манга, фильтры, языки).
-- Ошибки загрузки расширений и репозиториев пишутся в logcat (Timber: «Extension … failed to load»). В release-сборке включите подробное логирование в разделе настроек «Дополнительно».
+- The built-in sources are a live example: `sources/opds/OpdsSource.kt` (books, navigation, OpenSearch), `sources/mangadex/MangaDexSource.kt` (manga, filters, languages).
+- Extension and repository loading errors go to logcat (Timber: "Extension … failed to load"). In a release build enable verbose logging in Settings → Advanced.

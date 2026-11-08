@@ -1,832 +1,460 @@
-# Изменения
+# Changelog
 
-## 2.0.6 — trackers and PDF reflow (stages 2–3) / трекеры и PDF reflow (этапы 2–3)
+## 2.0.6 — trackers and PDF reflow (stages 2–3)
 
 - New **MangaUpdates** tracker: sign in with your username, search (novels and drama CDs filtered out), bind titles, list statuses (Reading / Plan to Read / Complete / Dropped / On Hold), chapters and rating (rating 0 removes it). MangaUpdates bindings from Mihon backups are imported. Written against the service API and covered by mock-server tests; a real-account check is still pending.
 - **Kitsu**: the entry's privacy flag now survives every update, and start/finish dates are sent on changes (empty dates clear them on the service).
 - **PDF reflow** rewritten with a geometric page analysis (XY-cut over whitespace bands): two-column and multi-column pages are read in the correct order, page-number headers and footers are dropped, paragraphs are rebuilt from vertical gaps, first-line indents, heading sizes and bullets, and hyphenated words are joined. Pages without a text layer still render as an image. Complex float wrapping and tables inside columns may parse imprecisely.
-- По-русски: новый трекер **MangaUpdates** (вход по логину, поиск, привязка, статусы списков, главы, оценка; привязки импортируются из Mihon); **Kitsu** сохраняет приватность записей и отправляет даты начала/завершения; **PDF reflow** переведён на геометрический разбор (XY-cut) — колонки в правильном порядке, колонтитулы убираются, абзацы собираются заново; страницы без текстового слоя по-прежнему картинкой. Проверка с реальными аккаунтами и на устройствах ещё впереди.
+- Localization: the sync-conflicts screen and the tracker UI strings are available in English and Russian.
 
-## 2.0.5 — завершение синхронизации (этап 1)
+## 2.0.5 — sync completion (stage 1)
 
-- Экран «Конфликты синхронизации» в настройках: проблемы последней синхронизации перечислены по отдельности с объяснением и действиями; без выбора пользователя ничего не удаляется и не перезаписывается.
-- Изменённые файлы обычных книг принимаются явно: «Принять мою версию» публикует её с сохранением прогресса, аннотаций и привязок трекеров (перепривязка журналируется и докатывается после сбоя), «Загрузить другую версию» заменяет локальный файл; обоюдное изменение остаётся конфликтом. Повторные публикации — в том числе автоматические для PDF, в которые приложение само записало выделения.
-- Папки изображений: ранее импортированные папки переводятся на стабильные идентификаторы по действию пользователя (порядок страниц, позиции, аннотации и привязки сохраняются; другие устройства следуют за маркером сами). Изменение страниц (добавление, замена, удаление) не останавливает остальные книги: неоднозначная папка попадает в конфликты, публикация/принятие версии сбрасывает только непереставляемые позиции с отчётом; аннотации изменённых страниц остаются на месте.
-- Удаления книг передаются между устройствами (настройка «Синхронизировать удаления» + включённая синхронизация файлов): неизменённая копия удаляется вместе со своими записями и файлом библиотеки, изменённая сохраняется с конфликтом. Файлы на сервере не удаляются.
-- Первый релиз из репозитория: постоянный ключ подписи (дальнейшие обновления ставятся поверх без удаления), «Проверить обновления» качает релизы этого репозитория.
-- Не проверялось на реальных устройствах, WebDAV-серверах и облачных папках: только моделируемые обмены двух библиотек и MockWebServer.
+- A **Sync conflicts** screen in Settings: the problems that stopped the last sync are listed one by one with explanations and actions; nothing is deleted or overwritten without your choice.
+- Changed book files are adopted explicitly: "Keep my version" publishes it while keeping progress, annotations and tracker bindings (the re-binding is journaled and resumes after a crash), "Take the other version" replaces the local file; a file changed on both devices stays a conflict. Repeat publications — including automatic ones for PDFs the app itself wrote highlights into.
+- Image folders: previously imported folders migrate to stable identities by a user action (page order, positions, annotations and bindings are preserved; other devices follow the marker on their own). Page changes (add, replace, remove) no longer stop the other books: an ambiguous folder lands in conflicts, publishing/accepting a version resets only positions that cannot be remapped, with a report; annotations of changed pages stay in place.
+- Book deletions propagate between devices (the "Sync deletions" setting + file sync enabled): an unchanged copy is removed together with its records and the library file, a changed copy is kept with a conflict. Files on the server are not deleted.
+- First release from the repository: a permanent signing key (further updates install over each other), "Check for updates" downloads releases from this repository.
+- Not verified on real devices, WebDAV servers or shared folders: only simulated two-library exchanges and MockWebServer.
 
-## 2.0.4 — локальный трекинг (частично)
+## 2.0.4 — local tracking (partial)
 
-- В карточке локальной книги или манги появилась кнопка «Tracking»: привязка к AniList, MyAnimeList и Shikimori, ручное изменение глав, статуса и оценки; локальные книги также показаны в профиле. Для локальных файлов автоматического определения прочитанных глав нет: страницы и проценты не переводятся в главы.
-- Если отправка не удалась или нет входа, изменения остаются в очереди. Последовательные правки и ответы трекера не затирают друг друга; редактирование берёт актуальную запись. Данные привязок включаются в резервную копию, но не синхронизируются WebDAV-механизмом данных.
-- Миграция базы 5 → 6 сохраняет существующие привязки онлайн-тайтлов. Резервные копии с файлами теперь включают и книги, ранее скачанные через WebDAV.
-- Kitsu, MangaUpdates, расширенная поддержка форматов и проверка на настоящих устройствах и сервисах остаются открытыми. В этой сборке ключи OAuth сервисов не встроены, их нужно настроить самостоятельно.
+- A "Tracking" button on a local book or manga card: link to AniList, MyAnimeList and Shikimori, edit chapters, status and score manually; local books also appear in the profile. There is no automatic chapter detection for local files: pages and percentages are not converted to chapters.
+- If a submission fails or you are signed out, the changes stay queued. Consecutive edits and tracker responses do not overwrite each other; editing takes the current entry. Bindings are included in backups but are not synced by the WebDAV data mechanism.
+- The database migration 5 → 6 keeps existing bindings of online titles. Backups with files now also include books previously downloaded over WebDAV.
+- Kitsu, MangaUpdates, extended format support and real-device/service checks remain open. This build has no embedded OAuth keys — set them up yourself.
 
-## 2.0.3 — синхронизация файлов книг по WebDAV (частично)
+## 2.0.3 — WebDAV book file sync (partial)
 
-- В настройках синхронизации добавлен выключенный по умолчанию перенос файлов книг через WebDAV; включите его на каждом устройстве. Прогресс и заметки передаются прежним механизмом.
-- Файлы проверяются по SHA-256, повреждённые копии не импортируются, конфликты не перезаписываются. Сервер должен поддерживать сильные ETag и условную запись. Рекомендуется HTTPS; сервер видит содержимое файлов.
-- Общая папка и папки изображений не поддерживаются. Удаления файлов не синхронизируются: удалённая локально книга может вернуться, файлы на сервере остаются. Изменённые после импорта файлы, включая PDF с аннотациями, могут вызывать конфликт и требуют ручного разбора. Для библиотек нужны дополнительное место и трафик.
-- Проверка на физическом устройстве, настоящем WebDAV и между двумя устройствами не проводилась. Остальные пункты запроса ещё не завершены.
+- Optional book file sync over WebDAV (off by default): enable it on each device in the sync settings. Progress and notes travel through the existing mechanism.
+- Files are verified with SHA-256, damaged copies are not imported, conflicts are not overwritten. The server must support strong ETags and conditional writes. HTTPS recommended; the server can see the file contents.
+- Shared folders and image folders are not supported. File deletions are not synced: a locally deleted book may come back and server files remain. Files changed after import, including PDFs with annotations, can raise a conflict and need manual attention. Libraries need extra space and traffic.
+- Not verified on a physical device, a real WebDAV server or between two devices. The rest of the request is still open.
 
-## 2.0.2 — частичная доработка
+## 2.0.2 — partial rework
 
-- Докачка APK при наличии контрольной суммы, проверка имени пакета и сертификата до вызова установщика. Сам Android по-прежнему проверяет APK при установке.
-- Повреждённый или неизвестный формат файла синхронизации больше не перезаписывается.
-- EPUB с зашифрованным содержимым отклоняется с понятной ошибкой; чтение DRM не реализовано.
-- Синхронизация файлов книг, локальный трекинг, новые трекеры и полноценные улучшения DOCX/PDF/fixed-layout EPUB в этом выпуске ещё не реализованы.
-
+- APK download resumption when a checksum is available; the package name and certificate are checked before the installer is invoked. Android still verifies the APK on install.
+- A damaged or unknown sync file format is no longer overwritten.
+- EPUB files with encrypted content are rejected with a clear error; DRM reading is not implemented.
+- Book file sync, local tracking, new trackers and full DOCX/PDF/fixed-layout EPUB improvements are not in this release yet.
 
 ## 2.0.1
 
-> **Установка.** Ставится поверх 2.0.0 (и 1.9.0), если подписана тем же ключом; схема базы данных не меняется (5).
-> Сборка проверена компиляцией и тестами, **на реальном устройстве 2.0.1 ещё не запускалась** — см.
+> **Install.** Installs over 2.0.0 (and 1.9.0) if signed with the same key; the database schema is unchanged (5).
+> The build is verified by compilation and tests but **2.0.1 has not been run on a real device** — see
 > [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
-### Профиль: вкладки «Трекинг» и «Загрузки»
+### Profile: Tracking and Downloads tabs
 
-- **«Профиль → Трекинг»** — все тайтлы, привязанные к MyAnimeList, AniList или Shikimori: обложка, статус, прочитанные
-  главы и оценка в каждом сервисе, значок у изменений, которые ещё не отправлены; фильтр по статусу, свежие изменения
-  сверху, нажатие открывает тайтл. Карточка «Аккаунты» — в какие сервисы выполнен вход, «Управление» ведёт в
-  «Настройки → Трекинг», «Отправить» отправляет накопленные изменения. Кнопка «Обновить с сервисов» перечитывает все
-  записи разом: ошибка одного сервиса не останавливает остальные, итог — в сообщении.
-- **«Профиль → Загрузки»** — та же очередь загрузок, что и на отдельном экране: пауза и продолжение, повтор
-  ошибок, очистка, место на диске; рядом — переход в настройки загрузок.
-- Вкладки профиля прокручиваются, если не помещаются на экране.
+- **Profile → Tracking** — every title linked to MyAnimeList, AniList or Shikimori: cover, status, chapters read and score per service, a badge on unsent changes; filter by status, fresh changes first, tapping opens the title. The "Accounts" card shows signed-in services, "Manage" opens Settings → Tracking, "Send" pushes the queued changes. "Refresh from services" re-reads every entry at once: one failing service does not stop the others, the result is reported.
+- **Profile → Downloads** — the same download queue as the dedicated screen: pause and resume, retry failures, clear, disk space; next to it — a link to the download settings.
+- Profile tabs scroll when they do not fit on screen.
 
-### Исправления
+### Fixes
 
-- **Shikimori**: сервис переехал на `shikimori.io`, а старый адрес переадресует запросы — при этом пропадала
-  авторизация, и вход, чтение и отправка списка не работали. Теперь Yomu обращается к `shikimori.io` напрямую.
-- Трекинг: одновременные запросы с истёкшим токеном больше не обновляют его дважды (у Shikimori токен обновления
-  одноразовый — второй запрос выбивал из аккаунта); ошибка сервера при обновлении токена больше не выходит из
-  аккаунта — изменения просто отправятся позже; после входа сразу отправляются изменения, накопленные без входа, а
-  фоновая отправка больше не повторяется бесконечно ради сервиса, в который вход не выполнен; два быстро дочитанных
-  подряд главы больше не могут отправить старый прогресс последним; сообщение о входе без имени пользователя
-  больше не обрывается на «как».
-- Обновление записей трекинга на странице тайтла больше не останавливается на первой ошибке, а запись, которая не
-  изменилась, не поднимается наверх списка.
-- WebDAV: файл синхронизации читается без сжатия — серверы, которые сжимают ответ на лету (Apache с `mod_deflate`),
-  меняли ETag, и каждая запись заканчивалась конфликтом; слабые ETag (`W/…`) больше не отправляются в `If-Match`.
-- Пакетная правка метаданных больше не переписывает язык книг, если поле языка не трогали.
-- Мелкие правки по предупреждениям компилятора.
+- **Shikimori**: the service moved to `shikimori.io` and the old address redirects requests — sign-in, list reading and submission broke. Yomu now talks to `shikimori.io` directly.
+- Tracking: simultaneous requests with an expired token no longer refresh it twice (Shikimori refresh tokens are single-use — the second request signed you out); a server error during a token refresh no longer signs you out — changes are simply sent later; changes accumulated while signed out are sent right after sign-in; background submission no longer loops forever for a service you are not signed into; two chapters finished in quick succession can no longer submit stale progress last; the signed-in-without-username message is no longer cut off mid-word.
+- Updating tracking entries on a title page no longer stops at the first error, and an unchanged entry no longer jumps to the top of the list.
+- WebDAV: the sync file is read without compression — servers that compress responses on the fly (Apache with `mod_deflate`) changed the ETag, so every submission ended in a conflict; weak ETags (`W/…`) are no longer sent in `If-Match`.
+- Bulk metadata editing no longer rewrites the books' language when the language field was untouched.
+- Minor compiler-warning fixes.
 
-### Для разработки
+### For development
 
-- Новые тесты: вкладки профиля и «Обновить с сервисов» (`Release201Test`), одно обновление токена на несколько
-  одновременных запросов и ошибка сервера при обновлении (`TrackersTest`), сжатие и слабые ETag в WebDAV
-  (`WebDavSyncBackendTest`).
+- New tests: profile tabs and "Refresh from services" (`Release201Test`), one token refresh for several simultaneous requests and a refresh server error (`TrackersTest`), compression and weak ETags in WebDAV (`WebDavSyncBackendTest`).
 
 ## 2.0.0
 
-> **Установка.** Ставится поверх 1.9.0, если подписана тем же ключом. База данных обновляется сама (схема 4 → 5:
-> таблица трекинга), перед обновлением всё же стоит сделать резервную копию. **Синхронизацию нужно обновить на всех
-> устройствах сразу:** формат файла синхронизации расширен (удаления, онлайн-библиотека) — 1.9.0 и старше его поля
-> удалений не знают. Сборка проверена компиляцией и тестами, **на реальном устройстве 2.0.0 ещё не запускалась** — см.
-> [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+> **Install.** Installs over 1.9.0 if signed with the same key. The database migrates itself (schema 4 → 5: the tracking table); still, make a backup before updating. **Sync must be updated on all devices at once:** the sync file format grew (deletions, online library) — 1.9.0 and older do not know its deletion fields. Verified by compilation and tests but **2.0.0 has not been run on a real device** — see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
-### Переезд с Mihon / Tachiyomi
+### Moving from Mihon / Tachiyomi
 
-- **«Настройки → Резервные копии и синхронизация → Импорт из Mihon / Tachiyomi»** читает резервную копию `.tachibk`
-  (Mihon и форки) или `.proto.gz` (Tachiyomi): тайтлы с главами, отметки «прочитано» и закладки, история, категории
-  (становятся вкладками библиотеки) и привязки трекеров. Номера источников у Yomu те же, что у Mihon, поэтому тайтлы
-  открываются, как только установлено нужное расширение; тайтлы неустановленных источников сохраняются и перечислены
-  в итоге импорта. Репозитории расширений из копии можно добавить одной кнопкой, там же — «Проверить обновления».
-- Ничего не удаляется: где значение есть и у Yomu, и в копии, остаётся своё, отметки «прочитано» объединяются.
-  Настройки Mihon и поля форков пропускаются.
+- **Settings → Backup and sync → Import from Mihon / Tachiyomi** reads a `.tachibk` backup (Mihon and forks) or `.proto.gz` (Tachiyomi): titles with chapters, read marks and bookmarks, history, categories (they become library tabs) and tracker bindings. Yomu's source ids match Mihon's, so titles open as soon as the right extension is installed; titles of missing sources are kept and listed in the import result. Extension repositories from the backup can be added with one button, along with "Check for updates".
+- Nothing is deleted: where a value exists both in Yomu and in the backup, Yomu's own stays, read marks merge. Mihon settings and fork-specific fields are skipped.
 
-### Трекинг: Shikimori, AniList, MyAnimeList
+### Tracking: Shikimori, AniList, MyAnimeList
 
-- **«Настройки → Трекинг»** — вход через браузер (OAuth), выход, «Отправить изменения», «Обновлять прогресс
-  автоматически». На странице тайтла кнопка **«Трекинг»**: поиск записи в сервисе, привязка, статус, прочитанные
-  главы, оценка, переход на сайт, отвязка (по желанию — и удаление из списка). Даты начала и окончания ставятся сами.
-- Дочитанная глава сама уходит в привязанные трекеры: прогресс только растёт, первая глава переводит тайтл в «Читаю»
-  (из «Запланировано», «Отложено» или «Брошено»), последняя — в «Прочитано». Изменения без сети копятся и
-  отправляются, когда сеть вернётся.
-- Токены хранятся только в приватных настройках приложения — не в резервных копиях и не в файле синхронизации.
-- Сервисам нужны ключи приложения (client ID): сборка берёт их из свойств `YOMU_ANILIST_CLIENT_ID`,
-  `YOMU_MAL_CLIENT_ID`, `YOMU_SHIKIMORI_CLIENT_ID`, `YOMU_SHIKIMORI_CLIENT_SECRET`; если их нет, свой ключ вводится в
-  «Настройки → Трекинг → Ключи приложения». Как зарегистрировать — [docs/TRACKING.md](docs/TRACKING.md).
+- **Settings → Tracking** — browser sign-in (OAuth), sign-out, "Send changes", "Update progress automatically". A **Tracking** button on a title page: search the service, bind, status, chapters read, score, open the site, unbind (optionally removing the list entry). Start and finish dates are set automatically.
+- A finished chapter goes to the bound trackers by itself: progress only grows, the first chapter moves the title to "Reading" (from "Plan to read", "On hold" or "Dropped"), the last one to "Completed". Changes made offline queue up and are sent when the network returns.
+- Tokens are stored only in the app's private settings — never in backups or the sync file.
+- The services need app keys (client IDs): the build takes them from the `YOMU_ANILIST_CLIENT_ID`, `YOMU_MAL_CLIENT_ID`, `YOMU_SHIKIMORI_CLIENT_ID`, `YOMU_SHIKIMORI_CLIENT_SECRET` properties; without them, enter your own key in Settings → Tracking → App keys. See [docs/TRACKING.md](docs/TRACKING.md).
 
-### Ранобэ онлайн
+### Online novels
 
-- Новый модуль `sources:novels` — встроенные источники новелл **RanobeLib** (ranobelib.me, русский) и **NovelBin**
-  (novelbin.com, английский): каталог, поиск, главы. Главы открываются в читалке книг как текст — со словарём,
-  переводом, выделениями и чтением вслух.
+- A new `sources:novels` module — built-in novel sources **RanobeLib** (ranobelib.me, Russian) and **NovelBin** (novelbin.com, English): catalog, search, chapters. Chapters open in the book reader as text — with the dictionary, translation, highlights and read-aloud.
 
-### Виджет «Продолжить чтение»
+### "Continue reading" widget
 
-- Виджет для главного экрана: книги и онлайн-тайтлы, которые вы читаете, — свежие сверху, с обложкой и прогрессом,
-  у тайтлов — число непрочитанных глав. Нажатие открывает книгу на месте остановки, тайтл — на главе, с которой
-  продолжать. Число строк подстраивается под высоту виджета; виджет обновляется, пока вы читаете.
+- A home-screen widget: the books and online titles you are reading — freshest first, with cover and progress; titles show the number of unread chapters. Tapping opens the book at the stop position, a title at the chapter to continue from. The number of rows adapts to the widget height; the widget updates while you read.
 
-### Редактор
+### Editor
 
-- **Перевод страницы манги (OCR)** — в редакторе страницы «Перевести страницу (OCR)»: «Распознать текст» находит
-  текст на странице (язык OCR из настроек), или обведите облачко пальцем. Каждый блок переводится (движок и язык
-  перевода из настроек), оригинал закрашивается цветом облачка, белым, чёрным или не закрашивается, перевод
-  вписывается по размеру облачка. Блок можно поправить и перевести заново, глаз показывает результат, галочка
-  вписывает перевод в картинку — одним шагом, который отменяется. «Перевести страницы автоматически» делает то же
-  для нескольких страниц без проверки.
-- **Визуальная правка главы** (EPUB) — «Править текст»: глава со стилями книги правится как в текстовом редакторе:
-  жирный, курсив, подчёркивание, зачёркивание, верхний и нижний индекс, заголовки, цитаты, списки, отступы,
-  выравнивание, ссылки, картинки книги, разделитель, сброс оформления, поиск. Вставка — только текстом, чтобы не
-  тащить чужие стили. Сохраняется корректным XHTML; исходный код по-прежнему доступен.
-- **Перевод выбранных глав** — в редакторе («Выбранные главы, здесь в черновике», шаг отменяется) и на карточке
-  книги («Выбранные главы»): переводятся только отмеченные главы, а не вся книга.
+- **Manga page translation (OCR)** — in the page editor, "Translate page (OCR)": "Recognize text" finds the text on the page (OCR language from settings), or circle a bubble with your finger. Each block is translated (engine and language from settings), the original is painted over with the bubble color, white, black or left as is, and the translation is fitted to the bubble. A block can be edited and re-translated, the eye shows the result, the checkmark bakes the translation into the picture — one undoable step. "Translate pages automatically" does the same for several pages without review.
+- **Visual chapter editing** (EPUB) — "Edit text": a chapter with the book's styles edited like in a word processor: bold, italic, underline, strike-through, superscript and subscript, headings, quotes, lists, indents, alignment, links, the book's images, a divider, style reset, search. Paste is text-only to keep foreign styles out. Saved as valid XHTML; source code is still available.
+- **Selected-chapter translation** — in the editor ("Selected chapters, draft here", undoable) and on the book card ("Selected chapters"): only the checked chapters are translated, not the whole book.
 
-### Библиотека
+### Library
 
-- **Метаданные сразу нескольких книг:** выделите книги — в верхней панели появится «Изменить метаданные»: авторы,
-  серия с нумерацией (по названию или в порядке выделения, с какого номера), язык, издатель, статус чтения, теги
-  (добавить и убрать). Поля, которые вы не трогали, у каждой книги остаются своими. Меняются данные библиотеки,
-  файлы книг — нет.
+- **Metadata for several books at once:** select books — "Edit metadata" appears in the top bar: authors, series with numbering (by name or in selection order, from a number), language, publisher, reading status, tags (add and remove). Fields you did not touch stay per-book. Library data changes, book files do not.
 
-### PDF: выделения в файле
+### PDF: highlights in the file
 
-- Выделения, подчёркивания и зачёркивания в PDF теперь хранятся **и в базе Yomu, и в самом PDF** — стандартными
-  аннотациями (Highlight/Underline/StrikeOut с заметкой), которые показывают и другие PDF-программы.
-  Файл дописывается инкрементальным обновлением: исходные байты не меняются, чужие аннотации остаются, свои Yomu
-  при следующем изменении заменяет, а не копит. Выделения, которые Yomu записала в файл на другом устройстве,
-  при открытии попадают в библиотеку.
-- Включено по умолчанию; выключается в «Настройки → Манга и PDF → Сохранять выделения в PDF-файлах». Связанные
-  файлы (не скопированные в Yomu) меняются, только если у Yomu есть право записи; зашифрованные PDF не меняются.
+- PDF highlights, underlines and strike-outs are now stored **both in Yomu's database and in the PDF itself** — as standard annotations (Highlight/Underline/StrikeOut with a note) that other PDF apps show too. The file is appended as an incremental update: original bytes are untouched, foreign annotations stay, Yomu's own are replaced on the next change rather than accumulating. Highlights Yomu wrote into the file on another device are imported when the book is opened.
+- Enabled by default; toggle in Settings → Manga and PDF → Save highlights in PDF files. Linked files (not copied into Yomu) are changed only if Yomu has write access; encrypted PDFs are not touched.
 
-### Синхронизация 2.0
+### Sync 2.0
 
-- **Общая папка или WebDAV** (Nextcloud, ownCloud, Яндекс Диск, Koofr, NAS…) с проверкой подключения; файл на сервере
-  заменяется, только если его никто не изменил с момента чтения (ETag), иначе данные объединяются заново.
-- **Удаления синхронизируются:** выделения, заметки, закладки, слова, вкладки и онлайн-тайтлы, удалённые на одном
-  устройстве, удаляются и на других (можно выключить). Удаление передаётся только явной отметкой: файл старой версии,
-  новая установка или книга, которой нет на устройстве, ничего не удаляют. Сами книги не удаляются: убранная с
-  одного устройства книга вместе с её заметками остаётся на остальных.
-- **Онлайн-библиотека:** тайтлы с сердечком, вкладки, отметки прочитанных глав и закладки глав.
-- Слияние трёхстороннее — по состоянию последней синхронизации: побеждает сторона, которая изменилась.
-- **Когда:** при открытии приложения, при выходе из него и в фоне по расписанию — каждое по отдельности.
+- **A shared folder or WebDAV** (Nextcloud, ownCloud, Yandex Disk, Koofr, NAS…) with a connection check; the server file is replaced only if nobody changed it since the read (ETag), otherwise the data is merged again.
+- **Deletions are synced:** highlights, notes, bookmarks, words, tabs and online titles deleted on one device are deleted on the others (can be turned off). A deletion travels only as an explicit mark: an old-version file, a fresh install or a book missing on a device deletes nothing. Books themselves are not deleted: a book removed on one device, with its notes, stays on the others.
+- **Online library:** favorited titles, tabs, read-chapter marks and chapter bookmarks.
+- Three-way merge — against the state of the last sync: the changed side wins.
+- **When:** on app open, on exit, and in the background on a schedule — each switchable separately.
 
-### Меню долгого нажатия
+### Long-press menus
 
-- **«Настройки → Меню долгого нажатия»:** долгое нажатие на страницу манги или комикса открывает круговое меню или
-  список (или сразу выполняет первое действие). Действия — перевести, сохранить страницу, поделиться, копировать
-  текст, закладка, сделать обложкой, заметка — включаются, выключаются и переставляются.
-- Меню выделения текста — панель (как раньше), круговое или списком; порядок кнопок и свои кнопки — в «Действия с
-  выделением» («Настройки → Выделение текста»).
+- **Settings → Long-press menus:** a long press on a manga or comics page opens a radial menu or a list (or runs the first action right away). Actions — translate, save the page, share, copy text, bookmark, set as cover, note — are toggled and reordered.
+- The text-selection menu — a panel (as before), radial or list; button order and custom buttons live in "Selection actions" (Settings → Text selection).
 
-### Для разработки
+### For development
 
-- CI запускает и тесты `:sources:novels:test`; живые тесты источников новелл — с `-Pyomu.liveTests=true`.
-- Ключи трекеров передаются в релизные и ночные сборки секретами `YOMU_ANILIST_CLIENT_ID`, `YOMU_MAL_CLIENT_ID`,
-  `YOMU_SHIKIMORI_CLIENT_ID`, `YOMU_SHIKIMORI_CLIENT_SECRET` (необязательно).
-- Новые тесты: импорт Mihon, миграция 4 → 5, трекинг, слияние синхронизации, пакетная правка метаданных, запись
-  аннотаций в PDF (классическая таблица xref, потоки xref и объектов, предикторы, повёрнутые страницы, чужие
-  аннотации; результат проверен PyMuPDF и PDFium), вписывание текста в облачко.
+- CI also runs `:sources:novels:test`; live novel-source tests run with `-Pyomu.liveTests=true`.
+- Tracker keys are passed into release and nightly builds via the `YOMU_ANILIST_CLIENT_ID`, `YOMU_MAL_CLIENT_ID`, `YOMU_SHIKIMORI_CLIENT_ID`, `YOMU_SHIKIMORI_CLIENT_SECRET` secrets (optional).
+- New tests: Mihon import, the 4 → 5 migration, tracking, sync merge, bulk metadata editing, PDF annotation writing (classic xref table, xref/object streams, predictors, rotated pages, foreign annotations; the result validated with PyMuPDF and PDFium), text typesetting into bubbles.
 
 ## 1.9.0
 
-> **Установка.** Ставится поверх 1.8.0, если подписана тем же ключом. База данных не меняется. Сборка проверена
-> компиляцией и тестами, **на реальном устройстве 1.9.0 ещё не запускалась** — см.
-> [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+> **Install.** Installs over 1.8.0 if signed with the same key. The database is unchanged. Verified by compilation and tests but **1.9.0 has not been run on a real device** — see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
-### Плавное переключение вкладок
+### Smooth tab switching
 
-- **Вкладки больше не собираются заново.** Раньше каждая вкладка была отдельным экраном навигации: нажатие на нижнюю
-  панель уничтожало текущий экран и строило следующий с нуля — список, обложки, ViewModel — в одном длинном кадре.
-  Этот кадр и был заметной запинкой, вместе с ним замирала и анимация панели. Теперь открытая однажды вкладка остаётся
-  собранной, пока на экране другая: возврат к ней — только перекладка, прокрутка и состояние на месте.
-- **Загрузка от касания.** Вкладку, которую ещё не открывали, Yomu начинает собирать, как только палец коснулся
-  панели (а не после отпускания) — к моменту отпускания она обычно готова.
-- **Анимация смены** — короткое растворение с лёгким приближением (0,28 с): старая вкладка гаснет, новая проявляется
-  поверх. Анимация идёт в графическом слое и не пересобирает экраны; с «Уменьшить движение» вкладки меняются сразу.
-- Скрытая вкладка не рисуется, не получает нажатий, не видна TalkBack, её жизненный цикл останавливается на STARTED
-  (данные продолжают обновляться), кнопка «Назад» и анимации обложек в ней выключены. У каждой вкладки свои ViewModel
-  и сохранённое состояние, как раньше. «Назад» на любой вкладке, кроме первой, возвращает на первую.
-- При возврате к вкладкам (закрыли тайтл или читалку) собирается только видимая вкладка, остальные — снова от
-  касания, с прежней прокруткой и данными: кадр возврата не тяжелее, чем в 1.8.0.
+- **Tabs are no longer rebuilt.** Each tab used to be a separate navigation destination: tapping the bottom bar destroyed the current screen and built the next one from scratch — list, covers, ViewModel — in one long frame. That frame was the visible stutter, and the bar's animation froze with it. Now an opened tab stays composed while another is on screen: returning to it is just re-attaching, scroll and state in place.
+- **Loading starts on touch.** A tab that has never been opened starts composing as soon as the finger touches the bar (not after release) — by the time the touch ends it is usually ready.
+- **The switch animation** is a short fade with a slight zoom (0.28 s): the old tab dims, the new one appears over it. The animation runs in the graphics layer and does not recompose screens; with "Reduce motion" tabs switch instantly.
+- A hidden tab is not drawn, does not receive taps, is invisible to TalkBack, and its lifecycle stops at STARTED (data keeps updating); "Back" and cover animations are disabled inside it. Each tab keeps its own ViewModels and saved state, as before. "Back" on any tab but the first returns to the first.
+- Returning to the tabs (after closing a title or the reader) composes only the visible tab; the rest load on touch again, with the same scroll and data: the return frame is no heavier than in 1.8.0.
 
-### Исправления
+### Fixes
 
-- **Вылет на странице тайтла.** Если страница тайтла в каталоге не загружалась (нет сети, ошибка источника),
-  приложение закрывалось: блок ошибки пытался растянуться на всю высоту внутри прокручиваемого списка
-  (`IllegalStateException: Vertically scrollable component was measured with an infinity maximum height
-  constraints`). Теперь блок ошибки растягивается только там, где высота ограничена, — на странице тайтла он стоит
-  в списке с кнопкой «Повторить».
-- **Запись настроек не ждёт главный поток.** DataStore применяет изменение в потоке того, кто пишет, и держит при
-  этом блокировку записи: запись с экрана ждала свободного кадра главного потока, а все остальные записи — её.
-  Теперь изменения применяются в фоновом потоке.
+- **A crash on the title page.** If a catalog title page had not loaded (no network, source error), the app closed: the error block tried to fill the full height inside a scrolling list (`IllegalStateException: Vertically scrollable component was measured with an infinity maximum height constraints`). The error block now stretches only where height is bounded — on the title page it sits in the list with a "Retry" button.
+- **Settings writes no longer wait for the main thread.** DataStore applies a change on the writer's thread while holding the write lock: a write from a screen waited for a free main-thread frame, and all other writes waited for it. Changes now apply on a background thread.
 
-### Отчёт о сбое
+### Crash report
 
-- **После вылета** Yomu при следующем запуске показывает окно «Yomu неожиданно закрылась» с первой строкой ошибки и
-  кнопками «Отправить отчёт» (файл `yomu-crash.txt` через «Поделиться»), «Копировать» и «Закрыть». Окно показывается
-  один раз на сбой и только для сбоев этой версии; все записи, как и раньше, — в «Настройки → Дополнительно →
-  Журнал ошибок».
-- В отчёт добавлены экран, на котором случился сбой, и последние шаги перед ним (до шести переходов, без содержимого
-  экранов) — так сбой проще повторить.
+- **After a crash**, Yomu shows a "Yomu closed unexpectedly" dialog on the next launch with the first line of the error and buttons "Send report" (a `yomu-crash.txt` file via Share), "Copy" and "Close". The dialog shows once per crash and only for crashes of this version; all entries are still in Settings → Advanced → Error log.
+- The report now includes the screen the crash happened on and the last steps before it (up to six transitions, without screen contents) — making the crash easier to reproduce.
 
-### Каталог: язык источника
+### Catalog: source language
 
-- **Переключатель языка** в верхней панели источника — у расширений, где на каждый язык свой источник (MangaDex,
-  Wikisource, NHentai и другие): кнопка показывает код языка (или «ВСЕ» для многоязычного источника), меню — языки
-  этого расширения. Выбор открывает тот же раздел на другом языке: поиск — с тем же запросом, выбранные фильтры
-  переносятся. Отключённые языки в меню не показываются.
+- A **language switcher** in a source's top bar — for extensions with a source per language (MangaDex, Wikisource, NHentai and others): the button shows the language code (or "ALL" for a multi-language source), the menu lists the extension's languages. Choosing opens the same section in another language: search keeps the query, selected filters carry over. Disabled languages are hidden from the menu.
 
-### Для разработки
+### For development
 
-- **Общий ключ debug-сборок** — `gradle/debug.keystore` в репозитории: debug-APK из CI, с компьютера и присланные
-  ставятся поверх друг друга, а не только после удаления прежнего (с ключом сборок до 1.9.0 — один раз переустановить).
-  Ключ открытый и подписывает только `app.yomu.reader.debug`; release по-прежнему подписывается своим ключом.
-- **Сборка `fast`** (`./gradlew assembleFast`) — debug-приложение, собранное как release (R8, не отлаживаемое): ставится
-  поверх debug-сборки с её данными и показывает настоящую скорость. Плавность анимаций по debug-сборке не оценить — она
-  в разы медленнее.
-- Тесты больше не зависают через раз: `Release170LogicTest` ждал запись настроек, застрявшую за записью из главного
-  потока предыдущего теста (в Robolectric главный поток между тестами сбрасывается), — CI мог висеть до тайм-аута.
+- **A shared debug-build key** — `gradle/debug.keystore` in the repository: debug APKs from CI, from computers and sent by chat install over each other instead of requiring a clean install (with the key of pre-1.9.0 builds — one reinstall). The key is public on purpose and signs only `app.yomu.reader.debug`; release is still signed with its own key.
+- The **`fast` build** (`./gradlew assembleFast`) — the debug app built like a release (R8, not debuggable): installs over the debug build keeping its data and shows the real speed. Do not judge animation smoothness on a debug build — it is several times slower.
+- Tests no longer hang every other run: `Release170LogicTest` waited on a settings write stuck behind a previous test's main-thread write (Robolectric resets the main thread between tests) — CI could hang until timeout.
 
 ## 1.8.0
 
-> **Установка.** Ставится поверх 1.7.0, если подписана тем же ключом. База данных не меняется. Сборка проверена
-> компиляцией и тестами, **на реальном устройстве 1.8.0 ещё не запускалась** — см.
-> [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+> **Install.** Installs over 1.7.0 if signed with the same key. The database is unchanged. Verified by compilation and tests but **1.8.0 has not been run on a real device** — see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
-### Профиль вместо «Истории»
+### Profile instead of "History"
 
-- **Вкладка «Профиль»** на месте «Истории» — три раздела: «Обзор», «Статистика», «История».
-- «Обзор»: имя и аватар (эмодзи, меняются по нажатию на шапку), время чтения за сегодня с целью дня, всего, серия
-  дней и лучшая серия, числа (книги, слова, сессии, страницы), **достижения** (часы чтения, серии, сохранённые слова,
-  прочитанные тайтлы — с полосой до следующей ступени), самые читаемые тайтлы и последние прочитанные.
-- **Поделиться:** карточка профиля картинкой (PNG 1080×1350, в цветах темы), коротким текстом, история чтения в CSV
-  (открывается в Excel и Google Таблицах), резервная копия без файлов книг — через системное меню «Поделиться»;
-  отсюда же — переход в «Резервные копии».
-- «Статистика» и «История» — прежние экраны, теперь внутри профиля; расчёты статистики идут в фоне.
+- A **Profile tab** replaces "History" — three sections: "Overview", "Statistics", "History".
+- "Overview": name and avatar (emoji, changed by tapping the header), today's reading time with the daily goal, total, streak and best streak, counts (books, words, sessions, pages), **achievements** (reading hours, streaks, saved words, finished titles — with a bar to the next tier), the most-read titles and recently finished ones.
+- **Share:** a profile card as an image (PNG 1080×1350, in theme colors), a short text, the reading history as CSV (opens in Excel and Google Sheets), a book backup without files — through the system Share menu; from there — a link to "Backups".
+- "Statistics" and "History" are the previous screens, now inside the profile; statistics run in the background.
 
-### Нижняя панель
+### Bottom bar
 
-- **Панель навигации парит** над содержимым (как в 1.6, но поверх списков, а не под ними): списки прокручиваются под
-  ней, последний элемент не прячется, кнопки и уведомления — над панелью. Полосы фона под панелью больше нет.
+- The **navigation bar floats** above the content (like 1.6, but over the lists instead of below): lists scroll under it, the last item is not hidden, buttons and notifications sit above the bar. The background strip under the bar is gone.
 
-### Каталог
+### Catalog
 
-- **Без подвисания при открытии.** Фильтр и сортировка списка источников (тысячи источников из больших репозиториев)
-  перенесены с главного потока в фон; названия языков кешируются (раньше сортировка «по языку» создавала `Locale` на
-  каждое сравнение); значки расширений рисуются в фоне и кешируются; источник отмечается «использованным» не чаще раза
-  в минуту — раньше каждая загруженная страница каталога заново сортировала весь список.
-- **Фильтры списка источников:** кнопки «Фильтры», «Языки» и сортировка над списком, активные фильтры — чипами
-  (нажатие убирает фильтр), «12 из 340», пока что-то скрыто. Фильтры: содержимое (манга, ранобэ, книги), тип
-  (расширения, встроенные, OPDS, локальная папка), 18+ (показывать / скрыть / только 18+), только закреплённые,
-  скрыть отключённые и неотвечающие. Языки — отдельный список с поиском и числом источников каждого языка, кнопки
-  «Все языки» и «Язык устройства и английский». **Всё сохраняется** и остаётся после перезапуска.
-- Поиск по источникам — с короткой паузой на ввод, список не пересчитывается на каждую букву.
+- **No more stutter on open.** The filter and sorting of the source list (thousands of sources from big repositories) moved off the main thread; language names are cached (sorting "by language" used to build a `Locale` per comparison); extension icons are drawn and cached in the background; a source is marked "used" at most once a minute — previously every loaded catalog page re-sorted the whole list.
+- **Source list filters:** "Filters", "Languages" and a sort control above the list, active filters as chips (tap removes one), "12 of 340" while something is hidden. Filters: content (manga, novels, books), type (extensions, built-ins, OPDS, local folder), 18+ (show / hide / 18+ only), pinned only, hide disabled and unresponsive. Languages are a separate list with search and per-language counts, with "All languages" and "Device language and English" buttons. **Everything is saved** and survives restarts.
+- Source search debounces input; the list is not recomputed on every letter.
 
-### Фильтры источников (NHentai.xxx, GalleryAdults и другие)
+### Source filters (NHentai.xxx, GalleryAdults and others)
 
-- **Теги появляются сами.** Многие расширения загружают теги в фоне и до этого пишут «Press 'reset' to attempt to load
-  tags». Yomu теперь сам спрашивает расширение ещё раз (в течение ~30 секунд) и подставляет теги, как только они
-  пришли, сохраняя уже выбранное; вместо подсказки — строка «Загружаем теги источника…» с кнопкой «Загрузить теги».
-- **«Сбросить» работает всегда** — раньше кнопка была неактивна, пока ничего не выбрано, и загрузить теги было нельзя.
-- **Фильтры строятся в фоне:** некоторые расширения строят их медленно или даже ходят за ними в сеть — экран
-  подвисал (или фильтры молча пропадали: сеть на главном потоке запрещена).
-- **Быстрая панель:** нажатие на чип перерисовывает только этот чип и счётчик его группы, а не всю панель (выбор
-  «Latest / Popular» в сортировке больше не тормозит); у длинных групп сначала 60 тегов и «Показать все», поиск в
-  группе ищет и во вложенных группах (теги по буквам).
-- **Фильтры не «съезжают»:** выбранные значения сохраняются вместе с именами фильтров и при поиске сопоставляются по
-  типу и имени, если расширение успело поменять список (например, подгрузило теги). Раньше значения переносились по
-  позиции и могли попасть не на тот фильтр. Сохранённые фильтры 1.7 читаются.
+- **Tags load themselves.** Many extensions load tags in the background and before that show "Press 'reset' to attempt to load tags". Yomu now re-asks the extension (within ~30 seconds) and fills the tags in as they arrive, keeping the selection; instead of the hint — a "Loading the source's tags…" row with a "Load tags" button.
+- **"Reset" always works** — the button used to be disabled until something was selected, and tags could not be loaded.
+- **Filters are built in the background:** some extensions build them slowly or even fetch them over the network — the screen stuttered (or filters silently vanished: network on the main thread is forbidden).
+- **A fast panel:** tapping a chip redraws only that chip and its group counter, not the whole panel (choosing "Latest / Popular" in sorting no longer lags); long groups show the first 60 tags and "Show all", and search inside a group searches nested groups too (typo-tolerant tag search).
+- **Filters do not "drift":** selected values are saved together with the filter names and re-matched by type and name on search if the extension changed the list in the meantime (e.g. loaded tags). Values used to be carried over by position and could land on the wrong filter. Saved 1.7 filters are read.
 
-### Читалка манги
+### Manga reader
 
-- **Зоны нажатий больше не показываются** при каждом открытии тайтла — по умолчанию выключено (вернуть: настройки
-  читалки → «Показывать зоны при открытии»).
+- **Tap zones no longer show on every title open** — off by default (back: reader settings → "Show zones on open").
 
-### Стабильность
+### Stability
 
-- Расчёты экранов каталога, статистики, истории и профиля — в фоне (`flowOn(Dispatchers.Default)`); запись
-  сохранённых фильтров — в фоне и по очереди.
+- Catalog, statistics, history and profile screen computations run in the background (`flowOn(Dispatchers.Default)`); saved-filter writes run in the background and serially.
 
 ## 1.7.0
 
-> **Установка.** Ставится поверх 1.6.0, если подписана тем же ключом (релизы на GitHub подписываются ключом из
-> секретов репозитория, см. [docs/RELEASING.md](docs/RELEASING.md)). База данных не меняется, значок на рабочем
-> столе остаётся.
+> **Install.** Installs over 1.6.0 if signed with the same key (GitHub releases are signed with the key from the repository secrets — see [docs/RELEASING.md](docs/RELEASING.md)). The database is unchanged; the desktop icon stays.
 
-### Значок приложения
+### App icon
 
-- **Семь значков на выбор:** «Настройки → Оформление → Значок приложения» — «Классика» и шесть новых: «Искра»,
-  «Лента», «Лис», «Ханко», «Взгляд» и «Манга». Все — адаптивные: лаунчер сам вырезает круг, квадрат или «капсулу»,
-  работает параллакс, а на Android 13 и новее у каждого есть тематический (монохромный) вариант под цвета обоев.
-  Выбор — плитками, как у акцентных цветов; в карточке «О приложении» — выбранный значок.
-- Значок меняется, когда вы выходите из приложения: пока Yomu открыт, некоторые лаунчеры в момент смены
-  перерисовывают или даже закрывают его. Некоторые лаунчеры убирают старый значок с рабочего стола — тогда добавьте
-  Yomu заново из списка приложений.
-- Выбор хранится в самой системе (по `activity-alias` на значок), поэтому отдельной настройки нет и в резервные копии
-  он не попадает.
-- Исходники значков — `branding/icon-options`: `make_icons.py` рисует SVG (передний план в безопасной зоне 66 dp,
-  монохромный слой), `svg2vd.py` переводит их в VectorDrawable — запекает трансформации, градиенты, маски и
-  прозрачность, а длинные контуры (точки «Манги») делит на части: строку длиннее 32 767 байт aapt2 не сохраняет.
+- **Seven icons to choose from:** Settings → Appearance → App icon — "Classic" and six new ones: "Spark", "Feed", "Fox", "Hanko", "Gaze" and "Manga". All are adaptive: the launcher crops a circle, square or capsule, parallax works, and on Android 13+ each has a themed (monochrome) variant matching the wallpaper. The picker is a tile grid like the accent colors; the About card shows the chosen icon.
+- The icon changes when you exit the app: while Yomu is open, some launchers redraw or even kill it on a switch. Some launchers remove the old icon from the home screen — add Yomu again from the app list then.
+- The choice is stored by the system itself (an `activity-alias` per icon), so there is no separate setting and it does not go into backups.
+- Icon sources live in `branding/icon-options`: `make_icons.py` draws the SVGs (foreground in a 66 dp safe zone, monochrome layer), `svg2vd.py` converts them to VectorDrawables — baking transforms, gradients, masks and transparency, and splitting long paths (the dots of "Manga") into chunks: aapt2 does not keep attribute strings longer than 32 767 bytes.
 
-### Обновления из приложения
+### In-app updates
 
-- **«О приложении → Проверить обновления» доводит дело до конца.** Если вышла новая версия, открывается окно с её
-  описанием из релиза на GitHub (заметка «Установка» — отдельной плашкой сверху) и размером загрузки. «Скачать и
-  установить» скачивает APK для архитектуры устройства, сверяет SHA-256 с `SHA256SUMS.txt` релиза и открывает
-  системный установщик. Ход скачивания — прямо в строке (кольцо с процентами, нажатие отменяет). Файл, не совпавший с
-  контрольной суммой, удаляется и не устанавливается, подпись проверяет сам Android: обновление встаёт только поверх
-  версии с тем же ключом.
-- **«Проверять автоматически»** — раз в день при запуске один запрос к GitHub. Выключено по умолчанию: приложение
-  выходит в сеть только по вашему действию. Когда есть новая версия, на вкладке «Настройки» появляется точка (в
-  TalkBack — «есть новое»), а вверху настроек — карточка «Доступна Yomu X», которая ведёт к описанию и обновлению.
-- Для установки нужно разрешение `REQUEST_INSTALL_PACKAGES`; при первом обновлении Android спросит, можно ли ставить
-  приложения из Yomu. Отладочная сборка (`app.yomu.reader.debug`) предупреждает, что релиз встанет рядом отдельным
-  приложением.
-- Выбор APK точнее: файл ищется по окончанию `-<ABI>.apk`, поэтому x86-устройству больше не предлагается x86_64-APK;
-  если подходящего нет, а файлов несколько, — вместо файла страница релиза.
+- **About → Check for updates finishes the job.** If a new version is out, a dialog opens with its description from the GitHub release (the "Install" note as a top callout) and the download size. "Download and install" fetches the APK for the device ABI, verifies its SHA-256 against the release's `SHA256SUMS.txt` and opens the system installer. Download progress is in the row itself (a ring with percent; tap cancels). A file that does not match the checksum is deleted and not installed; Android verifies the signature: an update installs only over a version signed with the same key.
+- **"Check automatically"** — once a day at launch, one request to GitHub. Off by default: the app only goes online when you act. When a new version is out, a dot appears on the Settings tab (TalkBack: "new content available") and a "Yomu X available" card at the top of Settings leads to the description and the update.
+- Installing needs the `REQUEST_INSTALL_PACKAGES` permission; on the first update Android asks whether apps may be installed from Yomu. The debug build (`app.yomu.reader.debug`) warns that a release installs alongside as a separate app.
+- APK selection is stricter: the file is matched by the `-<ABI>.apk` suffix, so an x86 device is no longer offered an x86_64 APK; if none matches and several files exist — the release page instead.
 
-### «Что нового»
+### What's new
 
-- После обновления один раз показывается короткий список изменений версии: «Понятно» и «Все изменения» (страница
-  релизов). При новой установке список не показывается — обо всём рассказывает приветствие.
+- After an update a short list of the version's changes shows once: "Got it" and "All changes" (the releases page). A fresh install does not show it — the welcome covers everything.
 
-### Прочее
+### Misc
 
-- Главная активность теперь `YomuActivity`; прежнее имя `.MainActivity` осталось за значком «Классика», поэтому
-  ярлыки на рабочем столе после обновления не пропадают.
-- Время последней проверки обновлений, найденная версия и показанное «Что нового» — состояние этой установки: в
-  резервные копии и синхронизацию они не попадают и при восстановлении не перезаписываются.
-- В архив исходников 1.6.0 не попали `docs/НЕ_СДЕЛАНО.md` и `docs/history/НЕ_СДЕЛАНО_до_доработки.md` (кириллица в
-  путях); теперь они на месте.
-- Тесты: `Release170LogicTest` (контрольные суммы, разбор релиза и его описания, «Что нового», переключение значков,
-  ежедневная проверка, скачивание и установщик на фейках) и `Release170ScreensTest` (все значки — круг, квадрат и
-  тематические, выбор значка, окно обновления, скачивание, карточка, точка на вкладке, «Что нового»).
+- The main activity is now `YomuActivity`; the old `.MainActivity` name stays with the "Classic" icon, so home-screen shortcuts survive updates.
+- The last update check, the found version and the shown "What's new" are per-installation state: they do not go into backups or sync and are not overwritten by a restore.
+- The 1.6.0 source archive missed `docs/НЕ_СДЕЛАНО.md` and `docs/history/НЕ_СДЕЛАНО_до_доработки.md` (Cyrillic paths); they are in place now.
+- Tests: `Release170LogicTest` (checksums, release parsing and description, "What's new", icon switching, the daily check, downloading and the installer on fakes) and `Release170ScreensTest` (all icons — circle, square, themed, the icon picker, the update dialog, downloading, the card, the tab dot, "What's new").
 
 ## 1.6.0
 
-> **Установка.** Ставится поверх 1.5.0, если подписана тем же ключом (релизы на GitHub подписываются ключом из
-> секретов репозитория, см. [docs/RELEASING.md](docs/RELEASING.md)). База данных не меняется.
+> **Install.** Installs over 1.5.0 if signed with the same key (GitHub releases are signed with the key from the repository secrets — see [docs/RELEASING.md](docs/RELEASING.md)). The database is unchanged.
 
-### Панель навигации
+### Navigation bar
 
-- **Плавная анимация вместо резкой.** Капсула выбранного раздела перетекает к нажатому: растягивается, соседи
-  расступаются, название проявляется по мере раскрытия, контурный значок перетекает в залитый. Вместо короткого
-  tween — мягкая пружина без отскока, поэтому быстрые нажатия подряд продолжают движение, а не дёргают панель.
-  С подписями у всех разделов скользит небольшой индикатор под значком. Все расчёты — в фазах раскладки и
-  отрисовки, без перекомпозиции на каждый кадр. Панель скрывается и появляется (например, при открытии книги)
-  плавным выездом снизу. «Уменьшить движение» отключает анимацию.
-- **Настройки → Панель навигации** (новый раздел): порядок вкладок — перетаскиванием за ручку или долгим нажатием,
-  у каждой вкладки — выключатель, можно скрыть, например, «Словарь» или «Историю». Первая вкладка открывается при
-  запуске. «Настройки» скрыть нельзя, чтобы всегда можно было вернуться; «Вернуть вкладки по умолчанию». Сюда же
-  переехали «Подписи в панели навигации». В TalkBack — действия «Выше» / «Ниже».
+- **A smooth animation instead of a jump.** The selected section's capsule flows to the tapped one: it stretches, neighbours step aside, the label fades in as it opens, the outlined icon fills in. Instead of a short tween — a soft spring without bounce, so quick consecutive taps continue the motion instead of jerking the bar. With labels on all sections a small indicator slides under the icon. All computations run in layout and draw phases, without per-frame recomposition. The bar hides and shows (e.g. when a book opens) with a smooth slide from the bottom. "Reduce motion" disables the animation.
+- **Settings → Navigation bar** (a new section): tab order — drag by the handle or long-press; each tab has a switch and can be hidden, e.g. "Dictionary" or "History". The first tab opens at launch. "Settings" cannot be hidden so you can always get back; "Reset tabs to default". "Labels in the navigation bar" moved here too. TalkBack gets "Move up" / "Move down" actions.
 
-### Каталог: экран источника
+### Catalog: the source screen
 
-- **Вкладки «Популярное», «Новое», «Поиск».** Поиск и фильтры переехали из верхней панели в третью вкладку: поле
-  поиска, кнопка фильтров с числом активных, недавние запросы и все фильтры источника прямо на странице, внизу —
-  «Показать результаты». Над результатами — активные фильтры чипами (крестик убирает фильтр), кнопка фильтров
-  снова открывает панель. Вкладки листаются свайпом, индикатор идёт за пальцем; у каждой — свой список и своя
-  позиция прокрутки.
-- **Исправлено: не работала вкладка «Новое»** (например, у Weeb Central). У экрана был один общий список, который
-  переключался между «Популярным» и «Новым»: пока «Новое» загружалось или падало с ошибкой, на экране оставались
-  популярные тайтлы, а ошибка не показывалась — казалось, что вкладка ничего не делает. Теперь у «Популярного»,
-  «Нового» и каждого поиска свой загрузчик страниц: «Новое» показывает свои тайтлы, а при ошибке — причину,
-  «Повторить» и «Открыть в WebView» (если сайт требует проверку браузера).
-- «Ничего не найдено» — только когда источник действительно вернул пустой список, во время загрузки — заглушки
-  карточек. Если обновление (потянуть вниз) не удалось, тайтлы остаются, причина — во всплывающем сообщении.
+- **"Popular", "Latest", "Search" tabs.** Search and filters moved from the top bar into the third tab: the search field, a filter button with the active count, recent queries and all of the source's filters right on the page, with "Show results" at the bottom. Above the results — active filters as chips (a cross removes one), the filter button re-opens the panel. Tabs swipe with the indicator following the finger; each has its own list and scroll position.
+- **Fixed: the "Latest" tab did not work** (e.g. on Weeb Central). The screen had one shared list switched between "Popular" and "Latest": while "Latest" was loading or failing, popular titles stayed on screen and the error was hidden — the tab seemed dead. "Popular", "Latest" and every search now have their own page loader: "Latest" shows its titles, and on failure — the reason, "Retry" and "Open in WebView" (if the site demands a browser check).
+- "Nothing found" — only when the source really returned an empty list; while loading — card placeholders. If a pull-to-refresh fails, the titles stay and the reason appears as a snackbar.
 
-### О приложении
+### About
 
-- Карточка с иконкой, версией и автором — **Shinoame**. Ссылки: автор ([github.com/adxptived](https://github.com/adxptived)),
-  исходный код ([github.com/adxptived/yomu](https://github.com/adxptived/yomu)), релизы и «Сообщить о проблеме».
-- **«Проверить обновления»** — один запрос к GitHub Releases по нажатию (без фоновых проверок): если вышла новая
-  версия, нажатие открывает APK для архитектуры устройства.
+- A card with the icon, version and author — **Shinoame**. Links: the author ([github.com/adxptived](https://github.com/adxptived)), the source code ([github.com/adxptived/yomu](https://github.com/adxptived/yomu)), releases and "Report an issue".
+- **"Check for updates"** — one GitHub Releases request per tap (no background checks): if a new version is out, tapping opens the APK for the device ABI.
 
-### Сборка и релизы
+### Build and releases
 
-- **GitHub Actions собирают APK в релизы:** тег `vX.Y.Z` → тесты → GitHub Release с `yomu-vX.Y.Z-arm64-v8a.apk`,
-  `…-x86_64.apk`, `SHA256SUMS.txt`, `mapping.txt` и описанием из этого файла; тег сверяется с `versionName`, теги
-  с суффиксом (`v1.6.0-beta.1`) — пре-релизы. Ночные сборки `nightly` из `main` после зелёного CI с постоянными
-  ссылками на APK. Dependabot для зависимостей и Actions, шаблоны issue со ссылками на релизы. Как настроить ключ
-  подписи и выпустить версию — [docs/RELEASING.md](docs/RELEASING.md).
-- Свойство Gradle `-Pyomu.versionSuffix=…` добавляет суффикс к `versionName` (ночные сборки, беты).
-- Тесты: `Release160ScreensTest` (кадры анимации панели, настройки навигации, «О приложении», вкладки источника на
-  фейковой модели) и `Release160LogicTest` (порядок вкладок, сравнение версий, выбор APK из релиза).
+- **GitHub Actions builds APKs into releases:** the `vX.Y.Z` tag → tests → a GitHub Release with `yomu-vX.Y.Z-arm64-v8a.apk`, `…-x86_64.apk`, `SHA256SUMS.txt`, `mapping.txt` and a description from this file; the tag is checked against `versionName`, suffixed tags (`v1.6.0-beta.1`) are pre-releases. `nightly` builds from `main` after a green CI with permanent APK links. Dependabot for dependencies and Actions, issue templates with release links. Setting up the signing key and releasing — [docs/RELEASING.md](docs/RELEASING.md).
+- The Gradle property `-Pyomu.versionSuffix=…` appends a suffix to `versionName` (nightlies, betas).
+- Tests: `Release160ScreensTest` (bar animation frames, navigation settings, About, source tabs on a fake model) and `Release160LogicTest` (tab order, version comparison, APK selection from a release).
 
 ## 1.5.0
 
-> **Установка.** Подписана тем же ключом, что 1.3.1 и 1.4.0, — ставится поверх 1.4.0, данные сохраняются. База
-> данных обновляется сама (схема 4): категории онлайн-библиотеки становятся вкладками.
+> **Install.** Signed with the same key as 1.3.1 and 1.4.0 — installs over 1.4.0, data is kept. The database migrates itself (schema 4): online-library categories become tabs.
 
-### Библиотека
+### Library
 
-- **Исправлено: «Your library is empty» при тайтлах с сердечком.** Если книг с устройства нет, а онлайн-тайтлы есть,
-  библиотека показывает их (полка «Из каталога», «Продолжить чтение»), а вместо пустого экрана — небольшую карточку
-  «Книг с устройства пока нет» с кнопкой импорта. На пустом экране кнопка «Импорт» больше не дублируется плавающей.
-- **Вкладки вместо ряда чипов «Книги / PDF / Комиксы…».** Сверху — «Все», «Онлайн (N)» и **свои вкладки**; «+» создаёт
-  новую. В одной вкладке могут лежать и книги, и онлайн-тайтлы. Долгое нажатие на вкладку — переименовать, сдвинуть
-  влево/вправо, удалить (книги и тайтлы при этом остаются в библиотеке).
-- **Добавить во вкладку:** выделите книги долгим нажатием → «Во вкладки»; долгое нажатие на онлайн-тайтл →
-  «Вкладки…» (в обоих случаях можно сразу создать новую вкладку). При нажатии на сердечко, если вкладки уже есть, тайтл
-  можно сразу разложить по ним; на странице тайтла — «⋮ → Вкладки…». В «Каталог → Библиотека» — те же вкладки.
-- **Нормальный фильтр.** Кнопка «Фильтр» (с числом активных фильтров) открывает панель: тип (книги, PDF, комиксы,
-  онлайн), статус чтения, теги, языки, сортировка, вид (сетка/список) и число колонок. Активные фильтры видны
-  чипами под панелью инструментов, у каждого — крестик, рядом «Сбросить всё». Сортировка и переключатель сетки/списка —
-  отдельными кнопками.
-- **«Продолжить чтение»** — большая карточка последней книги или тайтла и ряд следующих; онлайн-тайтлы с
-  непрочитанными главами тоже здесь.
-- Заголовок «Библиотека» со счётчиками, круглые кнопки поиска и меню.
+- **Fixed: "Your library is empty" with favorited titles.** If there are no on-device books but online titles exist, the library shows them (an "From the catalog" shelf, "Continue reading"), and instead of an empty screen — a small "No on-device books yet" card with an import button. On an empty screen the "Import" button is no longer duplicated by a floating one.
+- **Tabs instead of the "Books / PDF / Comics…" chip row.** On top — "All", "Online (N)" and **custom tabs**; "+" creates one. A tab can hold both books and online titles. Long-press a tab to rename, move left/right or delete (books and titles stay in the library).
+- **Add to a tab:** select books with a long press → "To tabs"; long-press an online title → "Tabs…" (both can create a new tab right away). When tapping the heart, if tabs exist the title can be shelved immediately; on a title page — "⋮ → Tabs…". In "Catalog → Library" — the same tabs.
+- **A real filter.** The "Filter" button (with the active count) opens a panel: type (books, PDF, comics, online), reading status, tags, languages, sorting, view (grid/list) and column count. Active filters show as chips under the toolbar, each with a cross, next to "Reset all". Sorting and the grid/list switch are separate buttons.
+- **"Continue reading"** — a large card of the last book or title and a row of the next ones; online titles with unread chapters are here too.
+- A "Library" header with counters, round search and menu buttons.
 
-### Оформление
+### Appearance
 
-- **Новый дизайн в тёмных тонах:** графитовый фон, лавандовый акцент, скруглённые карточки и кнопки-«пилюли»,
-  плавающая панель навигации (выбранный раздел — капсула со значком и названием).
-- **Тёмная тема по умолчанию** (если вы раньше выбирали тему вручную, выбор сохраняется).
-- **«Настройки → Оформление»:** предпросмотр, тема (как в системе/светлая/тёмная), «Чистый чёрный» (AMOLED),
-  «Динамические цвета» (из обоев, Material You),
-  **акцентный цвет** — лавандовый, фиолетовый, индиго, синий, бирюзовый, зелёный, оранжевый, красный, розовый,
-  «Классика» (палитра 1.0–1.4) и **свой цвет** (оттенок и насыщенность ползунками); подписи в панели навигации.
-  Весь интерфейс перекрашивается под акцент, контраст текста — не ниже WCAG AA.
-- Корневой экран настроек — сгруппированные карточки со значками.
-- Обложки-заглушки (у книг и тайтлов без обложки) и значки источников без своей иконки — в гамме от бирюзового через
-  синий и фиолетовый до оранжевого, без зелёного.
+- **A new dark-toned design:** graphite background, lavender accent, rounded cards and pill buttons, a floating navigation bar (the selected section — a capsule with an icon and label).
+- **Dark theme by default** (if you picked a theme manually before, the choice is kept).
+- **Settings → Appearance:** a preview, theme (system/light/dark), "Pure black" (AMOLED), "Dynamic colors" (from wallpaper, Material You), an **accent color** — lavender, purple, indigo, blue, teal, green, orange, red, pink, "Classic" (the 1.0–1.4 palette) and a **custom color** (hue and saturation sliders); labels in the navigation bar. The whole UI repaints under the accent, text contrast is at least WCAG AA.
+- The settings root screen — grouped cards with icons.
+- Placeholder covers (for books and titles without a cover) and icons of sources without their own — in a range from teal through blue and purple to orange, without green.
 
-### Для разработчиков
+### For developers
 
-- Схема БД 4: таблица `catalog_collections` (тайтл ↔ вкладка); коллекции книг и категории каталога объединены
-  (`LibraryTabs`). Миграция 3 → 4 и восстановление старых резервных копий переносят категории во вкладки (одноимённые
-  вкладки сливаются). Тесты: `DatabaseMigrationTest.migrates3To4…`, `BackupCompatibilityTest.restoresCategories…`,
-  `PaletteTest` (контраст всех акцентов), `Release150ScreensTest` (скриншоты).
+- DB schema 4: a `catalog_collections` table (title ↔ tab); book collections and catalog categories merged (`LibraryTabs`). The 3 → 4 migration and restoring old backups move categories into tabs (same-named tabs merge). Tests: `DatabaseMigrationTest.migrates3To4…`, `BackupCompatibilityTest.restoresCategories…`, `PaletteTest` (contrast of all accents), `Release150ScreensTest` (screenshots).
 
 ## 1.4.0
 
-> **Установка.** Подписана тем же ключом, что 1.3.1, — ставится поверх 1.3.1, данные сохраняются. База данных не
-> менялась (схема 3).
+> **Install.** Signed with the same key as 1.3.1 — installs over 1.3.1, data is kept. The database did not change (schema 3).
 
-### Главы
+### Chapters
 
-- **Номер у каждой главы.** Слева в строке главы — её номер по порядку чтения: 1 — первая глава, у последней — общее
-  число глав. При сортировке «новые сверху» вверху стоит самая большая цифра (например, 368), внизу — 1. Копии одной
-  главы от разных команд перевода получают один номер. Над списком — «Прочитано X из N» с полосой прогресса и
-  «Скачано N».
-- **В читалке** под названием — «Глава 12 из 368».
-- У строки главы — значки даты выхода, команды перевода и страницы, на которой вы остановились; состояние загрузки
-  (в очереди, качается, скачана) меняется с анимацией.
-- В шапке тайтла — значки автора, статуса (выходит, завершён, на паузе, отменён), типа (манга, ранобэ, книга) и
-  источника; у пунктов меню тайтла и меню выбора глав — значки.
+- **A number on every chapter row.** On the left — the chapter's reading-order number: 1 for the first, the total count for the last. With "newest first" sorting the top row shows the largest number (e.g. 368) and the bottom — 1. Copies of one chapter from different scanlation groups share a number. Above the list — "Read X of N" with a progress bar and "Downloaded N".
+- In the reader, under the title — "Chapter 12 of 368".
+- Chapter rows carry icons for the release date, the scanlation group and the page you stopped on; the download state (queued, downloading, downloaded) animates.
+- The title header has icons for author, status (ongoing, completed, paused, cancelled), type (manga, novel, book) and source; title menu items and the chapter-selection menu have icons too.
 
-### Библиотека
+### Library
 
-- **Тайтлы с сердечком теперь видны в «Библиотеке».** Раньше они были только в «Каталог → Библиотека». Теперь у
-  библиотеки есть вкладка **«Онлайн (N)»** — та же сетка, категории, сортировка и фильтры, что в каталоге; поиск
-  библиотеки ищет и по ним. Во вкладке «Все» над книгами — полка **«Из каталога»** с кнопкой «Все».
-- Сообщение после нажатия на сердечко подсказывает, где искать тайтл: «Добавлено в библиотеку (Библиотека → Онлайн)».
+- **Favorited titles are now visible in "Library".** They used to live only in "Catalog → Library". The library has an **"Online (N)"** tab — the same grid, categories, sorting and filters as the catalog; library search covers them. In the "All" tab, above the books — an **"From the catalog"** shelf with an "All" button.
+- A message after tapping the heart tells where to find the title: "Added to the library (Library → Online)".
 
-### Сеть и трафик
+### Network and traffic
 
-Новый раздел **«Настройки → Сеть и трафик»**:
+A new **Settings → Network and traffic** section:
 
-- **Только по Wi-Fi** — загрузки, проверка новых глав и языковые пакеты перевода (те же переключатели, что в своих
-  разделах, собраны в одном месте).
-- **Экономия мобильного трафика** — в мобильной сети читалка подгружает только следующую страницу, а новые главы и
-  главы «наперёд» не скачиваются автоматически (по Wi-Fi всё как обычно).
-- **Загружать обложки в мобильной сети** — если выключить, в мобильной сети показываются только обложки, которые уже
-  есть в кеше.
-- **Спрашивать перед чтением онлайн в мобильной сети** — при открытии нескачанной главы со страницы тайтла:
-  «Читать», «Скачать» или «Отмена».
-- **Использованный трафик** — сколько приложение скачало и отправило: всего, мобильная сеть и Wi-Fi, с какой даты, какая
-  сеть сейчас; «Сбросить счётчик». Считается трафик самого приложения (каталог, обложки, страницы, загрузки,
-  расширения); страницы встроенного браузера не учитываются.
+- **Wi-Fi only** — downloads, the chapter-update check and translation language packs (the same switches as in their own sections, gathered in one place).
+- **Mobile data saver** — on mobile data the reader preloads only the next page, and new chapters and "download ahead" chapters are not downloaded automatically (Wi-Fi behaves as usual).
+- **Load covers on mobile data** — if off, only covers already in the cache show on mobile data.
+- **Ask before reading online on mobile data** — when opening an undownloaded chapter from a title page: "Read", "Download" or "Cancel".
+- **Traffic used** — how much the app downloaded and sent: total, mobile and Wi-Fi, since which date, which network is active; "Reset counter". Counts the app's own traffic (catalog, covers, pages, downloads, extensions); pages of the built-in browser are not counted.
 
-### Скорость
+### Speed
 
-- Страницы главы скачиваются параллельно — «Страниц главы одновременно» (1–6, по умолчанию 3) в «Загрузки и
-  хранилище». Раньше страницы качались по одной.
-- Читалка манги подгружает следующие страницы параллельно (до трёх сразу) и не тратит время на страницы, которые вы уже
-  пролистали; одна и та же страница больше не может скачиваться дважды.
-- Больше одновременных соединений с одним сайтом (10 вместо 5): обложки сетки грузятся быстрее.
-- MangaDex: ограничение «5 запросов в секунду» теперь только для API; картинки (обложки и страницы с
-  `uploads.mangadex.org`) больше не ждут в той же очереди.
+- Chapter pages download in parallel — "Pages downloaded at once" (1–6, default 3) in "Downloads and storage". Pages used to download one by one.
+- The manga reader preloads the next pages in parallel (up to three at once) and does not spend time on pages you already scrolled past; the same page can no longer be downloaded twice.
+- More simultaneous connections per site (10 instead of 5): grid covers load faster.
+- MangaDex: the "5 requests per second" limit now applies only to the API; images (covers and `uploads.mangadex.org` pages) no longer wait in the same queue.
 
-### Поиск в источниках
+### Source search
 
-- **Новые фильтры.** Группы фильтров — карточки со значком, числом выбранного и кнопкой «Снять выбор в группе»;
-  короткие группы открыты сразу, в свёрнутой группе видно, что выбрано. Варианты — чипы: одно нажатие — включить (✓),
-  второе — исключить (⛔), третье — снять. В длинных группах (жанры, темы) — поле «Найти в …». Сортировка — чипы со
-  стрелкой направления (повторное нажатие переворачивает порядок), короткие списки — чипы, длинные — меню.
-- **Активные фильтры над результатами** — чипами: нажатие убирает фильтр и сразу ищет заново, «Сбросить все»
-  возвращает фильтры источника по умолчанию. На кнопке фильтров — число включённых фильтров.
-- **История поиска** — последние 10 запросов чипами под строкой поиска, «Очистить». В режиме инкогнито запросы не
-  запоминаются.
+- **New filters.** Filter groups are cards with an icon, a count of selections and a "Clear the group" button; short groups are open, a collapsed one shows what is selected. Options are chips: one tap includes (✓), a second excludes (⛔), a third clears. Long groups (genres, themes) have a "Find in …" field. Sorting — chips with a direction arrow (tap again flips the order), short lists — chips, long — menus.
+- **Active filters above the results** — as chips: tapping removes a filter and immediately re-searches, "Reset all" returns the source's default filters. The filter button shows the number of enabled filters.
+- **Search history** — the last 10 queries as chips under the search field, "Clear". In incognito, queries are not remembered.
 
-### Значки и анимации
+### Icons and animations
 
-- Значки у всех пунктов настроек и у разделов.
-- Плавное появление, удаление и перестановка элементов в библиотеке, каталоге, списке глав, загрузках, истории и
-  результатах источника; «пульс» сердечка; раскрытие групп фильтров. Переключатель «Меньше анимаций»
-  («Настройки → Оформление») выключает и их.
+- Icons on every settings item and section.
+- Smooth appear, remove and reorder animations in the library, catalog, chapter list, downloads, history and source results; a heart "pulse"; filter group expansion. A "Fewer animations" switch (Settings → Appearance) turns these off too.
 
 ## 1.3.1
 
-> **Установка.** APK 1.3.1 подписан новым постоянным ключом (ключ, которым подписана 1.2.0, не сохранился), поэтому
-> поверх 1.2.0 он не встанет. Сделайте резервную копию («Настройки → Резервные копии и синхронизация → Создать
-> резервную копию»), удалите старую версию, установите 1.3.1 и восстановите копию. Следующие версии с этим ключом
-> ставятся поверх. База данных — схема 3, как в 1.3.0: с 1.2.0 она переходит сама.
+> **Install.** APK 1.3.1 is signed with a new permanent key (the key that signed 1.2.0 was not kept), so it does not install over 1.2.0. Make a backup (Settings → Backup and sync → Create a backup), uninstall the old version, install 1.3.1 and restore the backup. Later versions with this key install over each other. The database is schema 3, as in 1.3.0: it migrates from 1.2.0 by itself.
 
-### Исправлено
+### Fixed
 
-- **Ошибки, которые закрывали приложение целиком, теперь закрывают только действие.** Все действия экранов (кнопки,
-  меню, импорт, сохранение) защищены: необработанная ошибка пишется в журнал ошибок, а на экране появляется
-  «Что-то пошло не так. Подробности — в журнале ошибок». Так же защищены жесты в PDF, чтение файла в редакторе EPUB,
-  подсказки и первый запуск.
-- **Несовместимые расширения больше не роняют каталог.** Расширение, собранное под другую версию API (ошибки
-  `NoSuchMethodError`, `NoClassDefFoundError`, `AbstractMethodError`), функция, которую расширение «не реализовало», или
-  бесконечная рекурсия в нём — это теперь ошибка «Источник устарел» с советом обновить расширение. Лента источника,
-  глобальный поиск, его «Повторить» и экран расширений переживают любой сбой расширения; сбой внутри сетевого
-  перехватчика (в том числе чужого) становится ошибкой запроса, а не падением фонового потока.
-- **Нет WebView — нет падения.** Если Android System WebView не установлен, отключён или обновляется, читалка EPUB,
-  проверка сайта в каталоге, «Разметка страницы» DOCX и редактор исходника показывают «WebView недоступен» с кнопками
-  «Повторить» и «Открыть в магазине». Cookie без WebView тоже не роняют запросы.
-- **Закончилось место.** Загрузка, упёршаяся в полную память, ставит на паузу себя и всю очередь с причиной
-  «Недостаточно места» (раньше главы по очереди падали с ошибкой), уведомление «Загрузки приостановлены: закончилось
-  место» — с кнопкой «Продолжить». Нехватка места распознаётся и в базе данных.
-- Повреждённый файл настроек больше не мешает запуску: настройки сбрасываются к значениям по умолчанию.
-- Каталог не может «застрять» в загрузке: OPDS-каталоги, локальная папка и расширения поднимаются по отдельности, сбой
-  одного не мешает остальным.
-- Читалка манги в режиме ленты: страница, которая не загрузилась, показывает ошибку и «Повторить» вместо бесконечной
-  загрузки.
-- PDF: выход из читалки во время отрисовки страницы больше не может уронить приложение (документ закрывается после
-  текущей страницы); страница, размер которой не читается, не ломает экран.
-- Редактор EPUB: книга, в которой одна глава повторяется в порядке чтения, больше не роняет список глав; файл, который
-  не читается, — сообщение об ошибке.
-- «Поделиться» и «Открыть ссылку» без подходящего приложения — сообщение вместо падения.
-- Экран «Загрузки»: карточка занятого места больше не прячется наполовину под заголовком; у группы глав в очереди число
-  видно и при длинном названии; у загрузок, приостановленных из-за места, видна причина, а пауза вручную убирает
-  старые сообщения об ошибках.
-- Открытие приложения из списка недавних больше не повторяет импорт файла, которым поделились раньше.
-- Журнал ошибок не разрастается от повторяющейся ошибки: хранятся последние 50 отчётов.
+- **Errors that closed the whole app now close only the action.** All screen actions (buttons, menus, import, saving) are guarded: an unhandled error goes to the error log and the screen shows "Something went wrong. Details — in the error log". PDF gestures, EPUB editor file reading, hints and onboarding are guarded the same way.
+- **Incompatible extensions no longer crash the catalog.** An extension built against another API version (`NoSuchMethodError`, `NoClassDefFoundError`, `AbstractMethodError`), a function it "did not implement", or infinite recursion inside it is now an "Outdated source" error suggesting an extension update. A source's feed, global search with its "Retry", and the extensions screen survive any extension crash; a crash inside a network interceptor (including a foreign one) becomes a request error, not a background-thread death.
+- **No WebView — no crash.** If Android System WebView is missing, disabled or updating, the EPUB reader, catalog site checks, the DOCX page layout and the source editor show "WebView unavailable" with "Retry" and "Open in store". Cookies without WebView no longer crash requests either.
+- **Out of space.** A download that hit a full disk pauses itself and the whole queue with the reason "Not enough space" (chapters used to fail one by one), with a "Downloads paused: out of space" notification and a "Continue" button. Low space is recognized in the database too.
+- A corrupted settings file no longer blocks launch: settings reset to defaults.
+- The catalog cannot get "stuck" loading: OPDS catalogs, the local folder and extensions come up separately, one failing does not block the others.
+- The manga reader in webtoon mode: a page that failed shows an error and "Retry" instead of an endless spinner.
+- PDF: exiting the reader during a page render can no longer crash the app (the document closes after the current page); a page whose size cannot be read does not break the screen.
+- The EPUB editor: a book with one chapter repeated in the reading order no longer crashes the chapter list; an unreadable file shows an error message.
+- "Share" and "Open link" without a suitable app — a message instead of a crash.
+- The Downloads screen: the space card is no longer half-hidden under the header; a chapter group's count is visible with long titles; downloads paused for space show the reason, and a manual pause clears old error messages.
+- Opening the app from recents no longer repeats a previously shared-file import.
+- The error log does not grow from a repeating error: the last 50 reports are kept.
 
-### Улучшено
+### Improved
 
-- **Уведомления загрузок**: нажатие открывает экран «Загрузки»; кнопки «Пауза» (во время загрузки), «Повторить» (если
-  были ошибки) и «Продолжить» (после паузы из-за места) работают, не открывая приложение.
-- Тайтл, источник которого не установлен (расширение удалено): в шапке — «Источник не установлен» вместо «—» и карточка с
-  кнопкой «Миграция».
+- **Download notifications**: tapping opens the Downloads screen; "Pause" (while downloading), "Retry" (after errors) and "Continue" (after a space pause) work without opening the app.
+- A title whose source is not installed (extension removed): the header shows "Source not installed" instead of "—" and a card with a "Migrate" button.
 
-### Тесты
+### Tests
 
-- Новые: `TachiyomiSourceErrorsTest` (сбои расширений), `NotificationActionsTest` (кнопки уведомлений и переход в
-  загрузки), `CatalogScreensTest` (Robolectric-скриншоты экрана тайтла, сортировки, меню загрузки, выбора глав,
-  очереди и фильтров библиотеки), `ChapterDownloadQueueTest.fullStoragePausesTheQueue`; дополнены `AppErrorTest` и
-  `SourceCallsTest`.
+- New: `TachiyomiSourceErrorsTest` (extension crashes), `NotificationActionsTest` (notification buttons and the Downloads transition), `CatalogScreensTest` (Robolectric screenshots of the title page, sorting, download menu, chapter selection, the queue and library filters), `ChapterDownloadQueueTest.fullStoragePausesTheQueue`; `AppErrorTest` and `SourceCallsTest` extended.
 
 ## 1.3.0
 
-> **Обновление с 1.2.0** ставится поверх (если APK подписан тем же ключом). База данных сама переходит на схему 3
-> (новые поля для сортировки глав и очереди загрузок): тайтлы, прочитанные главы, закладки и очередь загрузок
-> сохраняются — переход закреплён тестом миграции. Резервные копии 1.2.0 восстанавливаются как раньше.
+> **Updating from 1.2.0** installs over (if the APK is signed with the same key). The database migrates itself to schema 3 (new fields for chapter sorting and the download queue): titles, chapters read, bookmarks and the download queue are kept — the migration is pinned by a test. 1.2.0 backups restore as before.
 
-### Исправлено
+### Fixed
 
-- **Порядок глав на экране тайтла и в читалке не совпадал**, а «Следующая глава» могла вести назад или на ту же главу
-  другой команды перевода. Теперь у каталога один порядок чтения — для списка глав, читалки, «Продолжить», «Скачать
-  следующие» и автозагрузки: направление списка источника определяется по номерам (или датам выхода), главы без
-  номера («Пролог», «Экстра») стоят между соседями, а не в конце, нумерация заново в каждом томе не перемешивает тома,
-  версии одной главы от разных команд идут рядом — «Следующая»/«Предыдущая» пропускают их и держатся вашей команды.
-- **Сбой источника больше не стирает список глав.** Пустой ответ сайта для тайтла с главами считается ошибкой, а не
-  «все главы удалены»: отметки «прочитано», закладки и история остаются. Если сайт поменял адреса глав, отметки
-  переходят на ту же главу (тот же номер и команда), и такие главы не считаются новыми. Повторы в списке источника
-  пропускаются, изменившийся номер главы подхватывается.
-- **Вместо картинки больше не сохраняется веб-страница.** Страницы манги (при загрузке и в кеше онлайн-чтения)
-  проверяются по первым байтам (JPEG, PNG, GIF, WebP, AVIF, HEIC, JPEG XL, BMP): страница проверки или ошибки и пустой
-  ответ — это ошибка «Сервер прислал веб-страницу вместо изображения» с повтором, а не «битая» глава. Для книг — «…вместо
-  файла (возможно, нужен вход)».
-- Ответ 429 («слишком много запросов») от расширений повторяется с паузой, а не открывает WebView; WebView остаётся для
-  проверок 403/503.
-- Лента источника больше не повторяет тайтлы: уже показанные убираются, а страница из одних повторов останавливает
-  подгрузку (некоторые сайты бесконечно отдавали одну и ту же страницу).
-- Главы, добавленные в очередь в момент, когда она заканчивала работу, больше не ждут следующего запуска загрузок.
+- **Chapter order on the title screen and in the reader disagreed**, and "Next chapter" could go backwards or to the same-numbered chapter of another group. The catalog now has one reading order — for the chapter list, the reader, "Continue", "Download next" and auto-downloads: the source list direction is derived from numbers (or dates), chapters without a number ("Prologue", "Extra") sit between their neighbours instead of at the end, per-volume renumbering does not mix volumes, and versions of one chapter from different groups sit next to each other — "Next"/"Previous" skip them and stay with your group.
+- **A source failure no longer wipes the chapter list.** An empty website response for a title with chapters counts as an error, not "all chapters removed": read marks, bookmarks and history stay. If the site changed chapter addresses, marks move to the same chapter (same number and group) and such chapters are not counted as new. Duplicates in a source list are skipped, and a changed chapter number is picked up.
+- **A web page is no longer saved instead of an image.** Manga pages (on download and in the online-reading cache) are validated by their first bytes (JPEG, PNG, GIF, WebP, AVIF, HEIC, JPEG XL, BMP): a check or error page and an empty response raise "The server sent a web page instead of an image" with a retry, not a "broken" chapter. For books — "…instead of a file (you may need to sign in)".
+- A 429 ("too many requests") from extensions is retried with a pause instead of opening WebView; WebView stays for 403/503 checks.
+- A source feed no longer repeats titles: already-shown ones are removed, and a page of only repeats stops pagination (some sites served the same page forever).
+- Chapters added to the queue while it was finishing no longer wait for the next download run.
 
-### Сортировка и фильтры
+### Sorting and filters
 
-- **Главы тайтла** — кнопка «Сортировка и фильтр» над списком. Сортировка: «По номеру главы», «Как в источнике»,
-  «По дате выхода» — по возрастанию или убыванию (стрелка). Фильтры: «Только непрочитанные», «Только скачанные»,
-  «Только в закладках», «Одна версия главы» (скрывает копии той же главы от других команд), выбор команд перевода
-  (главы скрытых команд не показываются и не скачиваются автоматически), «Сбросить фильтры». Настройки хранятся для
-  каждого тайтла; «Для всех тайтлов» делает их общими по умолчанию. В заголовке списка — «Глав: N из M», на значке
-  фильтра — отметка, когда что-то скрыто.
-- **Выбор глав**: «Выбрать непрочитанные», «Выбрать диапазон» (между отмеченными), «Инвертировать выбор».
-- **Библиотека каталога**: сортировка «По обновлению», «По названию», «По непрочитанным», «По последнему чтению»,
-  «По дате добавления», «По числу глав» — в обе стороны; фильтры «С непрочитанными главами», «Со скачанными главами»,
-  «Завершённые». Названия сравниваются «по-человечески» (том 2 раньше тома 10, без учёта регистра). Если под фильтры
-  ничего не подходит — сообщение и «Сбросить фильтры».
-- **Источники**: сортировка «Недавние», «По названию», «По языку» (язык устройства первым), закреплённые — всегда
-  сверху; поиск по источникам, когда их больше шести.
-- **Поиск**: результаты источника — от лучших совпадений с запросом (то же название, начинается с запроса, содержит
-  его, все слова в любом порядке), внутри группы — порядок источника; повторы убраны. Ссылки на скачивание книги — без
-  дублей, удобные форматы первыми (EPUB, FB2, MOBI/AZW3, PDF…).
+- **A title's chapters** — a "Sort and filter" button above the list. Sorting: "By chapter number", "As in source", "By release date" — ascending or descending (an arrow). Filters: "Unread only", "Downloaded only", "Bookmarked only", "One chapter version" (hides copies of the same chapter from other groups), scanlation group selection (chapters of hidden groups are not shown and not auto-downloaded), "Reset filters". Stored per title; "For all titles" makes them the default everywhere. The list header shows "Chapters: N of M", and the filter icon is marked when something is hidden.
+- **Chapter selection**: "Select unread", "Select range" (between marked), "Invert selection".
+- **The catalog library**: sorting by "Updated", "Title", "Unread", "Last read", "Date added", "Chapter count" — both directions; filters "With unread chapters", "With downloaded chapters", "Completed". Names compare "humanely" (volume 2 before volume 10, case-insensitive). If nothing matches the filters — a message and "Reset filters".
+- **Sources**: sorting "Recent", "Title", "Language" (device language first), pinned always first; source search once there are more than six.
+- **Search**: a source's results — best matches first (same title, starts with the query, contains it, all words in any order), within a group — the source's order; duplicates removed. Book download links — without duplicates, convenient formats first (EPUB, FB2, MOBI/AZW3, PDF…).
 
-### Стабильность источников
+### Source stability
 
-- **Тайм-ауты и повторы.** У каждого запроса к источнику есть предельное время (каталог и карточка — 45 с, один
-  источник в глобальном поиске — 30 с, тайтл при проверке обновлений — 60 с), временные ошибки (тайм-аут, обрыв связи,
-  429, 5xx) повторяются с растущей паузой — только когда есть сеть. Проверка в WebView, ошибки 4xx и непонятные данные
-  не повторяются: они не пройдут сами.
-- **Состояние источников**: у источника, который недавно не отвечал или отвечает медленно, в списке источников и в
-  глобальном поиске видна подсказка «не отвечает» / «отвечает медленно».
-- **Глобальный поиск**: закреплённые и недавние источники идут первыми, строки не прыгают, пока приходят ответы; строка прогресса
-  «Ответили источников: N из M · найдено тайтлов: K»; чип «С результатами» скрывает пустые и неудачные источники (выбор
-  запоминается); у источника с ошибкой — своя кнопка «Повторить»; если пока ничего не найдено — так и написано.
-- **Проверка обновлений** опрашивает до 4 источников параллельно, а тайтлы одного источника — по очереди с паузой,
-  чтобы сайт не заблокировал за десятки одновременных запросов. Медленный или сломанный источник не прерывает проверку
-  остальных; в уведомлении видно, сколько тайтлов проверить не удалось.
-- Картинки страниц загружаются с повтором; подписанный адрес картинки при повторе запрашивается заново (такие ссылки
-  быстро устаревают).
+- **Timeouts and retries.** Every source request has a deadline (catalog and details — 45 s, one source in global search — 30 s, a title on update check — 60 s); transient errors (timeout, connection drop, 429, 5xx) are retried with a growing pause — only when there is network. A WebView check, 4xx errors and incomprehensible data are not retried: they will not pass by themselves.
+- **Source state**: a source that recently did not respond or responds slowly shows a "not responding" / "responding slowly" hint in the source list and in global search.
+- **Global search**: pinned and recent sources go first, rows do not jump while answers arrive; a progress row "Sources answered: N of M · titles found: K"; a "With results" chip hides empty and failed sources (the choice is remembered); a failed source gets its own "Retry"; if nothing is found yet — it says so.
+- The update check polls up to 4 sources in parallel, and a source's titles one by one with a pause, so the site does not block dozens of simultaneous requests. A slow or broken source does not interrupt the check; the notification shows how many titles could not be checked.
+- Page images download with retries; a signed image URL is re-requested on retry (such links expire quickly).
 
-### Загрузки
+### Downloads
 
-- **Меню загрузки в карточке тайтла**: следующие 1, 5, 10, 25 глав или «Указать количество…» (до 1000), «Непрочитанные
-  главы», «Все главы» — по одной версии каждой главы (команда, которую вы читаете; скрытые команды пропускаются);
-  «Удалить прочитанные главы», «Удалить все загрузки» (с подтверждением), переход к загрузкам. После нажатия видно,
-  сколько глав добавлено в очередь, или «Скачивать нечего».
-- **Библиотека каталога**: долгое нажатие на тайтл → «Скачать непрочитанные главы».
-- **Автоматически** («Настройки → Загрузки и хранилище»): «Скачивать новые главы» — новые главы тайтлов из библиотеки,
-  найденные проверкой обновлений, сразу ставятся в очередь; «Докачивать при чтении» — при чтении тайтла из библиотеки
-  следующие 2, 3, 5 или 10 глав скачиваются заранее; «Автоповторов при ошибках» (0–5, по умолчанию 3) — временные
-  ошибки повторяются с растущей паузой, а без сети задача ждёт сеть и не считается неудачной.
-- **Экран «Загрузки»**: очередь сгруппирована по тайтлам — у группы «В начало очереди» и меню (пауза, продолжить,
-  отменить все главы тайтла), у задачи — «В начало очереди» и «Отменить». Неудачные — отдельным блоком с «Повторить
-  все» и понятной причиной («Нет подключения к сети», «Сервер не ответил вовремя», «Ошибка сервера 503», «Сайт требует
-  проверку…», «Недостаточно места»…); во время автоповторов — «Повтор 1 из 3: причина». В меню — «Повторить неудачные
-  загрузки», «Очистить завершённые», «Очистить очередь» (с подтверждением; скачанное остаётся). Завершённые — новые
-  сверху.
-- **Очередь**: не больше 2 одновременных загрузок с одного сайта (свободные слоты достаются другим источникам),
-  «В начало очереди» действительно меняет порядок; без сети загрузки останавливаются и продолжаются сами, когда сеть
-  вернётся; уже скачанные страницы главы при повторе не загружаются заново; повторное «Скачать» не ставит дубль, а главы,
-  чьи файлы удалили вручную, скачиваются заново.
-- **Уведомления**: прогресс с числом оставшихся задач и названием главы; в конце — «Загрузки завершены» (сколько
-  скачано и сколько с ошибками) или «Загрузки продолжатся, когда появится сеть». Уведомление о новых главах сообщает,
-  сколько из них поставлено в загрузку.
-- CBZ сначала пишется во временный файл и переименовывается после записи: прерванная упаковка не оставляет «битый»
-  архив.
+- **A download menu on a title card**: the next 1, 5, 10, 25 chapters or "Specify a number…" (up to 1000), "Unread chapters", "All chapters" — one version of each chapter (the group you read; hidden groups are skipped); "Delete read chapters", "Delete all downloads" (with confirmation), a link to downloads. After tapping — how many chapters were queued, or "Nothing to download".
+- **The catalog library**: long-press a title → "Download unread chapters".
+- **Automatically** (Settings → Downloads and storage): "Download new chapters" — new chapters of library titles found by the update check are queued right away; "Download while reading" — while reading a library title the next 2, 3, 5 or 10 chapters are pre-downloaded; "Auto-retries on errors" (0–5, default 3) — transient errors retry with a growing pause, and without network a task waits for the network and is not counted as failed.
+- **The Downloads screen**: the queue is grouped by titles — a group has "To the top of the queue" and a menu (pause, resume, cancel all of the title's chapters), a task has "To the top of the queue" and "Cancel". Failed ones are a separate block with "Retry all" and a clear reason ("No network connection", "The server did not respond in time", "Server error 503", "The site requires a check…", "Not enough space"…); during auto-retries — "Retry 1 of 3: reason". The menu has "Retry failed downloads", "Clear completed", "Clear the queue" (with confirmation; downloads stay). Completed — newest first.
+- **The queue**: at most 2 simultaneous downloads per site (free slots go to other sources), "To the top of the queue" really reorders; without network downloads pause and resume by themselves when it returns; pages of a chapter already downloaded are not re-downloaded on retry; tapping "Download" again does not queue a duplicate, and chapters whose files were deleted manually are downloaded again.
+- **Notifications**: progress with the number of remaining tasks and the chapter name; at the end — "Downloads finished" (how many succeeded and failed) or "Downloads will continue when the network is back". The new-chapters notification reports how many were queued.
+- CBZ is first written to a temp file and renamed after writing: an interrupted packing leaves no "broken" archive.
 
-### Тесты
+### Tests
 
-- Новые unit-тесты: порядок чтения глав (оба направления списка, главы без номера, нумерация по томам, версии от
-  разных команд, «Продолжить», «Следующие N»), сортировка и фильтры глав и библиотеки, «человеческое» сравнение
-  названий; повторы, тайм-ауты и состояние источников; ранжирование поиска и ссылок на книги; распознавание картинок
-  по байтам; группировка экрана «Загрузки»; миграция базы 2 → 3 с сохранением данных.
-- Robolectric-тест `ChapterDownloadQueueTest` на фейковом сайте (MockWebServer): одна версия главы, «В начало очереди»,
-  повтор после 503, веб-страница вместо картинки → понятная ошибка, CBZ без временных файлов, «Повторить неудачные»,
-  «Удалить прочитанные главы»; синхронизация глав при пустом ответе и смене адресов, «Скачивать новые главы»,
-  «Докачивать при чтении».
+- New unit tests: chapter reading order (both list directions, chapters without a number, per-volume numbering, group versions, "Continue", "Next N"), chapter and library sorting and filters, "human" title comparison; retries, timeouts and source state; search ranking and book links; image detection by bytes; Downloads screen grouping; the 2 → 3 database migration keeping data.
+- A Robolectric `ChapterDownloadQueueTest` on a fake site (MockWebServer): one chapter version, "To the top of the queue", a retry after 503, a web page instead of an image → a clear error, CBZ without temp files, "Retry failed", "Delete read chapters"; chapter sync on an empty response and changed addresses, "Download new chapters", "Download while reading".
 
 ## 1.2.0
 
-> **Обновление с 1.1.0.** Эта сборка подписана новым ключом (ключ, которым подписывали 1.1.0, в исходниках не хранится),
-> поэтому поверх 1.1.0 она не встанет. Сделайте резервную копию: «Настройки → Резервные копии и синхронизация → Создать
-> резервную копию» (включите «Файлы книг», если книги копировались в приложение), удалите 1.1.0, установите 1.2.0 и
-> восстановите копию там же. Если у вас сохранился keystore от 1.1.0, соберите 1.2.0 с ним (переменные
-> `YOMU_KEYSTORE_*`, см. README) — тогда обновление встанет поверх без удаления.
+> **Updating from 1.1.0.** This build is signed with a new key (the key that signed 1.1.0 is not stored in the sources), so it does not install over 1.1.0. Make a backup: Settings → Backup and sync → Create a backup (enable "Book files" if books were copied into the app), uninstall 1.1.0, install 1.2.0 and restore the backup there. If you kept a 1.1.0 keystore, build 1.2.0 with it (the `YOMU_KEYSTORE_*` variables, see the README) — then the update installs over without uninstalling.
 
-### Исправлено
+### Fixed
 
-- **Расширения не запускались: «NoSuchFieldException: No field headers$delegate…»** (AComics, Weeb Central и другие
-  расширения Mihon/Tachiyomi). Причина: R8 в release-сборке переименовывал поля классов слоя совместимости
-  `eu.kanade.tachiyomi.*` (например, `HttpSource.headers$delegate` → `d`), а расширения обращаются к ним по имени.
-  Теперь API совместимости сохраняется целиком (`compat/tachiyomi/consumer-rules.pro`); проверено по `mapping.txt`
-  release-сборки.
-- **Встроенный MangaDex: «Unexpected JSON token… relationships[5].attributes.description».** API отдаёт
-  локализованные поля в разной форме (объект, пустой массив `[]`, строка) — модель ждала только объект. Теперь
-  `description` и `altTitles` разбираются в любой форме, название и описание выбираются по языку источника с
-  откатом на английский. Сценарий закреплён тестом.
-- **Ошибки источников стали понятными.** Вместо сырого текста исключения — иконка, заголовок и объяснение
-  («Сайт не отвечает», «Сайт отказал в доступе (403)», «Слишком много запросов к сайту», «У сайта проблемы (5xx)»,
-  «Не удалось прочитать ответ» — когда сайт изменился и источник не понимает его данные…), кнопки
-  «Повторить»/«Открыть в WebView» и раскрывающиеся «Подробности» с технической причиной и кнопкой «Копировать».
-  Коды HTTP из сообщений расширений («HTTP error 403») тоже распознаются.
-- **«Добавить репозиторий»: поле больше не заполнено `https://`** — вставка ссылки давала `https://https://…`.
-  Двойная схема исправляется автоматически; принимаются адрес без `https://`, ссылка на GitHub и ссылка «Add to
-  Mihon» (`tachiyomi://add-repo?url=…`, `mihon://…`). «Вставить» сразу запускает проверку, Enter — тоже; сетевые
-  ошибки называются как есть, а не «это не репозиторий».
-- «Добавить OPDS-каталог»: тоже без `https://` в поле, адрес можно ввести без схемы (для домашних серверов — IP,
-  `localhost`, `*.local` — подставляется `http://`), под полем видно итоговый адрес, у пароля есть «показать».
-- Клавиши громкости в манге учитывают настройки манги (раньше брались настройки текстовой читалки).
+- **Extensions did not start: "NoSuchFieldException: No field headers$delegate…"** (AComics, Weeb Central and other Mihon/Tachiyomi extensions). The cause: R8 in the release build renamed fields of the `eu.kanade.tachiyomi.*` compatibility-layer classes (e.g. `HttpSource.headers$delegate` → `d`), and extensions access them by name. The compatibility API is now kept whole (`compat/tachiyomi/consumer-rules.pro`); verified against the release build's `mapping.txt`.
+- **Built-in MangaDex: "Unexpected JSON token… relationships[5].attributes.description".** The API serves localized fields in different shapes (an object, an empty array `[]`, a string) — the model only expected an object. `description` and `altTitles` now parse in any shape, the title and description are picked by the source's language with an English fallback. Pinned by a test.
+- **Source errors became understandable.** Instead of raw exception text — an icon, a heading and an explanation ("The site is not responding", "The site denied access (403)", "Too many requests to the site", "The site has problems (5xx)", "Could not read the response" — when the site changed and the source cannot parse it…), "Retry"/"Open in WebView" buttons and expandable "Details" with the technical cause and a "Copy" button. HTTP codes inside extension messages ("HTTP error 403") are recognized too.
+- **"Add a repository": the field is no longer pre-filled with `https://`** — pasting a link produced `https://https://…`. A double scheme is fixed automatically; an address without `https://`, a GitHub page and an "Add to Mihon" link (`tachiyomi://add-repo?url=…`, `mihon://…`) are accepted. "Paste" starts validation right away, so does Enter; network errors are named as they are, not "this is not a repository".
+- "Add an OPDS catalog": also without `https://` in the field, an address can be entered without a scheme (for home servers — an IP, `localhost`, `*.local` — `http://` is assumed), the final address shows under the field, the password has a "show" toggle.
+- Volume keys in manga respect the manga settings (they used to take the text reader's).
 
-### Манга
+### Manga
 
-- **По умолчанию — слева направо.** Если в 1.1.0 было сохранено «справа налево» (старое значение по умолчанию), при
-  первом запуске 1.2.0 оно один раз меняется на «слева направо»; дальше ваш выбор не трогается. Старые резервные
-  копии при восстановлении обновляются так же.
-- **Новые настройки манги** (в читалке и в «Настройки → Манга и PDF»): режим чтения плитками с пиктограммами и
-  пояснением (слева направо, справа налево, вертикально, вебтун), масштаб, фон страниц (чёрный, серый, белый),
-  анимация перелистывания, номер страницы, предзагрузка, обрезка полей, развороты; для вебтуна — поля по бокам и
-  промежутки между страницами; фильтры изображения (яркость, контраст, оттенки серого, инверсия) со сбросом.
-- **Тап-зоны**: раскладки со схемами, «Поменять зоны местами», «Показывать зоны при открытии», кнопка «Показать зоны сейчас» и
-  подсказка-оверлей при первом открытии тайтла (и после смены зон или направления). Клавиши громкости можно
-  поменять местами («Громкость вверх — вперёд»).
-- В режиме «справа налево» ползунок страниц в нижней панели тоже идёт справа налево.
-- Страница, которая не загрузилась, показывает «Не удалось загрузить страницу» и «Повторить», а не пустой экран.
+- **Left-to-right by default.** If 1.1.0 had "right-to-left" saved (the old default), 1.2.0 changes it once to "left-to-right" on first launch; further your choice is untouched. Old backups are updated the same way on restore.
+- **New manga settings** (in the reader and in Settings → Manga and PDF): a tiled reading-mode picker with pictograms and an explanation (left-to-right, right-to-left, vertical, webtoon), scale, page background (black, gray, white), page-turn animation, page number, preloading, margin crop, dual pages; for webtoon — side margins and gaps between pages; image filters (brightness, contrast, grayscale, invert) with a reset.
+- **Tap zones**: layouts with diagrams, "Swap the zones", "Show zones on open", a "Show zones now" button and a first-open hint overlay (and after changing zones or direction). Volume keys can be swapped ("Volume up — forward").
+- In "right-to-left" the page slider in the bottom bar also runs right-to-left.
+- A page that failed to load shows "Could not load the page" and "Retry" instead of a blank screen.
 
-### Каталог и расширения
+### Catalog and extensions
 
-- **Логотипы источников** вместо одинаковых кружков с буквой: иконки расширений, собственные логотипы встроенных
-  источников (MangaDex, Project Gutenberg, Internet Archive, Open Library, Wikisource), значки папки и OPDS, для
-  остальных — цветная монограмма (у каждого источника свой цвет). Логотипы есть и в глобальном поиске.
-- Подписи без «🌐 · Манга · Расширение»: язык словом («Многоязычный»), тип контента, OPDS/Локальный, 18+.
-  Закреплённые источники — отдельным блоком.
-- **Недоверенные расширения** — вместо красных карточек спокойный блок с объяснением и строки с иконкой, версией и
-  началом подписи; кнопки «Доверять» и «Удалить» читаются в любой теме; «Доверять всем» показывает список и просит
-  подтверждения; в диалоге доверия видно иконку расширения.
-- Сломанные расширения: в списке — коротко «Не запускается — нажмите, чтобы узнать подробнее», в карточке —
-  объяснение, текст ошибки и «Копировать» (чтобы отправить авторам).
-- Счётчик обновлений расширений — в основном цвете, а не цветом ошибки.
+- **Source logos** instead of identical letter circles: extension icons, the built-in sources' own logos (MangaDex, Project Gutenberg, Internet Archive, Open Library, Wikisource), folder and OPDS icons, and a colored monogram for the rest (each source has its own color). Logos are in global search too.
+- Subtitles without "🌐 · Manga · Extension": language as a word ("Multi-language"), content type, OPDS/Local, 18+. Pinned sources are a separate block.
+- **Untrusted extensions** — instead of red cards a calm block with an explanation and rows with an icon, version and signature prefix; "Trust" and "Remove" buttons read well in any theme; "Trust all" shows a list and asks for confirmation; the trust dialog shows the extension icon.
+- Broken extensions: in the list — briefly "Does not start — tap to learn more", in the card — an explanation, the error text and "Copy" (to send to the authors).
+- The extension update counter is in the primary color, not the error color.
 
-### Оформление
+### Appearance
 
-- **Собственная палитра «Yomu»**: чернильно-синий на тёплой «бумажной» основе в светлой теме, чернильно-тёмная —
-  в тёмной, плюс AMOLED; контраст текста проверен (не ниже 4.5:1). Она включена по умолчанию; динамические цвета
-  Material You остались переключателем в «Настройки → Оформление» (если вы включали их сами, выбор сохранится).
-- Заголовки — с засечками, как в книге; плитки выбора, переключатели и экраны ошибок в едином стиле.
-- Вкладки: невыбранные — нейтральным цветом, выбранная — акцентом (раньше все были одного цвета). Значки-счётчики
-  не красные.
-- Плавающие кнопки («Импорт», «Читать», «Добавить репозиторий»…) теперь озвучиваются TalkBack — раньше у них не было
-  подписи для программ чтения с экрана.
-- В манге подсказка по жестам — своя (без «удерживайте слово») и внизу экрана, чтобы не закрывать тап-зоны.
+- **Yomu's own palette**: ink-blue on a warm "paper" base in the light theme, ink-dark in the dark one, plus AMOLED; text contrast checked (at least 4.5:1). Enabled by default; Material You dynamic colors remain a switch in Settings → Appearance (if you enabled them yourself, the choice is kept).
+- Headings are serif, like a book; picker tiles, switches and error screens share one style.
+- Tabs: unselected in a neutral color, selected in the accent (previously all one color). Counter badges are not red.
+- Floating buttons ("Import", "Read", "Add repository"…) are now announced by TalkBack — they used to have no label for screen readers.
+- In manga the gesture hint is its own (without "hold a word") and at the bottom of the screen, so it does not cover tap zones.
 
-### Тесты
+### Tests
 
-- Новые: разбор ответов MangaDex разной формы, миграция настроек манги, нормализация адресов репозиториев и
-  OPDS, классификация ошибок; Robolectric-скриншоты каталога, расширений (недоверенные, сломанное, «Доверять
-  всем»), диалогов репозитория и OPDS, читалки манги и её настроек.
+- New: parsing MangaDex responses of different shapes, manga-settings migration, repository and OPDS address normalization, error classification; Robolectric screenshots of the catalog, extensions (untrusted, broken, "Trust all"), repository and OPDS dialogs, the manga reader and its settings.
 
 ## 1.1.0
 
-> **Важно при обновлении с 1.0.0.** Версия 1.0.0 была подписана временным ключом, который не сохранился, поэтому 1.1.0
-> не установится поверх неё. Перед удалением старой версии сделайте резервную копию: «Настройки → Резервные копии и
-> синхронизация → Создать резервную копию» (включите «Файлы книг», если книги копировались в приложение), удалите 1.0.0,
-> установите 1.1.0 и восстановите копию там же. Начиная с 1.1.0 release подписывается постоянным ключом — следующие
-> версии будут ставиться поверх.
+> **Important when updating from 1.0.0.** Version 1.0.0 was signed with a temporary key that was not kept, so 1.1.0 does not install over it. Before removing the old version make a backup: Settings → Backup and sync → Create a backup (enable "Book files" if books were copied into the app), uninstall 1.0.0, install 1.1.0 and restore the backup there. Starting with 1.1.0 release builds are signed with a permanent key — later versions install over.
 
-### Исправлено
+### Fixed
 
-- **Книга, скачанная из каталога, не открывалась: «Нет доступа к файлу. Выдайте разрешение снова».** Причина: при
-  повторной загрузке той же книги (второе нажатие «Скачать», другой формат, скачивание заново) новый файл записывался
-  под тем же именем поверх файла уже добавленной книги, а затем удалялся как дубликат — книга оставалась без файла.
-  Ошибку «файл не найден» приложение к тому же показывало как «нет доступа». Теперь повторное нажатие не ставит вторую
-  загрузку, каждый файл получает своё имя, дубликат не трогает файл книги из библиотеки (а если файл книги потерян —
-  книга забирает новый с сохранением прогресса и заметок), «файл не найден» и «нет доступа» различаются, и в читалке
-  есть кнопка «Указать файл». Сценарий закреплён тестом `DownloadedBookTest`.
-- **MangaDex: «Unexpected JSON token… <!doctype html>».** API MangaDex на «браузерный» User-Agent отвечает
-  HTML-страницей защиты вместо JSON. Запросы к API и картинкам теперь идут с User-Agent приложения (`Yomu/1.1.0`), а
-  если вместо JSON всё же пришла HTML-страница, открывается проверка во встроенном браузере вместо непонятной ошибки.
-- Резервная копия из 1.0.0 восстанавливается в 1.1.0 (новые поля получают значения по умолчанию) — проверено тестом.
+- **A book downloaded from the catalog did not open: "No access to the file. Grant the permission again".** The cause: when the same book was downloaded again (a second "Download" tap, another format, a re-download) the new file was written under the same name over the file of the already-added book and then deleted as a duplicate — the book was left without a file. The "file not found" error was also shown as "no access". Now a second tap does not queue a second download, every file gets its own name, a duplicate does not touch the library book's file (and if the book's file is lost — the book takes the new one keeping progress and notes), "file not found" and "no access" are distinguished, and the reader has a "Specify the file" button. Pinned by the `DownloadedBookTest` test.
+- **MangaDex: "Unexpected JSON token… <!doctype html>".** The MangaDex API answers a protection HTML page to a "browser" User-Agent. API and image requests now use the app's User-Agent (`Yomu/1.1.0`), and if an HTML page arrives instead of JSON, a WebView check opens instead of a cryptic error.
+- A 1.0.0 backup restores into 1.1.0 (new fields get defaults) — pinned by a test.
 
-### Новое
+### New
 
-- **Расширения Mihon/Tachiyomi.** Слой совместимости с API расширений Mihon/Tachiyomi (lib 1.4 и 1.6, как в Mihon):
-  репозитории добавляются по адресу `index.min.json`/`repo.json`, по ссылке на страницу GitHub или кнопкой «Add to
-  Mihon/Tachiyomi» на сайте репозитория (`tachiyomi://add-repo`, `mihon://extension-store`). Установка, обновление
-  («Обновить все»), удаление, установка APK из файла, настройки источников, фильтры, выбор языков, проверка ключа
-  подписи репозитория (смена ключа блокирует обновления), 18+ скрыто по умолчанию. Расширения Yomu API тоже работают.
-- **Встроенные расширения** (официальные платформы и открытые каталоги, сборки Keiyoushi, Apache-2.0):
-  MangaDex, MANGA Plus by SHUEISHA, Webtoons.com, GlobalComix, AComics (ru). Каждое проверено на живых сайтах:
-  популярное → карточка и главы → страницы → загрузка картинки → поиск. Comikey проверку не прошёл (таймауты на
-  страницах) и не включён.
-- **Разметка страницы для документов Word (DOCX).** Второй режим просмотра: страницы A4 (или размера из документа) как
-  при печати — поля, колонтитулы, сноски, нумерация страниц, таблицы, картинки, табуляция, разрывы страниц, интервалы
-  абзацев по правилам Word. Масштаб пальцами, «Перейти к странице», тёмная тема, позиция запоминается, время чтения
-  идёт в статистику. Открывается из меню читалки («⋮ → Разметка страницы») и карточки книги; при первом открытии
-  DOCX читалка сама предлагает этот режим. Обычный режим (перекомпоновка текста) остаётся основным.
-- **Позиция в книге.** «Страница N из ≈M» (для перекомпонуемых книг честно помечено, что число примерное),
-  «Перейти к странице/проценту», крупная карточка-предпросмотр при перетаскивании ползунка (глава и страница),
-  «Вернуться на стр. N» после случайного прыжка ползунком, по оглавлению или поиску, время до конца главы и книги,
-  страница в главе. Строка состояния внизу страницы при скрытом меню: глава, страница, прогресс, часы и заряд.
-- **Настройки читалки.** Размер шрифта и тема всегда сверху, остальное — на вкладках «Текст», «Экран»,
-  «Управление»; пресеты оформления (Классика, Крупный шрифт, Компактно, Просторно, Лёгкое чтение) и свои пресеты;
-  межбуквенный и межсловный интервал; своя тема (фон и цвет текста) с предупреждением о низком контрасте; переключатель
-  «только для этой книги»; сброс оформления.
-- **История** — новая вкладка: прочитанные книги и онлайн-главы по дням со временем чтения, поиск, «Продолжить»,
-  удаление записи и очистка, прогресс дневной цели и серия дней.
-- **Статистика чтения**: неделя, месяц, год, всё время; сравнение с прошлым периодом; график по дням с линией цели;
-  среднее в день, дни чтения, сеансы, средний и самый долгий сеанс, страницы, скорость (знаков/мин или стр./ч),
-  лучший день, серии, прочитанные книги; топ произведений; тепловая карта; распределение по часам и дням недели;
-  дневная цель; сброс статистики.
-- **Интерфейс**: вкладка «История» в нижней панели; экран расширений с вкладками «Установленные», «Доступные»,
-  «Репозитории», поиском и бейджами (встроенное, 18+); понятные сообщения и действия при ошибках файла (указать файл
-  заново); на маленьких обложках-заглушках — инициалы вместо обрезанных слов; вкладка каталога «История»
-  переименована в «Недавнее» (последние онлайн-главы), чтобы не путать с общей историей; загрузка и сообщения об
-  ошибках в читалке — в цветах темы чтения (без чёрной вспышки перед светлой страницей и с читаемым текстом).
-- **Языки каталога по умолчанию** — язык устройства и английский (плюс источники без языка: OPDS, локальные,
-  многоязычные); остальные языки включаются чипами вверху списка источников или «Все языки». Глобальный поиск
-  учитывает этот выбор.
+- **Mihon/Tachiyomi extensions.** A compatibility layer with the Mihon/Tachiyomi extension API (lib 1.4 and 1.6, as in Mihon): repositories are added by an `index.min.json`/`repo.json` address, a GitHub page link or the "Add to Mihon/Tachiyomi" button on the repository site (`tachiyomi://add-repo`, `mihon://extension-store`). Install, update ("Update all"), remove, install an APK from a file, source settings, filters, language selection, repository signature-key checks (a key change blocks updates), 18+ hidden by default. Yomu-API extensions work too.
+- **Built-in extensions** (official platforms and open catalogs, Keiyoushi builds, Apache-2.0): MangaDex, MANGA Plus by SHUEISHA, Webtoons.com, GlobalComix, AComics (ru). Each was checked on the live sites: popular → card and chapters → pages → image download → search. Comikey failed the check (page timeouts) and is not included.
+- **Page layout for Word documents (DOCX).** A second viewing mode: A4 pages (or the document's size) as printed — margins, headers and footers, footnotes, page numbers, tables, images, tabs, page breaks, paragraph spacing per Word rules. Pinch zoom, "Go to page", dark theme, the position is remembered, reading time goes into statistics. Opens from the reader menu ("⋮ → Page layout") and the book card; on first DOCX open the reader offers this mode itself. The regular mode (text reflow) stays the main one.
+- **Position in a book.** "Page N of ≈M" (for reflowable books honestly marked as approximate), "Go to page/percent", a large preview card while dragging the slider (chapter and page), "Back to page N" after an accidental jump by slider, table of contents or search, time to the end of the chapter and book, the page in the chapter. A status line at the bottom of the page when the menu is hidden: chapter, page, progress, clock and battery.
+- **Reader settings.** Font size and theme are always on top, the rest on "Text", "Screen", "Controls" tabs; appearance presets (Classic, Large font, Compact, Spacious, Easy reading) and custom presets; letter and word spacing; a custom theme (background and text color) with a low-contrast warning; a "for this book only" switch; a style reset.
+- **History** — a new tab: books and online chapters read by day with reading time, search, "Continue", deleting an entry and clearing, the daily-goal progress and streak.
+- **Reading statistics**: week, month, year, all time; comparison with the previous period; a per-day chart with a goal line; average per day, reading days, sessions, average and longest session, pages, speed (chars/min or pages/h), best day, streaks, finished books; a top of works; a heatmap; breakdown by hours and weekdays; a daily goal; a statistics reset.
+- **Interface**: a "History" tab in the bottom bar; an extensions screen with "Installed", "Available", "Repositories" tabs, search and badges (built-in, 18+); clear messages and actions on file errors (re-specify the file); small placeholder covers show initials instead of cut-off words; the catalog's "History" tab renamed to "Recent" (the latest online chapters) to avoid confusion with the general history; download and error messages in the reader use the reading theme's colors (no black flash before a light page, readable text).
+- **Default catalog languages** — the device language and English (plus sources without a language: OPDS, local, multi-language); other languages are enabled with chips at the top of the source list or "All languages". Global search respects this choice.
 
-### Техническое
+### Technical
 
-- База данных: версия 2 (сеансы чтения для истории), миграция 1 → 2 сохраняет данные — проверено тестом
-  `DatabaseMigrationTest`.
-- Release подписывается постоянным ключом (переменные `YOMU_KEYSTORE_*`, см. README).
-- Новые тесты: загрузка книги и повторная загрузка (`DownloadedBookTest`), статистика (`StatsCalculatorTest`),
-  миграция и восстановление старых копий, разметка DOCX (`DocxLayoutTest`), MangaDex (HTML вместо JSON), живая
-  проверка расширений (`TachiyomiExtensionsLiveTest`, запускается вручную).
+- Database: version 2 (reading sessions for history), the 1 → 2 migration keeps data — pinned by the `DatabaseMigrationTest` test.
+- Release is signed with a permanent key (the `YOMU_KEYSTORE_*` variables, see the README).
+- New tests: book download and re-download (`DownloadedBookTest`), statistics (`StatsCalculatorTest`), migration and restoring old backups, DOCX layout (`DocxLayoutTest`), MangaDex (HTML instead of JSON), live extension checks (`TachiyomiExtensionsLiveTest`, run manually).
 
 ## 1.0.0
 
-Первая версия: читалка EPUB/PDF/FB2/MOBI/DOCX/TXT/HTML/CBZ/CBR/CB7, словари и перевод, слова и повторение, заметки,
-редактор EPUB и манги, каталог (OPDS, Gutendex, Open Library, MangaDex, локальная папка), загрузки, резервные копии и
-синхронизация.
+The first version: EPUB/PDF/FB2/MOBI/DOCX/TXT/HTML/CBZ/CBR/CB7 reader, dictionaries and translation, words and repetition, notes, EPUB and manga editor, catalog (OPDS, Gutendex, Open Library, MangaDex, local folder), downloads, backups and sync.

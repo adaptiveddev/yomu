@@ -1,8 +1,8 @@
-# Архитектура Yomu
+# Yomu architecture
 
-Одно Android-приложение (Kotlin, Jetpack Compose, Material 3) с тремя режимами: **читалка**, **редактор** и **каталог источников**. Многомодульный Gradle-проект; общие настройки модулей — convention plugins в `build-logic/`, версии — `gradle/libs.versions.toml`.
+A single Android app (Kotlin, Jetpack Compose, Material 3) with three modes: the **reader**, the **editor** and the **source catalog**. A multi-module Gradle project; shared module settings are convention plugins in `build-logic/`, versions live in `gradle/libs.versions.toml`.
 
-## Модули
+## Modules
 
 ```mermaid
 graph TD
@@ -22,63 +22,63 @@ graph TD
     coreUi --> coreCommon[core:common]; coreNetwork --> coreCommon; coreDatastore --> domain
 ```
 
-| Модуль | Тип | Содержимое |
+| Module | Type | Contents |
 |---|---|---|
-| `app` | Android app | `YomuApp` (Koin, Coil, каналы уведомлений, планировщик задач), `MainActivity`, навигация (`navigation/`), onboarding, блокировка приложения, обработка интентов VIEW/SEND/PROCESS_TEXT, виджет «Продолжить чтение» (`widget/`), вход в трекеры (`TrackLoginActivity`, адреса `yomu://…-auth`), автосинхронизация (`AutoSync`) |
-| `core:common` | Android lib | `UiState`, `AppError`, файлы/SAF, `Share`, журнал ошибок `ErrorLog` |
-| `core:ui` | Android lib | тема (`YomuTheme`, акценты, AMOLED), общие компоненты (сетки, листы, диалоги, настройки, пустые/ошибочные состояния, подсказки), `KeyBus` для аппаратных кнопок |
-| `core:database` | Android lib | Room: сущности, DAO, FTS4 для библиотеки, миграции |
-| `core:datastore` | Android lib | `AppSettings` — все настройки на DataStore Preferences, экспорт/импорт JSON |
-| `core:network` | Android lib | общие клиенты OkHttp (кеш, таймауты, cookie из WebView) |
-| `domain` | Kotlin/JVM | модели (книги, локаторы, аннотации, слова, каталог), интерфейсы репозиториев, SM-2, лемматизация, деинфлексия японского, поиск/замена, типографика, экспорт аннотаций и слов |
-| `data` | Android lib | импорт и метаданные, контейнеры (ZIP/RAR/7z/папка), парсер и writer EPUB, конвертеры FB2/TXT/HTML/DOCX/MOBI → EPUB, PDF (PDFium), репозитории, словари (StarDict/DSL/JMdict/Wiktionary), перевод (ML Kit + онлайн-движки), OCR, каталог, расширения, загрузки, WorkManager-задачи, бэкап, импорт Mihon (`backup/MihonImporter`), синхронизация 2.0 (`SyncManager`, `SyncMerger`, `SyncBackends`: папка SAF / WebDAV), трекеры (`tracking/`: Shikimori, AniList, MyAnimeList), запись аннотаций в PDF (`book/pdf/`: свой разбор и инкрементальная запись PDF на JVM) |
-| `source-api` | Kotlin/JVM | публичный API источников для расширений (`Source`, `CatalogSource`, `HttpSource`, модели, фильтры) |
-| `sources:*` | Kotlin/Android | OPDS (+ Gutendex, Open Library/Internet Archive), MangaDex, локальная папка, новеллы (`sources:novels`: RanobeLib, NovelBin) |
-| `compat:tachiyomi` | Android lib | публичный API расширений Mihon/Tachiyomi (`eu.kanade.tachiyomi.*`, lib 1.4/1.6: источники, модели, фильтры, `NetworkHelper`, интерсепторы, `JavaScriptEngine`), Injekt-граф для расширений, мост Rx ↔ coroutines |
-| `feature:library` | Android lib | библиотека (Paging, сетка/список, фильтры, коллекции, массовые действия), карточка книги |
-| `feature:reader*` | Android lib | общий экран чтения (оверлей, настройки, TTS, поиск, оглавление, статистика) и движки: EPUB (WebView + JS), PDF (PDFium + зум), манга (страницы/лента/вебтун) |
-| `feature:annotations` | Android lib | выделения, заметки, закладки, цитаты, экспорт/импорт |
-| `feature:dictionary`, `feature:translator` | Android lib | поиск слов, мои слова, повторение, словари; перевод выделения, языковые пакеты, перевод книги |
-| `feature:editor` | Android lib | редактор EPUB (метаданные, главы, оглавление, визуальная правка `VisualEditor`, XHTML/CSS, поиск/замена, чистка, изображения, проверка, перевод выбранных глав) и манги (страницы, обрезка, цвет, развороты, ComicInfo, перевод страницы: `Typeset`, `MangaTypesetUi`) с undo/redo |
-| `feature:catalog` | Android lib | источники, просмотр/поиск с фильтрами, тайтл и главы, избранное и вкладки, обновления, история, глобальный поиск, миграция, расширения, WebView |
-| `feature:downloads` | Android lib | очередь загрузок, пауза/повтор, хранилище |
-| `feature:settings` | Android lib | все разделы настроек, шрифты, блокировка, бэкап/синхронизация, журнал ошибок, «О приложении» |
+| `app` | Android app | `YomuApp` (Koin, Coil, notification channels, work scheduling), `MainActivity`, navigation (`navigation/`), onboarding, app lock, VIEW/SEND/PROCESS_TEXT intent handling, the "Continue reading" widget (`widget/`), tracker sign-in (`TrackLoginActivity`, the `yomu://…-auth` addresses), auto-sync (`AutoSync`) |
+| `core:common` | Android lib | `UiState`, `AppError`, files/SAF, `Share`, the `ErrorLog` |
+| `core:ui` | Android lib | theme (`YomuTheme`, accents, AMOLED), shared components (grids, sheets, dialogs, settings, empty/error states, hints), `KeyBus` for hardware buttons |
+| `core:database` | Android lib | Room: entities, DAOs, FTS4 for the library, migrations |
+| `core:datastore` | Android lib | `AppSettings` — every setting on DataStore Preferences, JSON export/import |
+| `core:network` | Android lib | shared OkHttp clients (cache, timeouts, WebView cookies) |
+| `domain` | Kotlin/JVM | models (books, locators, annotations, words, catalog), repository interfaces, SM-2, lemmatization, Japanese deinflection, find & replace, typography, annotation and word export |
+| `data` | Android lib | import and metadata, containers (ZIP/RAR/7z/folder), the EPUB parser and writer, FB2/TXT/HTML/DOCX/MOBI → EPUB converters, PDF (PDFium), repositories, dictionaries (StarDict/DSL/JMdict/Wiktionary), translation (ML Kit + online engines), OCR, the catalog, extensions, downloads, WorkManager jobs, backup, Mihon import (`backup/MihonImporter`), Sync 2.0 (`SyncManager`, `SyncMerger`, `SyncBackends`: SAF folder / WebDAV), trackers (`tracking/`: Shikimori, AniList, MyAnimeList, Kitsu, MangaUpdates), PDF annotation writing (`book/pdf/`: a custom JVM PDF parser and incremental writer) |
+| `source-api` | Kotlin/JVM | the public source API for extensions (`Source`, `CatalogSource`, `HttpSource`, models, filters) |
+| `sources:*` | Kotlin/Android | OPDS (+ Gutendex, Open Library/Internet Archive), MangaDex, a local folder, novels (`sources:novels`: RanobeLib, NovelBin) |
+| `compat:tachiyomi` | Android lib | the public Mihon/Tachiyomi extension API (`eu.kanade.tachiyomi.*`, lib 1.4/1.6: sources, models, filters, `NetworkHelper`, interceptors, `JavaScriptEngine`), an Injekt graph for extensions, an Rx ↔ coroutines bridge |
+| `feature:library` | Android lib | the library (Paging, grid/list, filters, collections, bulk actions), the book card |
+| `feature:reader*` | Android lib | the shared reading screen (overlay, settings, TTS, search, contents, statistics) and engines: EPUB (WebView + JS), PDF (PDFium + zoom), manga (pages/feed/webtoon) |
+| `feature:annotations` | Android lib | highlights, notes, bookmarks, quotes, export/import |
+| `feature:dictionary`, `feature:translator` | Android lib | word search, my words, repetition, dictionaries; selection translation, language packs, book translation |
+| `feature:editor` | Android lib | the EPUB editor (metadata, chapters, contents, visual `VisualEditor`, XHTML/CSS, find & replace, cleanup, images, validation, selected-chapter translation) and the manga editor (pages, cropping, colors, spreads, ComicInfo, page translation: `Typeset`, `MangaTypesetUi`) with undo/redo |
+| `feature:catalog` | Android lib | sources, browse/search with filters, a title and chapters, favorites and tabs, updates, history, global search, migration, extensions, WebView |
+| `feature:downloads` | Android lib | the download queue, pause/retry, storage |
+| `feature:settings` | Android lib | every settings section, fonts, locking, backup/sync, the error log, "About" |
 
-## Слои и потоки данных
+## Layers and data flow
 
 ```
-Compose UI  ──события──▶  ViewModel (StateFlow<UiState>)  ──▶  Repository / Service (data)  ──▶  Room · DataStore · файлы · сеть
+Compose UI  ──events──▶  ViewModel (StateFlow<UiState>)  ──▶  Repository / Service (data)  ──▶  Room · DataStore · files · network
      ▲                              │
-     └────────── состояние ─────────┘
+     └────────── state ─────────────┘
 ```
 
-- **UI** — только Compose; экраны получают ViewModel через `koinViewModel()` (параметры маршрута — `parametersOf`).
-- **ViewModel** держит `StateFlow` состояния, одноразовые события — через `Channel`; длительные операции — `viewModelScope` + `Dispatchers.IO`.
-- **Ошибки** приводятся к `AppError` (`AppError.from`, `runCatchingApp`) и показываются `ErrorState`/снекбаром; необработанные исключения пишет `ErrorLog` (экран «Журнал ошибок»).
-- **DI** — Koin: модуль на каждый feature + `dataModule` + `appModule`; список — `yomuModules` в `YomuApp.kt`.
+- **UI** — Compose only; screens get ViewModels via `koinViewModel()` (route parameters — `parametersOf`).
+- **ViewModels** hold a `StateFlow` of state, one-shot events go through a `Channel`; long operations — `viewModelScope` + `Dispatchers.IO`.
+- **Errors** are mapped to `AppError` (`AppError.from`, `runCatchingApp`) and shown by `ErrorState`/a snackbar; unhandled exceptions go to `ErrorLog` (the "Error log" screen).
+- **DI** — Koin: a module per feature + `dataModule` + `appModule`; the list is `yomuModules` in `YomuApp.kt`.
 
-### Импорт книги
-`SAF Uri / файл → FormatDetector (сигнатура + расширение) → MetadataExtractor (обложка, автор, серия, язык) → [конвертация в EPUB для FB2/TXT/HTML/DOCX/MOBI] → BookEntity (Room) → библиотека (Paging)`. Режимы «копировать» и «ссылаться»; дубликаты — по SHA-1 начала файла + размеру. Сканирование папок — `LibraryScanWorker`.
+### Book import
+`SAF Uri / file → FormatDetector (signature + extension) → MetadataExtractor (cover, author, series, language) → [EPUB conversion for FB2/TXT/HTML/DOCX/MOBI] → BookEntity (Room) → library (Paging)`. "Copy" and "link" modes; duplicates are matched by the file's SHA-1 prefix + size. Folder scanning — `LibraryScanWorker`.
 
-### Чтение
-`ReaderRoute(bookId, locator) → ReaderViewModel → движок по формату (EPUB/PDF/манга)`. Позиция — `Locator` (глава, прогресс, смещение текста); сохраняется с debounce и при выходе; сеансы чтения (`reading_sessions`) пишутся для истории и статистики (`ReadingHistoryRepository`, `StatsCalculator`). DOCX дополнительно открывается в «Разметке страницы»: `DocxLayout` (DOCX → HTML с геометрией страниц) + `paginate.js` в WebView (`DocxLayoutScreen`). Выделение текста → плавающая панель (настраиваемые действия: копировать, выделить, заметка, словарь, перевод, озвучить, поиск, поделиться, свои URL/приложения).
+### Reading
+`ReaderRoute(bookId, locator) → ReaderViewModel → an engine by format (EPUB/PDF/manga)`. The position is a `Locator` (chapter, progress, text offset); saved with debounce and on exit; reading sessions (`reading_sessions`) are written for history and statistics (`ReadingHistoryRepository`, `StatsCalculator`). DOCX additionally opens in "Page layout": `DocxLayout` (DOCX → HTML with page geometry) + `paginate.js` in a WebView (`DocxLayoutScreen`). Text selection → the floating panel (customizable actions: copy, color, note, dictionary, translate, speak, search, share, custom URLs/apps).
 
-### Словарь и перевод
-Тап по слову → `Lemmatizer`/`JapaneseDeinflector` → офлайн-словари (Room) → онлайн-словарь (если разрешён) → перевод (ML Kit офлайн или выбранный онлайн-движок; кеш переводов) → «Сохранить слово» вместе с предложением-контекстом → повторение по SM-2.
+### Dictionary and translation
+A word tap → `Lemmatizer`/`JapaneseDeinflector` → offline dictionaries (Room) → an online dictionary (if allowed) → translation (ML Kit offline or the chosen online engine; a translation cache) → "Save word" with the context sentence → SM-2 repetition.
 
-### Каталог
-`SourceManager` (встроенные + OPDS + локальная папка + расширения; фильтр языков) → `CatalogRepository.browse/search` (Paging) → тайтл и главы в Room → загрузка (`DownloadRepository` + `DownloadWorker`, foreground) → чтение офлайн. `UpdateWorker` проверяет новые главы избранного.
+### Catalog
+`SourceManager` (built-ins + OPDS + the local folder + extensions; a language filter) → `CatalogRepository.browse/search` (Paging) → title and chapters into Room → downloading (`DownloadRepository` + `DownloadWorker`, a foreground service) → offline reading. `UpdateWorker` checks new chapters of favorites.
 
-Расширения: `ExtensionStores` читает репозитории (legacy `index.min.json` + `repo.json`, index v2 protobuf/JSON), `ExtensionManager` ставит APK в приватную папку (только чтение) или находит установленные пакеты, проверяет подпись, грузит классы (`DelegateLastClassLoader` из Mihon) и оборачивает источники Mihon/Tachiyomi в `TachiyomiSource`; встроенные APK копируются из `assets/extensions` при запуске.
+Extensions: `ExtensionStores` reads repositories (the legacy `index.min.json` + `repo.json`, index v2 protobuf/JSON), `ExtensionManager` installs APKs into a private (read-only) folder or finds installed packages, verifies signatures, loads classes (`DelegateLastClassLoader` from Mihon) and wraps Mihon/Tachiyomi sources into `TachiyomiSource`; built-in APKs are copied from `assets/extensions` at startup.
 
-### Редактор
-`EditorViewModel` распаковывает книгу в рабочую папку (`EpubWorkspace` / `MangaWorkspace`); каждое изменение — шаг `History` (снимки затронутых файлов до/после, переживает перезапуск). «Сохранить» упаковывает EPUB/CBZ (mimetype первым, без сжатия), проверяет его парсером и заменяет оригинал или сохраняет копию.
+### Editor
+`EditorViewModel` unpacks a book into a working folder (`EpubWorkspace` / `MangaWorkspace`); every change is a `History` step (before/after snapshots of the affected files, surviving restarts). "Save" packs the EPUB/CBZ (mimetype first, uncompressed), validates it with the parser and replaces the original or saves a copy.
 
-### Фоновые задачи (WorkManager)
-`LibraryScanWorker`, `DownloadWorker`, `UpdateWorker`, `BackupWorker`, `SyncWorker`, `ReminderWorker`, `BookTranslationWorker`, `PdfAnnotationWorker` (выделения → PDF-файл, через 2 с после изменения) — расписание задаёт `WorkScheduler` по настройкам.
+### Background work (WorkManager)
+`LibraryScanWorker`, `DownloadWorker`, `UpdateWorker`, `BackupWorker`, `SyncWorker`, `ReminderWorker`, `BookTranslationWorker`, `PdfAnnotationWorker` (highlights → the PDF file, 2 s after a change) — `WorkScheduler` schedules them from settings.
 
-## Хранилище
+## Storage
 
-- `files/books` — скопированные книги, `files/converted` — EPUB-копии сконвертированных форматов, `files/covers` — обложки, `files/downloads` — главы и книги из каталога, `files/editor` — черновики редактора и их история, `files/dict` — данные словарей.
-- Room-база `yomu.db`; настройки — DataStore `settings.preferences_pb`.
-- Резервная копия — ZIP: `backup.json` (таблицы + настройки) и опционально `files/`.
+- `files/books` — copied books, `files/converted` — EPUB copies of converted formats, `files/covers` — covers, `files/downloads` — chapters and books from the catalog, `files/editor` — editor drafts and their history, `files/dict` — dictionary data.
+- The Room database is `yomu.db`; settings — the DataStore `settings.preferences_pb`.
+- A backup is a ZIP: `backup.json` (tables + settings) and optionally `files/`.

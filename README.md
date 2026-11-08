@@ -104,7 +104,7 @@ Details and signing checks: [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 ## Documentation
 
 - [User guide](docs/USER_GUIDE.md) · [Changelog](CHANGELOG.md) · [Releasing](docs/RELEASING.md)
-- [Architecture](docs/ARCHITECTURE.md) · [Decisions](docs/DECISIONS.md) · [Roadmap](docs/PROGRESS.md) · [Known limitations](docs/KNOWN_LIMITATIONS.md) · [Not done yet (RU)](docs/НЕ_СДЕЛАНО.md)
+- [Architecture](docs/ARCHITECTURE.md) · [Decisions](docs/DECISIONS.md) · [Roadmap](docs/PROGRESS.md) · [Known limitations](docs/KNOWN_LIMITATIONS.md) · [Not done yet](docs/NOT_DONE.md)
 - [Extensions](docs/EXTENSIONS.md) · [Tracking](docs/TRACKING.md) · [Privacy](docs/PRIVACY.md) · [Contributing](CONTRIBUTING.md)
 
 ## License

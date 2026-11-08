@@ -1,68 +1,68 @@
-# Решения (DECISIONS)
+# Decisions
 
-Одна строка — одно решение. Формат: **что выбрано** — почему / чем отличается от плана.
+One line per decision. Format: **what was chosen** — why / how it differs from the plan.
 
-## Стек и архитектура
+## Stack and architecture
 
-- **Koin 4 вместо Hilt** — без kapt/ksp-генерации для DI, быстрее сборка многомодульного проекта; ViewModel с параметрами через `parametersOf`. R8-правила для Hilt не нужны.
-- **Собственный EPUB-движок (WebView + CSS-колонки + JS-мост) вместо Readium** — Readium Kotlin тянет тяжёлые зависимости и сложную лицензию навигатора; свой движок проще встроить с плавающей панелью выделения, словарём по тапу и переводом абзацев. Лицензия проекта остаётся Apache-2.0.
-- **FB2, TXT, HTML, DOCX, MOBI/AZW3 конвертируются в EPUB при импорте** — один текстовый движок вместо пяти; исходный файл сохраняется, сконвертированная копия лежит в `files/converted/`.
-- **PDF — `io.legere:pdfiumandroid` (PDFium)** — быстрее и стабильнее `PdfRenderer`, есть текстовый слой для поиска/выделения и пароли.
-- **Манга: CBZ/ZIP и CB7 — Apache Commons Compress, CBR — junrar; папка с картинками — через SAF.**
-- **Офлайн-перевод — ML Kit Translation, определение языка — ML Kit Language ID, OCR — ML Kit Text Recognition (латиница, японский, китайский, корейский).** Модели скачиваются по требованию пользователя.
-- **Онлайн-перевод: Google (публичный endpoint translate.googleapis.com), DeepL (свой ключ), LibreTranslate (свой сервер), любой OpenAI-совместимый LLM (свой URL/ключ/модель).** Ключи хранит только пользователь.
-- **Онлайн-словарь — dictionaryapi.dev (en) и Wiktionary REST**, офлайн — импорт StarDict, DSL, JMdict, Wiktionary (kaikki JSONL) в Room FTS.
-- **Room + FTS4** для библиотеки, аннотаций, слов, словарей и каталога; **Paging 3** для больших списков (библиотека, каталог).
-- **DataStore (Preferences)** для настроек; сложные значения (настройки читалки, панели выделения) — JSON через kotlinx.serialization.
-- **WorkManager** для сканирования папок, загрузок (foreground dataSync), проверки обновлений глав, автобэкапа, синхронизации и напоминаний.
-- **Coil 3 + OkHttp 5** для обложек и страниц; **telephoto** для зума страниц манги и картинок.
-- **Navigation Compose с типобезопасными маршрутами (`@Serializable`) + Material 3 `NavigationSuiteScaffold`** — нижняя панель на телефоне, rail на планшете.
-- **Один `MainActivity` (singleTask)**, все экраны — Compose; интенты VIEW/SEND/PROCESS_TEXT обрабатываются `MainViewModel`.
+- **Koin 4 instead of Hilt** — no kapt/ksp DI generation, faster builds of a multi-module project; ViewModels with parameters via `parametersOf`. No Hilt R8 rules needed.
+- **A custom EPUB engine (WebView + CSS columns + a JS bridge) instead of Readium** — Readium Kotlin pulls heavy dependencies and a complicated navigator license; a custom engine is easier to integrate with the floating selection panel, tap-dictionary and paragraph translation. The project license stays Apache-2.0.
+- **FB2, TXT, HTML, DOCX, MOBI/AZW3 are converted to EPUB at import** — one text engine instead of five; the original file is kept, the converted copy lives in `files/converted/`.
+- **PDF — `io.legere:pdfiumandroid` (PDFium)** — faster and more stable than `PdfRenderer`, with a text layer for search/selection and password support.
+- **Manga: CBZ/ZIP and CB7 — Apache Commons Compress, CBR — junrar; an image folder — via SAF.**
+- **Offline translation — ML Kit Translation, language ID — ML Kit Language ID, OCR — ML Kit Text Recognition (Latin, Japanese, Chinese, Korean).** Models are downloaded on the user's request.
+- **Online translation: Google (the public translate.googleapis.com endpoint), DeepL (own key), LibreTranslate (own server), any OpenAI-compatible LLM (own URL/key/model).** Keys are stored only by the user.
+- **Online dictionary — dictionaryapi.dev (en) and Wiktionary REST**; offline — StarDict, DSL, JMdict, Wiktionary (kaikki JSONL) imports into Room FTS.
+- **Room + FTS4** for the library, annotations, words, dictionaries and the catalog; **Paging 3** for large lists (library, catalog).
+- **DataStore (Preferences)** for settings; complex values (reader settings, selection panels) are JSON via kotlinx.serialization.
+- **WorkManager** for folder scans, downloads (foreground dataSync), the chapter-update check, auto-backup, sync and reminders.
+- **Coil 3 + OkHttp 5** for covers and pages; **telephoto** for manga page and image zoom.
+- **Navigation Compose with type-safe routes (`@Serializable`) + Material 3 `NavigationSuiteScaffold`** — a bottom bar on phones, a rail on tablets.
+- **One `MainActivity` (singleTask)**, all screens are Compose; VIEW/SEND/PROCESS_TEXT intents are handled by `MainViewModel`.
 
-## Каталог и расширения
+## Catalog and extensions
 
-- **Собственный `source-api` + слой совместимости с расширениями Mihon/Tachiyomi (`compat/tachiyomi`, с 1.1.0)** — публичный API расширений (`eu.kanade.tachiyomi.*`, lib 1.4/1.6) перенесён из Mihon (Apache-2.0), поэтому неизменённые APK расширений загружаются как есть; каждый их источник оборачивается в `CatalogSource` (`TachiyomiSource`), и весь остальной каталог работает с одним API. Свои расширения по-прежнему можно писать под `app.yomu.source.*`.
-- **Встроенные расширения — неизменённые APK Keiyoushi в `assets/extensions`**: при запуске копируются в приватную папку и доверяются только для своего пакета и ключа подписи. Выбраны официальные платформы и открытые каталоги (MangaDex, MANGA Plus, Webtoons, GlobalComix, AComics); каждое проверено живым тестом, не прошедшее (Comikey) не включено. Списков сторонних репозиториев Yomu не поставляет — как Mihon.
-- **Источник с тем же id из расширения заменяет встроенный** (MangaDex) — избранное и прогресс сохраняются при переходе.
-- **User-Agent: для API MangaDex — `Yomu/<версия>`** (на «браузерный» UA API отвечает HTML-страницей защиты), для расширений — браузерный, как в Mihon. HTML вместо JSON → `WebViewRequiredException`.
-- **Языки каталога по умолчанию — язык устройства и английский** (как в Mihon): встроенные расширения дают больше сотни языковых вариантов источников; глобальный поиск использует тот же фильтр.
-- **Расширения: установленные APK с meta-data `yomu.extension.class` + APK из репозиториев в приватную папку (DexClassLoader).** Каждая новая подпись требует явного доверия пользователя.
-- **`QUERY_ALL_PACKAGES`** — нужен, чтобы находить установленные APK-расширения на Android 11+. Для публикации в Google Play это разрешение придётся обосновать или заменить на `<queries>` с конкретными пакетами.
-- **Встроенные источники: OPDS (Project Gutenberg, Standard Ebooks, Feedbooks, ManyBooks + свои каталоги), Gutendex, Open Library/Internet Archive, MangaDex, локальная папка.**
-- **Cleartext-трафик разрешён (`network_security_config`)** — домашние OPDS-серверы (Calibre, Kavita, Komga) часто работают по `http://` в локальной сети.
-- **Cloudflare/капча — через встроенный WebView**: источник бросает `WebViewRequiredException`, экран WebView сохраняет cookie для OkHttp.
+- **A custom `source-api` + a Mihon/Tachiyomi extension compatibility layer (`compat/tachiyomi`, since 1.1.0)** — the public extension API (`eu.kanade.tachiyomi.*`, lib 1.4/1.6) is ported from Mihon (Apache-2.0), so unchanged extension APKs load as is; each source is wrapped into a `CatalogSource` (`TachiyomiSource`) and the rest of the catalog works with one API. Custom extensions can still be written against `app.yomu.source.*`.
+- **Built-in extensions — unchanged Keiyoushi APKs in `assets/extensions`**: copied to a private folder at startup and trusted only for their own package and signing key. Official platforms and open catalogs were chosen (MangaDex, MANGA Plus, Webtoons, GlobalComix, AComics); each was verified with a live test, a failing one (Comikey) is not included. Yomu ships no third-party repository lists — like Mihon.
+- **A source with the same id from an extension replaces the built-in one** (MangaDex) — favorites and progress survive the transition.
+- **User-Agent: `Yomu/<version>` for the MangaDex API** (the API answers a protection HTML page to a browser UA), a browser UA for extensions, as in Mihon. HTML instead of JSON → `WebViewRequiredException`.
+- **Default catalog languages — the device language and English** (as in Mihon): built-in extensions offer over a hundred language variants; global search uses the same filter.
+- **Extensions: installed APKs with the `yomu.extension.class` meta-data + APKs from repositories in a private folder (DexClassLoader).** Every new signature requires explicit user trust.
+- **`QUERY_ALL_PACKAGES`** — needed to find installed APK extensions on Android 11+. For a Google Play release this permission must be justified or replaced with `<queries>` for specific packages.
+- **Built-in sources: OPDS (Project Gutenberg, Standard Ebooks, Feedbooks, ManyBooks + custom catalogs), Gutendex, Open Library/Internet Archive, MangaDex, a local folder.**
+- **Cleartext traffic is allowed (`network_security_config`)** — home OPDS servers (Calibre, Kavita, Komga) often run plain `http://` on the LAN.
+- **Cloudflare/captcha — through the built-in WebView**: a source throws `WebViewRequiredException`, the WebView screen saves cookies for OkHttp.
 
-## Разметка страницы DOCX
+## The DOCX page layout
 
-- **Свой конвертер DOCX → HTML с геометрией страниц + `paginate.js` в WebView** — строки переносит сам Chromium, скрипт раскладывает блоки по страницам (колонтитулы, сноски, повтор шапки таблиц, keep-with-next, разрывы). LibreOffice/рендер в PDF на устройстве слишком тяжёлые. Результат кешируется в `cacheDir/docx-layout/<id>`.
-- **Шрифты Liberation Serif/Sans и Carlito (SIL OFL)** — метрически совместимы с Times New Roman, Arial и Calibri, поэтому переносы близки к Word.
-- **Интервалы между абзацами — по правилам Word для DOCX** (берётся больший из «после» и «до», как в LibreOffice при импорте DOCX). Сверка — с рендером LibreOffice тестового документа.
-- **Режим дополнительный**: основной для DOCX остаётся перекомпоновка в EPUB (словарь, выделение, заметки, TTS).
+- **A custom DOCX → HTML converter with page geometry + `paginate.js` in a WebView** — Chromium breaks the lines itself, the script lays blocks into pages (headers and footers, footnotes, repeated table headers, keep-with-next, breaks). LibreOffice/PDF rendering on-device is too heavy. The result is cached in `cacheDir/docx-layout/<id>`.
+- **Liberation Serif/Sans and Carlito fonts (SIL OFL)** — metrically compatible with Times New Roman, Arial and Calibri, so line breaks are close to Word's.
+- **Paragraph spacing follows the Word rules for DOCX** (the larger of "after" and "before", as in LibreOffice's DOCX import). Verified against a LibreOffice render of a test document.
+- **The mode is supplementary**: the main mode for DOCX remains the EPUB reflow (dictionary, selection, notes, TTS).
 
-## История и статистика
+## History and statistics
 
-- **История строится из сеансов чтения (`reading_sessions`) и истории глав каталога**; «удалить из истории» только скрывает сеансы (`hidden`), статистика их сохраняет. Расчёты — чистая функция `StatsCalculator` (domain, покрыта тестами).
+- **History is built from reading sessions (`reading_sessions`) and the catalog's chapter history**; "remove from history" only hides sessions (`hidden`), statistics keep them. Computations are the pure `StatsCalculator` function (domain, covered by tests).
 
-## Редактор
+## Editor
 
-- **Редактор работает с рабочей копией (распакованный EPUB / страницы манги) и дисковой историей undo/redo** (`History`: снимки «до/после» для каждого шага, переживает перезапуск). Исходный файл меняется только по «Сохранить».
-- **Книги не в EPUB сохраняются как EPUB, манга из CBR/CB7/папки — как CBZ** (запись RAR невозможна свободными библиотеками).
-- **Клин и тайпсет манги не реализованы** — вместо них есть обрезка полей, поворот, яркость/контраст, разделение разворотов, склейка, пережатие. См. KNOWN_LIMITATIONS.
+- **The editor works on a working copy (an unpacked EPUB / manga pages) with a disk undo/redo history** (`History`: before/after snapshots per step, surviving restarts). The original file changes only on "Save".
+- **Non-EPUB books are saved as EPUB, manga from CBR/CB7/a folder as CBZ** (writing RAR is impossible with free libraries).
+- **Manga cleaning and typesetting are not implemented** — instead there are margin crop, rotation, brightness/contrast, dual-page splitting, merging and recompression. See KNOWN_LIMITATIONS.
 
-## Безопасность и приватность
+## Security and privacy
 
-- **PIN хранится как PBKDF2-HMAC-SHA256 (20 000 итераций, соль 16 байт)**, биометрия через AndroidX Biometric; `FLAG_SECURE` — опционально.
-- **Нет аналитики, рекламы и собственного сервера.** Сеть — только по действию пользователя или по включённому им расписанию (обновления глав, синхронизация).
-- **Синхронизация — файл в папке пользователя (SAF: Syncthing, Google Drive, WebDAV-провайдер документов)**, слияние по времени изменения записи.
-- **Синхронизация 2.0 (2.0.0) — трёхстороннее слияние с базой последней синхронизации.** На устройстве хранится `files/sync/base.json`: какие записи были после прошлой синхронизации. Запись, которая была и пропала, — удаление здесь (отметка в файле); отметка из файла удаляет запись, только если она не менялась после удаления. Без отметки ничего не удаляется: файл старой версии, новая установка или пропавшая книга данных не стирают. Поля версии 2 имеют значения по умолчанию, поэтому 1.x читает файл, а 2.0 — файлы 1.x. WebDAV — прямые запросы OkHttp с `If-Match` по ETag вместо SAF-провайдера: SAF-провайдеры WebDAV редки и не дают безопасной перезаписи.
-- **Трекеры — OAuth в браузере с возвратом по `yomu://…-auth`, токены только в приватных SharedPreferences** (не в бэкапе и не в файле синхронизации). Ключи приложения — свойства сборки, а не код: открытый репозиторий не раздаёт чужие ключи, а пользователь может ввести свой.
-- **Выделения PDF в файл — свой разбор и инкрементальная запись PDF на JVM (`data/book/pdf`), а не PDFium:** обёртка PDFium в приложении умеет только читать, а инкрементальное обновление (ISO 32000-1, 7.5.6) оставляет исходные байты нетронутыми — подпись и чужие изменения не ломаются, своё обновление можно отрезать и заменить. Читалка открывает файл без обновления Yomu и рисует выделения сама, чтобы они не удваивались. База остаётся источником правды.
-- **Резервная копия — ZIP: JSON-дамп таблиц БД + настройки + (опционально) файлы книг**; автокопии с ротацией N последних.
+- **The PIN is stored as PBKDF2-HMAC-SHA256 (20 000 iterations, a 16-byte salt)**, biometrics via AndroidX Biometric; `FLAG_SECURE` — optional.
+- **No analytics, no ads, no own server.** The network is used only by user action or a schedule the user enabled (chapter updates, sync).
+- **Sync — a file in a user-chosen folder (SAF: Syncthing, Google Drive, a WebDAV documents provider)**, merging by record modification time.
+- **Sync 2.0 (2.0.0) — a three-way merge against the last sync's base.** The device keeps `files/sync/base.json`: which records existed after the previous sync. A record that existed and disappeared is a deletion here (a mark in the file); a mark in the file deletes a record only if it did not change after the deletion. Without a mark nothing is deleted: an old-version file, a fresh install or a missing book erase no data. Version-2 fields have defaults, so 1.x reads the file and 2.0 reads 1.x files. WebDAV — direct OkHttp requests with `If-Match` by ETag instead of a SAF provider: WebDAV SAF providers are rare and do not allow safe overwrites.
+- **Trackers — OAuth in a browser with a `yomu://…-auth` return, tokens only in private SharedPreferences** (not in backups or the sync file). App keys are build properties, not code: an open repository does not hand out other people's keys, and a user can enter their own.
+- **PDF highlights in the file — a custom JVM PDF parser and incremental writer (`data/book/pdf`), not PDFium:** the in-app PDFium wrapper can only read, and an incremental update (ISO 32000-1, 7.5.6) leaves the original bytes untouched — signatures and foreign changes do not break, and Yomu's own update can be cut off and replaced. The reader opens the file without Yomu's update and draws the highlights itself so they do not double. The database stays the source of truth.
+- **A backup is a ZIP: a JSON dump of the DB tables + settings + (optionally) book files**; auto-backups rotate the last N.
 
-## Сборка и качество
+## Build and quality
 
-- **Release: R8 + shrinkResources; подпись из переменных окружения `YOMU_KEYSTORE_*`, без них — debug-ключ** (чтобы `assembleRelease` работал локально и в CI без секретов). С 1.1.0 опубликованные APK подписываются постоянным ключом (хранится вне репозитория); 1.0.0 была подписана временным debug-ключом, поэтому переход на 1.1.0 требует переустановки.
-- **ABI-сплиты arm64-v8a и x86_64** — нативные библиотеки (PDFium, ML Kit) раздувают универсальный APK; armeabi-v7a не собирается.
-- **`lint.checkReleaseBuilds = false`** — lint запускается отдельной задачей в CI, а не при каждой release-сборке (экономия времени и памяти).
-- **Тесты: JUnit 5 для логики (domain, data, editor, OPDS), Robolectric + Roborazzi (JUnit 4/vintage) для smoke-теста приложения со скриншотами.**
-- **Общие настройки модулей — convention plugins в `build-logic`**, версии — `gradle/libs.versions.toml`.
+- **Release: R8 + shrinkResources; signing from the `YOMU_KEYSTORE_*` environment variables, without them — the debug key** (so `assembleRelease` works locally and in CI without secrets). Since 1.1.0 published APKs are signed with a permanent key (stored outside the repository); 1.0.0 was signed with a temporary debug key, so moving to 1.1.0 requires a reinstall.
+- **ABI splits arm64-v8a and x86_64** — native libraries (PDFium, ML Kit) inflate a universal APK; armeabi-v7a is not built.
+- **`lint.checkReleaseBuilds = false`** — lint runs as a separate CI task, not on every release build (time and memory savings).
+- **Tests: JUnit 5 for logic (domain, data, editor, OPDS), Robolectric + Roborazzi (JUnit 4/vintage) for the app smoke test with screenshots.**
+- **Shared module settings are convention plugins in `build-logic`**, versions live in `gradle/libs.versions.toml`.
