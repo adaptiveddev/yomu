@@ -1,14 +1,11 @@
 # Изменения
 
-## 2.0.6 — трекеры и PDF reflow (этапы 2–3)
+## 2.0.6 — trackers and PDF reflow (stages 2–3) / трекеры и PDF reflow (этапы 2–3)
 
-- PDF reflow переписан на геометрический разбор страницы (XY-cut по пустым полосам): текст двух- и многоколоночных страниц читается в правильном порядке, колонтитулы с номерами страниц убираются, абзацы собираются по вертикальным интервалам, отступам первой строки, размеру заголовков и маркерам списков, переносы слов склеиваются. Страницы без текстового слоя по-прежнему показываются картинкой.
-
-## 2.0.6 WIP — трекеры (этап 2, в разработке)
-
-- Трекер **MangaUpdates**: вход по имени пользователя и паролю, поиск (романы и радиопостановки отфильтрованы), привязка, статусы списков (читаю / запланировано / прочитано / брошено / отложено), главы и оценка (оценка 0 удаляет рейтинг). Привязки MangaUpdates из резервных копий Mihon импортируются.
-- Kitsu: флаг приватности записи больше не сбрасывается при каждом обновлении, даты начала и завершения отправляются (пустые — сбрасываются на сервисе).
-- Обе интеграции написаны по API сервисов и покрыты тестами на MockWebServer; проверка с реальными аккаунтами — следующий шаг этапа 2.
+- New **MangaUpdates** tracker: sign in with your username, search (novels and drama CDs filtered out), bind titles, list statuses (Reading / Plan to Read / Complete / Dropped / On Hold), chapters and rating (rating 0 removes it). MangaUpdates bindings from Mihon backups are imported. Written against the service API and covered by mock-server tests; a real-account check is still pending.
+- **Kitsu**: the entry's privacy flag now survives every update, and start/finish dates are sent on changes (empty dates clear them on the service).
+- **PDF reflow** rewritten with a geometric page analysis (XY-cut over whitespace bands): two-column and multi-column pages are read in the correct order, page-number headers and footers are dropped, paragraphs are rebuilt from vertical gaps, first-line indents, heading sizes and bullets, and hyphenated words are joined. Pages without a text layer still render as an image. Complex float wrapping and tables inside columns may parse imprecisely.
+- По-русски: новый трекер **MangaUpdates** (вход по логину, поиск, привязка, статусы списков, главы, оценка; привязки импортируются из Mihon); **Kitsu** сохраняет приватность записей и отправляет даты начала/завершения; **PDF reflow** переведён на геометрический разбор (XY-cut) — колонки в правильном порядке, колонтитулы убираются, абзацы собираются заново; страницы без текстового слоя по-прежнему картинкой. Проверка с реальными аккаунтами и на устройствах ещё впереди.
 
 ## 2.0.5 — завершение синхронизации (этап 1)
 
