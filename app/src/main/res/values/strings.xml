@@ -42,6 +42,11 @@
     <string name="whats_new_title">What\'s new in Yomu</string>
     <string name="whats_new_ok">Got it</string>
     <string name="whats_new_all">All changes</string>
+    <string-array name="whats_new_2_0_5">
+        <item>Sync conflicts are resolved in the app: changed book files, image folders and their pages, book deletions — changed copies are kept until you choose.</item>
+        <item>Legacy image folders migrate to stable identities; pages can be replaced, added or removed with a visible report.</item>
+        <item>Book deletions now follow the sync between devices; server files are never deleted automatically.</item>
+    </string-array>
     <string-array name="whats_new_2_0_4">
         <item>Local books and manga files can now be linked to AniList, MyAnimeList and Shikimori. Set chapters manually; local page progress is not sent automatically.</item>
         <item>Backups with files now include books downloaded through WebDAV sync.</item>
