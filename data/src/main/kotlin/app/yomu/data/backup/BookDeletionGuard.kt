@@ -10,6 +10,7 @@ package app.yomu.data.backup
  * Local-only fingerprints must never be published as account credentials or tracker state.
  */
 internal object BookDeletionGuard {
+    @kotlinx.serialization.Serializable
     data class SharedRevision(val file: String, val metadata: String, val trackingLinks: String)
     data class LocalRevision(val shared: SharedRevision, val privateState: String, val hasPendingTrackerChanges: Boolean)
     data class Baseline(val shared: SharedRevision, val privateState: String)

@@ -444,7 +444,7 @@
     <string name="set_sync_catalog">Online library</string>
     <string name="set_sync_catalog_sum">Titles, tabs and read chapters from online sources</string>
     <string name="set_sync_deletions">Sync deletions</string>
-    <string name="set_sync_deletions_sum">Highlights, notes, bookmarks, words, tabs and online titles removed on one device are removed on the others too. Books stay on every device</string>
+    <string name="set_sync_deletions_sum">Highlights, notes, bookmarks, words, tabs and online titles removed on one device are removed on the others too. With file sync enabled, a book deleted on one device is also removed on the others — but only if it did not change there; changed books are kept and reported</string>
     <string name="set_sync_failed">Last sync failed: %1$s</string>
     <string name="set_sync_all_devices">Use this same new Yomu version on every device you sync. Older versions may not preserve image-folder page revisions.</string>
 
@@ -459,6 +459,7 @@
     <string name="set_sync_problem_annotation_conflict">Conflicting changes of a highlight, note or bookmark</string>
     <string name="set_sync_problem_annotation_no_proof">An annotation deletion cannot be verified</string>
     <string name="set_sync_problem_annotation_duplicate">Duplicate annotation records</string>
+    <string name="set_sync_problem_book_deletion_conflict">A book deletion cannot be applied safely</string>
     <string name="set_sync_problem_folder_legacy">Old image folder identity</string>
     <string name="set_sync_problem_folder_similar">A similar image folder exists with a different identity</string>
     <string name="set_sync_problem_folder_diverged">Conflicting image folder changes</string>

@@ -34,12 +34,13 @@ internal data class Digest(val sha256: String, val size: Long, val bookHash: Str
 
 /** A per-book file sync problem: sync continues for the other books; this book's file part is skipped. */
 internal class BookFileSyncProblem(val kind: Kind, subject: String, detail: String, val bookId: Long) : IOException(detail), SyncProblem {
-    enum class Kind { CHANGED, COLLISION, UPDATE_CONFLICT, ADOPTION_BLOCKED }
+    enum class Kind { CHANGED, COLLISION, UPDATE_CONFLICT, ADOPTION_BLOCKED, DELETION_CONFLICT }
     override val kindTag: String = when (kind) {
         Kind.CHANGED -> "book_changed"
         Kind.COLLISION -> "book_collision"
         Kind.UPDATE_CONFLICT -> "book_update_conflict"
         Kind.ADOPTION_BLOCKED -> "book_adoption_blocked"
+        Kind.DELETION_CONFLICT -> "book_deletion_conflict"
     }
     override val subject: String = subject.take(100)
     override val target: String = bookId.toString()
@@ -48,15 +49,29 @@ internal class BookFileSyncProblem(val kind: Kind, subject: String, detail: Stri
 @Serializable
 internal data class BookFileEntry(val bookHash: String, val sha256: String, val size: Long, val name: String)
 
+/** A deletion marker: the fingerprints the deleting device based the removal on, and when. */
+@Serializable
+internal data class DeletedBook(val expected: BookDeletionGuard.SharedRevision, val at: Long, val device: String = "")
+
 /**
- * v2 adds [replaced]: identities of files that were deliberately re-registered after a change
- * (including Yomu's own PDF annotation writes), old identity → current identity. Chains collapse
- * onto the current identity; the old entry is removed, its blob stays on the server untouched.
+ * v2 adds [replaced] (changed files: old identity → current, chains collapse) and [deleted]
+ * (removal markers published when deletion sync is on). The old entry of a replaced or deleted
+ * book is removed; blobs stay on the server untouched. Markers older than the tombstone horizon
+ * are ignored by receivers.
  */
 @Serializable
-internal data class BookFileIndex(val version: Int = 1, val books: List<BookFileEntry> = emptyList(), val replaced: Map<String, String> = emptyMap())
+internal data class BookFileIndex(
+    val version: Int = 1,
+    val books: List<BookFileEntry> = emptyList(),
+    val replaced: Map<String, String> = emptyMap(),
+    val deleted: Map<String, DeletedBook> = emptyMap(),
+)
+
+/** The per-target baseline of one book: what this device last agreed on, shared and private. */
 @Serializable
-internal data class BookFileBase(val version: Int = 1, val syncId: String, val present: Set<String> = emptySet(), val suppressed: Set<String> = emptySet(), val indexKnown: Boolean = false)
+internal data class BookBaseline(val shared: BookDeletionGuard.SharedRevision, val privateState: String)
+@Serializable
+internal data class BookFileBase(val version: Int = 1, val syncId: String, val present: Set<String> = emptySet(), val suppressed: Set<String> = emptySet(), val indexKnown: Boolean = false, val baselines: Map<String, BookBaseline> = emptyMap())
 
 /**
  * Opt-in file copy sync. Uploads are snapshotted first; downloads are verified before import. Local removals after a
@@ -151,6 +166,13 @@ internal class BookFileSync(
                 snapshots += LocalSnapshot(book.id, key, uri, original, book.title)
                 continue
             }
+            if (index.deleted.containsKey(key)) {
+                // A deletion marker is pending for this book: do not re-publish the copy here,
+                // the removal step below decides its fate (apply, or keep on a recorded conflict).
+                present += key
+                snapshots += LocalSnapshot(book.id, key, uri, original, book.title)
+                continue
+            }
             val existing = entries[key]
             if (existing != null) {
                 if (existing.sha256 != original.sha256 || existing.size != original.size) {
@@ -228,7 +250,7 @@ internal class BookFileSync(
         val after = db.books().all().filter { it.format != "FOLDER" }.mapNotNull { it.fileHash }.toSet()
         suppressed.addAll(localHashes - after)
         suppressed.removeAll(after)
-        saveBase(context, BookFileBase(syncId = syncId, present = after, suppressed = suppressed, indexKnown = file != null || added))
+        saveBase(context, BookFileBase(syncId = syncId, present = after, suppressed = suppressed, indexKnown = file != null || added, baselines = base?.baselines.orEmpty()))
         return SyncFilesResult(imported, changedBooks.toList(), followBooks.toList())
     }
 
@@ -244,7 +266,7 @@ internal class BookFileSync(
             return AtomicFile(File(File(context.filesDir, "sync-books").apply { mkdirs() }, "$digest.json"))
         }
 
-        private fun readBase(context: Context, syncId: String): BookFileBase? {
+        internal fun readBase(context: Context, syncId: String): BookFileBase? {
             val file = baseFile(context, syncId)
             val backup = File(file.baseFile.path + ".bak")
             val pending = File(file.baseFile.path + ".new")
@@ -259,17 +281,16 @@ internal class BookFileSync(
                     json.decodeFromString(BookFileBase.serializer(), SyncJson.text(bytes))
                 }
             } catch (e: Exception) { throw IOException("Invalid book sync base", e) }
-            if (base.version != 1 || base.syncId != syncId || (base.present + base.suppressed).any { !it.matches(bookHashPattern) })
+            if (base.version != 1 || base.syncId != syncId || (base.present + base.suppressed).any { !it.matches(bookHashPattern) } ||
+                base.baselines.any { (id, _) -> !id.matches(bookHashPattern) })
                 throw IOException("Invalid book sync base")
             return base
         }
 
-        private fun saveBase(context: Context, base: BookFileBase) {
+        internal fun saveBase(context: Context, base: BookFileBase) {
             val bytes = json.encodeToString(BookFileBase.serializer(), base).toByteArray()
             if (bytes.size > MAX_INDEX_BYTES) throw IOException("Book sync base is too large")
-            val file = baseFile(context, base.syncId)
-            val output = file.startWrite()
-            try { output.write(bytes); file.finishWrite(output) } catch (e: Exception) { file.failWrite(output); throw e }
+            AtomicPublish.publish(baseFile(context, base.syncId).baseFile, bytes)
         }
 
         /** After an adoption the book's present/suppressed identities follow the new content identity. */
@@ -278,6 +299,7 @@ internal class BookFileSync(
             val remapped = base.copy(
                 present = base.present.map { mapping[it] ?: it }.toSet(),
                 suppressed = base.suppressed.map { mapping[it] ?: it }.toSet(),
+                baselines = base.baselines.mapKeys { (id, _) -> mapping[id] ?: id },
             )
             if ((remapped.present + remapped.suppressed).any { !it.matches(bookHashPattern) })
                 throw IOException("Invalid book identity after adoption")
@@ -328,10 +350,17 @@ internal class BookFileSync(
                     require(e.name.isNotBlank() && e.name.length <= 200 && e.name == Files.sanitize(e.name))
                 }
                 if (index.version >= 2) {
-                    require(index.replaced.keys.all { it.matches(bookHashPattern) && it !in ids.toSet() })
-                    require(index.replaced.values.all { it in ids.toSet() })
+                    val ids = ids.toSet()
+                    require(index.replaced.keys.all { it.matches(bookHashPattern) && it !in ids })
+                    require(index.replaced.values.all { it in ids })
                     require(index.replaced.keys.none { it == index.replaced[it] })
-                } else require(index.replaced.isEmpty())
+                    require(index.deleted.keys.all { it.matches(bookHashPattern) && it !in ids })
+                    require(index.deleted.values.all { m ->
+                        listOf(m.expected.file, m.expected.metadata, m.expected.trackingLinks).all { it.matches(sha256Pattern) } && m.at > 0
+                    })
+                } else {
+                    require(index.replaced.isEmpty() && index.deleted.isEmpty())
+                }
                 return index
             } catch (e: Exception) { throw IOException("Invalid book sync index; it was not overwritten", e) }
         }

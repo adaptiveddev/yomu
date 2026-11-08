@@ -98,9 +98,7 @@ internal class TrackLinkSync(private val context: Context, private val db: YomuD
     private fun saveBase(syncId: String, links: Collection<TrackLink>, indexKnown: Boolean) {
         val bytes = json.encodeToString(TrackLinksBase.serializer(), TrackLinksBase(syncId = syncId, links = links.toList(), indexKnown = indexKnown)).toByteArray()
         if (bytes.size > maxBytes) throw IOException("Tracking sync base is too large")
-        val f = baseFile(syncId)
-        val stream = f.startWrite()
-        try { stream.write(bytes); f.finishWrite(stream) } catch (e: Exception) { f.failWrite(stream); throw e }
+        AtomicPublish.publish(baseFile(syncId).baseFile, bytes)
     }
 
     private data class OwnerRef(val owner: LinkOwner, val itemId: Long? = null, val bookId: Long? = null)

@@ -92,7 +92,7 @@ abstract class BookAdoptionTestBase {
 
     @After fun closeDevices(): Unit = runBlocking {
         // The DataStore delegate resolves through the application context: reset what the tests set.
-        devices.forEach { it.settings.syncBookFiles.set(false) }
+        devices.forEach { it.settings.syncBookFiles.set(false); it.settings.syncDeletions.set(true) }
         devices.forEach { it.db.close() }
         root.deleteRecursively()
     }

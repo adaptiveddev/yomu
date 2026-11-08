@@ -237,6 +237,9 @@ interface ProgressDao {
 
     @Query("SELECT * FROM reading_progress")
     suspend fun all(): List<ReadingProgressEntity>
+
+    @Query("DELETE FROM reading_progress WHERE bookId = :bookId")
+    suspend fun deleteForBook(bookId: Long)
 }
 
 @Dao

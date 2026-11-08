@@ -247,6 +247,18 @@ class SyncManager(
             FolderSyncCoordinator(context, db, importer, ::persistProblemInfo).sync(backend, backend.id, folderSnapshot)
         } else FolderSyncCoordinator.FolderSyncResult(0, emptySet())
         val importedFolders = folderResult.changed
+        val deletion = if (fileSync && backend is BookFilesTransport) {
+            BookDeletionSync(context, db, settings, backend, backend.id, ::persistProblemInfo)
+        } else null
+        if (deletion != null) {
+            // Other devices' removals apply before the merge so deleted books stop contributing,
+            // and this device's removals publish against the last agreed state (its own
+            // tombstones, written by the merge below, must not count as a competing change).
+            try { deletion.receive() } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: IOException) { /* recorded inside; a refused deletion must not stop the sync */ }
+            try { deletion.publish(remote) } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: IOException) { /* recorded inside */ }
+        }
         val options = SyncMerger.Options(catalog = settings.syncCatalog.get(), deletions = settings.syncDeletions.get(), device = deviceName())
         val stableFolders = db.books().all().filter { it.format == "FOLDER" && it.fileHash?.let(FolderManifestCodec::validId) == true }
         val outcome = if (folderSnapshot != null || stableFolders.isNotEmpty()) {
@@ -265,6 +277,11 @@ class SyncManager(
         val trackChanges = if (backend is TrackLinkTransport) {
             TrackLinkSync(context, db).sync(backend, backend.id, settings.syncCatalog.get(), settings.syncDeletions.get())
         } else 0
+        if (deletion != null) {
+            // Refresh the per-book deletion baselines from the merged state.
+            try { deletion.captureBaselines(outcome.state) } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: IOException) { /* the next sync captures them again */ }
+        }
         return outcome.changed + imported + importedFolders + trackChanges
         } finally { lease.close() }
     }
@@ -342,17 +359,9 @@ class SyncManager(
             validateBase(base)
             val f = baseFile(context)
             f.parentFile?.mkdirs()
-            val atomic = AtomicFile(f)
             val bytes = baseJson.encodeToString(SyncBase.serializer(), base).toByteArray()
             if (bytes.size > MAX_SYNC_FILE_BYTES) throw IOException("Sync base is too large; it was not overwritten")
-            val stream = atomic.startWrite()
-            try {
-                stream.write(bytes)
-                atomic.finishWrite(stream)
-            } catch (e: Exception) {
-                atomic.failWrite(stream)
-                throw e
-            }
+            AtomicPublish.publish(f, bytes)
         }
 
         private fun baseFile(context: Context) = File(context.filesDir, "sync/base.json")

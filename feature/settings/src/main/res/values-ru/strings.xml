@@ -448,7 +448,7 @@
     <string name="set_sync_catalog">Онлайн-библиотека</string>
     <string name="set_sync_catalog_sum">Тайтлы, вкладки и прочитанные главы из онлайн-источников</string>
     <string name="set_sync_deletions">Синхронизировать удаления</string>
-    <string name="set_sync_deletions_sum">Выделения, заметки, закладки, слова, вкладки и онлайн-тайтлы, удалённые на одном устройстве, удаляются и на остальных. Книги остаются на каждом устройстве</string>
+    <string name="set_sync_deletions_sum">Выделения, заметки, закладки, слова, вкладки и онлайн-тайтлы, удалённые на одном устройстве, удаляются и на остальных. При включённой синхронизации файлов книга, удалённая на одном устройстве, удаляется и на других — но только если она не менялась; изменённые книги сохраняются с пометкой о конфликте</string>
     <string name="set_sync_failed">Последняя синхронизация не удалась: %1$s</string>
     <string name="set_sync_all_devices">Используйте одну и ту же новую версию Yomu на всех устройствах: старые версии могут не сохранить версии страниц папок.</string>
 
@@ -463,6 +463,7 @@
     <string name="set_sync_problem_annotation_conflict">Конфликтующие изменения выделения, заметки или закладки</string>
     <string name="set_sync_problem_annotation_no_proof">Удаление выделения не удаётся подтвердить</string>
     <string name="set_sync_problem_annotation_duplicate">Дубли аннотаций</string>
+    <string name="set_sync_problem_book_deletion_conflict">Удаление книги нельзя применить безопасно</string>
     <string name="set_sync_problem_folder_legacy">Старый идентификатор папки изображений</string>
     <string name="set_sync_problem_folder_similar">Есть похожая папка изображений с другим идентификатором</string>
     <string name="set_sync_problem_folder_diverged">Конфликтующие изменения папки изображений</string>

@@ -51,7 +51,9 @@ internal object SharedBookRevision {
             owner == id
         }.toSortedMap()
         val metadata = Metadata(
-            book.copy(tabs = book.tabs?.sorted()),
+            // The title is device-local flavor (every merge stamps its own); it is not a
+            // protected field and must not destabilize the fingerprint across devices.
+            book.copy(title = "", tabs = book.tabs?.sorted()),
             state.highlights.filter { it.hash == id }.sortedBy { SyncKeys.highlight(it.hash, it.createdAt, it.text) },
             state.notes.filter { it.hash == id }.sortedBy { SyncKeys.note(it.hash, it.createdAt) },
             state.bookmarks.filter { it.hash == id }.sortedBy { SyncKeys.bookmark(it.hash, it.createdAt) },
