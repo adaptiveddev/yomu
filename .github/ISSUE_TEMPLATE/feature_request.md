@@ -1,11 +1,11 @@
 ---
-name: Предложение / Feature request
-about: Идея новой функции / Suggest an idea
+name: Feature request
+about: Suggest an idea
 labels: enhancement
 ---
 
-**Какую задачу решает / What problem does it solve**
+**What problem does it solve**
 
-**Как это могло бы работать / Proposed solution**
+**Proposed solution**
 
-**Альтернативы / Alternatives**
+**Alternatives**

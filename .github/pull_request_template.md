@@ -1,8 +1,8 @@
-**Что изменено и зачем / What and why**
+**What and why**
 
-**Как проверено / How it was tested**
+**How it was tested**
 - [ ] `./gradlew assembleDebug test lint`
-- [ ] Устройство или эмулятор / Device or emulator (Android …)
-- [ ] Строки добавлены в `values/` и `values-ru/` / Strings added in both languages
+- [ ] Device or emulator (Android …)
+- [ ] Strings added to both `values/` and `values-ru/`
 
-**Скриншоты (для UI) / Screenshots (UI changes)**
+**Screenshots (for UI changes)**

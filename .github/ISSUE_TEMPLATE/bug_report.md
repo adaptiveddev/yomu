@@ -1,21 +1,21 @@
 ---
-name: Ошибка / Bug report
-about: Что-то работает не так / Something does not work
+name: Bug report
+about: Something does not work
 labels: bug
 ---
 
-**Что произошло / What happened**
+**What happened**
 
-**Как воспроизвести / Steps to reproduce**
+**Steps to reproduce**
 1.
 2.
 
-**Ожидалось / Expected**
+**Expected**
 
-**Устройство / Device**
-- Yomu: (Настройки → О приложении / Settings → About)
+**Device**
+- Yomu: (Settings → About)
 - Android:
-- Модель / Model:
+- Model:
 
-**Журнал ошибок / Error log**
-Настройки → О приложении → Журнал ошибок → Поделиться / Settings → About → Error log → Share
+**Error log**
+Settings → About → Error log → Share
