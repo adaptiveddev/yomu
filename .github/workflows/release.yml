@@ -142,7 +142,7 @@ jobs:
           fi
           {
             echo
-            echo "### Установка / Install"
+            echo "### Install"
             echo
             echo "- \`yomu-$TAG-arm64-v8a.apk\` — телефоны и планшеты / phones and tablets"
             echo "- \`yomu-$TAG-x86_64.apk\` — эмуляторы, x86 / emulators, x86 devices"

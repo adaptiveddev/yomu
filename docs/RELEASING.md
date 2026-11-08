@@ -74,7 +74,7 @@ Workflow permissions → Read and write permissions**.
 
 1. `app/build.gradle.kts`: `versionCode` + 1, a new `versionName` (for example `18` and `"2.0.6"`).
 2. `CHANGELOG.md`: a `## 2.0.6` section — it becomes the release description and the in-app update dialog (up to the
-   `### Установка / Install` row the workflow adds). Short texts go into
+   `### Install` row the workflow adds). Short texts go into
    `fastlane/metadata/android/ru-RU/changelogs/<versionCode>.txt` and `en-US/…`.
 3. The in-app "What's new": a `whats_new_2_0_6` array (3–4 short items) in `app/src/main/res/values/strings.xml`
    and `values-ru/strings.xml` plus a `WhatsNew(18, "2.0.6", R.array.whats_new_2_0_6)` row at the top of `WHATS_NEW`
