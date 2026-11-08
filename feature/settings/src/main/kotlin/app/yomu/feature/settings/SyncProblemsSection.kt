@@ -73,6 +73,9 @@ internal fun SyncProblemsSection(vm: SettingsViewModel) {
                     onTakeRemote = if (problem.kind == "book_update_conflict") {
                         target?.let { id -> { vm.takeRemoteBookVersion(id) } }
                     } else null,
+                    onMigrate = if (problem.kind == "folder_legacy") {
+                        target?.let { id -> { vm.migrateLegacyFolder(id) } }
+                    } else null,
                 )
             }
             item(key = "clear") {
@@ -88,6 +91,7 @@ private fun SyncProblemRow(
     onDismiss: () -> Unit,
     onAdopt: (() -> Unit)?,
     onTakeRemote: (() -> Unit)?,
+    onMigrate: (() -> Unit)? = null,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = Dimens.l, vertical = Dimens.s),
@@ -126,10 +130,11 @@ private fun SyncProblemRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (onAdopt != null || onTakeRemote != null) {
+            if (onAdopt != null || onTakeRemote != null || onMigrate != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(Dimens.s), modifier = Modifier.padding(top = Dimens.xxs)) {
                     if (onAdopt != null) TextButton(onAdopt) { Text(stringResource(R.string.set_sync_problem_adopt)) }
                     if (onTakeRemote != null) TextButton(onTakeRemote) { Text(stringResource(R.string.set_sync_problem_take_remote)) }
+                    if (onMigrate != null) TextButton(onMigrate) { Text(stringResource(R.string.set_sync_problem_migrate_folder)) }
                 }
             }
         }

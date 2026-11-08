@@ -17,6 +17,9 @@ internal interface SyncProblem {
 
     /** The affected book or folder title, if known; empty for anonymous records. */
     val subject: String
+
+    /** Machine-addressable target of a resolution action (a bookId, ...), null if none. */
+    val target: String? get() = null
 }
 
 /** One recorded sync problem, persisted for the conflicts screen. */
@@ -89,7 +92,7 @@ internal class SyncProblemStore(context: Context) {
     }
 }
 
-internal fun SyncProblem.record(at: Long, target: String? = null): SyncProblemInfo = SyncProblemInfo(
+internal fun SyncProblem.record(at: Long): SyncProblemInfo = SyncProblemInfo(
     id = "${kindTag}:${target ?: subject}",
     kind = kindTag,
     subject = subject,

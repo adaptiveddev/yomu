@@ -20,7 +20,8 @@ internal class FolderSyncCoordinator(private val context: Context, private val d
             it.format == "FOLDER" && it.fileHash?.let(FolderManifestCodec::validId) != true
         }
         if (legacy != null) throw FolderSyncProblem(FolderSyncProblem.Kind.LEGACY, legacy.title,
-            "Image folder has no portable identity: ${legacy.title}. Safe migration is not yet available; disable book file sync to sync other data.")
+            "Image folder has no portable identity: ${legacy.title}. Migrate it from the sync conflicts screen to enable file sync.",
+            legacy.id.toString())
     }
 
     suspend fun sync(transport: FolderFilesTransport, target: String, remoteMetadata: FolderMetadataSnapshot? = null): Int {

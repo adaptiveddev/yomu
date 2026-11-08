@@ -5,7 +5,12 @@ import app.yomu.data.R
 import java.io.IOException
 
 /** A safe-to-show folder sync problem. Technical details remain available as its cause. */
-internal class FolderSyncProblem(val kind: Kind, override val subject: String, detail: String) : IOException(detail), SyncProblem {
+internal class FolderSyncProblem(
+    val kind: Kind,
+    override val subject: String,
+    detail: String,
+    override val target: String? = null,
+) : IOException(detail), SyncProblem {
     enum class Kind { LEGACY, SIMILAR, DIVERGED, MISSING_REVISION, CHANGED_PAGE, MISSING_PAGE }
 
     override val kindTag: String = "folder_" + kind.name.lowercase()

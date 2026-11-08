@@ -97,6 +97,19 @@ class SyncManager(
         }
     }
 
+    /** Migrates a legacy (`dir:` path-based) image folder onto a stable identity and syncs. */
+    suspend fun migrateLegacyFolder(bookId: Long) = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            try {
+                val backend = backend()
+                FolderAdoption(context, db, backend, backend.id, ::persistProblemInfo).migrate(bookId)
+                cycle(backend)
+            } catch (e: Exception) {
+                throw failed(e)
+            }
+        }
+    }
+
     private suspend fun failed(e: Exception): Throwable {
         if (e is kotlinx.coroutines.CancellationException) return e
         val displayed = when (e) {
@@ -142,7 +155,7 @@ class SyncManager(
 
     private fun recordProblem(error: Exception) {
         val info = when (error) {
-            is SyncProblem -> error.record(System.currentTimeMillis(), (error as? BookFileSyncProblem)?.bookId?.toString())
+            is SyncProblem -> error.record(System.currentTimeMillis())
             // Plain failures (network, missing files, ...) are recorded too so the screen explains a stopped sync.
             else -> SyncProblemInfo(id = "error", kind = "error", subject = "", detail = error.message.orEmpty(), at = System.currentTimeMillis())
         }
@@ -154,8 +167,8 @@ class SyncManager(
         try {
         // A partially written adoption must resume before anything else touches the documents;
         // syncing over it could mistake the half-migrated book for a different one.
-        if (BookAdoption.loadJournal(context) != null)
-            throw IOException("An interrupted book adoption must be resumed before syncing; open Settings → Sync conflicts")
+        if (BookAdoption.loadJournal(context) != null || FolderAdoption.loadJournal(context) != null)
+            throw IOException("An interrupted migration must be resumed before syncing; open Settings → Sync conflicts")
         val file = backend.read()
         val document = file?.let { decodeDocument(it.bytes) }
         val remote = document?.state
@@ -166,7 +179,17 @@ class SyncManager(
         requireRemoteWhenKnown(file, base, backend.id)
         // File transfer is opt-in on each device. Shared-folder providers cannot guarantee atomic compare-and-swap.
         val fileSync = settings.syncBookFiles.get()
-        if (fileSync && backend is FolderFilesTransport) FolderSyncCoordinator(context, db, importer).requirePortableFolderIdentities()
+        if (fileSync && backend is FolderFilesTransport) {
+            // Follow other devices' migration markers first: a legacy folder whose identity was
+            // migrated elsewhere adopts the stable identity instead of blocking the file sync.
+            val folderAdoption = FolderAdoption(context, db, backend, backend.id, ::persistProblemInfo)
+            for (book in db.books().all().filter { it.format == "FOLDER" && it.fileHash?.let(FolderManifestCodec::validId) != true }) {
+                try { folderAdoption.follow(book.id) }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) { if (e !is SyncProblem) recordProblem(e) }
+            }
+            FolderSyncCoordinator(context, db, importer).requirePortableFolderIdentities()
+        }
         val filesResult = if (fileSync && backend is BookFilesTransport) {
             BookFileSync(context, db, importer, ::persistProblemInfo).syncDetailed(backend, backend.id)
         } else BookFileSync.SyncFilesResult(0, emptyList(), emptyList())

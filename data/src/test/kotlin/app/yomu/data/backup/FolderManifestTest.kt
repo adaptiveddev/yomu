@@ -21,7 +21,7 @@ class FolderManifestTest {
         }
     }
     @Test fun failsClosedOnMalformedOrFutureIndex() {
-        for (value in listOf("{}", "{not-json", "{\"version\":2,\"folders\":[]}", "{\"version\":1,\"folders\":[],\"unknown\":true}")) {
+        for (value in listOf("{}", "{not-json", "{\"version\":3,\"folders\":[]}", "{\"version\":1,\"folders\":[],\"unknown\":true}")) {
             assertTrue(runCatching { FolderManifestCodec.decode(value.toByteArray()) }.exceptionOrNull() is IOException)
         }
     }

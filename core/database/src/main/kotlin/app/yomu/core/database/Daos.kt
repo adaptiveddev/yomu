@@ -818,8 +818,12 @@ interface TrackDao {
 interface FolderSyncBaseDao {
     @Query("SELECT * FROM folder_sync_bases WHERE targetId = :targetId")
     suspend fun forTarget(targetId: String): List<FolderSyncBaseEntity>
+    @Query("SELECT * FROM folder_sync_bases WHERE folderId = :folderId")
+    suspend fun forFolder(folderId: String): List<FolderSyncBaseEntity>
     @Upsert
     suspend fun upsert(base: FolderSyncBaseEntity)
+    @Query("DELETE FROM folder_sync_bases WHERE targetId = :targetId AND folderId = :folderId")
+    suspend fun delete(targetId: String, folderId: String)
     @Query("DELETE FROM folder_sync_bases")
     suspend fun clear()
 }

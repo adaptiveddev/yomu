@@ -467,6 +467,7 @@
     <string name="set_sync_problem_folder_missing_page">A saved page is missing</string>
     <string name="set_sync_problem_adopt">Keep my version</string>
     <string name="set_sync_problem_take_remote">Take the other version</string>
+    <string name="set_sync_problem_migrate_folder">Migrate to a stable identity</string>
 
     <!-- 2.0: tracking -->
     <string name="set_tracking">Tracking</string>

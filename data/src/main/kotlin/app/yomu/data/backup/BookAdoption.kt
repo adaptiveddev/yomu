@@ -47,7 +47,7 @@ internal class BookAdoption(
         ?: throw IOException("The sync target does not transfer book files")
 
     private fun problem(p: BookFileSyncProblem): Nothing {
-        recordProblem(p.record(System.currentTimeMillis(), p.bookId.toString()))
+        recordProblem(p.record(System.currentTimeMillis()))
         throw p
     }
 

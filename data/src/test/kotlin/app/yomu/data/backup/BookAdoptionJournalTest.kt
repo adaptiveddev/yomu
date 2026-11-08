@@ -23,7 +23,7 @@ class BookAdoptionJournalTest : BookAdoptionTestBase() {
         // Simulate a crash after the journal: the journal exists but nothing else happened.
         writeJournal(a.context, BookAdoption.Journal(oldId, "deadbeef".repeat(5).substring(0, 40) + ":14", "x".repeat(64), 14, "example.txt", 1))
         try { a.sync(server); fail("Pending adoption must block a normal sync") }
-        catch (e: java.io.IOException) { assertTrue(e.message!!.contains("adoption")) }
+        catch (e: java.io.IOException) { assertTrue(e.message!!.contains("interrupted migration")) }
         // The same old content cannot be re-adopted blindly; a matching journal is required.
         try { adoption.adopt(bookId); fail("Stale journal without the new identity must not resume") }
         catch (e: java.io.IOException) { assertTrue(e.message!!.contains("changed again")) }

@@ -42,6 +42,7 @@ internal class BookFileSyncProblem(val kind: Kind, subject: String, detail: Stri
         Kind.ADOPTION_BLOCKED -> "book_adoption_blocked"
     }
     override val subject: String = subject.take(100)
+    override val target: String = bookId.toString()
 }
 
 @Serializable
@@ -73,7 +74,7 @@ internal class BookFileSync(
 
     private data class LocalSnapshot(val bookId: Long, val hash: String, val uri: Uri, val digest: Digest, val title: String)
 
-    private fun problem(p: BookFileSyncProblem) = onProblem(p.record(System.currentTimeMillis(), p.bookId.toString()))
+    private fun problem(p: BookFileSyncProblem) = onProblem(p.record(System.currentTimeMillis()))
 
     private suspend fun verifyLocalSnapshots(snapshots: List<LocalSnapshot>) {
         for (snapshot in snapshots) {

@@ -11,7 +11,13 @@ import java.util.Locale
 /** Image-folder protocol primitives. Existing legacy identities still require migration. */
 @Serializable internal data class FolderPage(val path: String, val sha256: String, val size: Long)
 @Serializable internal data class FolderEntry(val id: String, val title: String, val pages: List<FolderPage>)
-@Serializable internal data class FolderManifest(val version: Int = 1, val folders: List<FolderEntry> = emptyList())
+
+/**
+ * v2 adds [replaced]: legacy (`dir:`) identities that were deliberately migrated to stable ids,
+ * old → current. A device that still holds the legacy identity follows the marker instead of
+ * creating a second copy of the same folder.
+ */
+@Serializable internal data class FolderManifest(val version: Int = 1, val folders: List<FolderEntry> = emptyList(), val replaced: Map<String, String> = emptyMap())
 
 internal object FolderManifestCodec {
     private val json = Json { encodeDefaults = true }
@@ -35,8 +41,14 @@ internal object FolderManifestCodec {
     }
 
     fun validate(manifest: FolderManifest) {
-        require(manifest.version == 1 && manifest.folders.size <= MAX_FOLDERS)
+        require(manifest.version in 1..2 && manifest.folders.size <= MAX_FOLDERS)
         require(manifest.folders.map { it.id }.toSet().size == manifest.folders.size)
+        if (manifest.version >= 2) {
+            val ids = manifest.folders.map { it.id }.toSet()
+            require(manifest.replaced.keys.all { !validId(it) && it.length in 5..512 })
+            require(manifest.replaced.values.all { it in ids })
+            require(manifest.replaced.keys.none { manifest.replaced[it] == it })
+        } else require(manifest.replaced.isEmpty())
         for (folder in manifest.folders) {
             require(validId(folder.id) && folder.title.isNotBlank() && folder.title.length <= 512)
             require(folder.pages.isNotEmpty() && folder.pages.size <= MAX_PAGES)

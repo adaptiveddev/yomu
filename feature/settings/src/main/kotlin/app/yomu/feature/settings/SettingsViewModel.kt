@@ -196,6 +196,16 @@ class SettingsViewModel(
         busy.value = false
     }
 
+    /** Migrates a legacy image folder onto a stable identity so file sync can include it. */
+    fun migrateLegacyFolder(folderId: Long) = viewModelScope.launch(ScreenErrors) {
+        busy.value = true
+        runCatchingApp { sync.migrateLegacyFolder(folderId) }
+            .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
+            .onFailure { _events.send(SettingsEvent.Failure(it)) }
+        loadSyncProblems()
+        busy.value = false
+    }
+
     // Mihon / Tachiyomi
 
     /** Result of the last import, shown in a dialog until closed. */
