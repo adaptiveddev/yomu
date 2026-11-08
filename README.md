@@ -1,6 +1,6 @@
 # Yomu
 
-> **2.0.4 — частичная доработка.** Локальные книги и мангу можно привязать к существующим трекерам с ручным указанием глав. Другие сервисы и улучшения форматов ещё не реализованы; версия не проверена на устройстве.
+> **2.0.5 — этап 1 завершён.** Синхронизация: конфликты решаются в приложении (изменённые файлы книг, папки изображений и их страницы, удаления книг — с защитой изменённых копий). Трекеры MangaUpdates/Komga, полный PDF reflow и проверка на устройствах ещё впереди — [что осталось](docs/НЕ_СДЕЛАНО.md).
 
 [![CI](https://github.com/adxptived/yomu/actions/workflows/ci.yml/badge.svg)](https://github.com/adxptived/yomu/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/adxptived/yomu?label=release)](https://github.com/adxptived/yomu/releases/latest)
@@ -12,7 +12,7 @@
 
 Автор — **Shinoame** ([github.com/adxptived](https://github.com/adxptived)). **[Скачать APK](https://github.com/adxptived/yomu/releases/latest)** · [ночная сборка](https://github.com/adxptived/yomu/releases/tag/nightly) · [сообщить о проблеме](https://github.com/adxptived/yomu/issues/new/choose)
 
-> Версия **2.0.4** — что нового, в [CHANGELOG.md](CHANGELOG.md). 1.0.0, 1.1.0 и 1.3.1 запускали на телефоне; **1.4.0–2.0.4 на реальном устройстве ещё не проверялись** — см. [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+> Что нового — в [CHANGELOG.md](CHANGELOG.md). 1.0.0, 1.1.0 и 1.3.1 запускали на телефоне; **1.4.0–2.0.5 на реальном устройстве ещё не проверялись** — см. [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 | Библиотека | История | Статистика | Каталог | Словарь | Настройки |
 |---|---|---|---|---|---|
