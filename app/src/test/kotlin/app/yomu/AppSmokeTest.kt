@@ -233,15 +233,17 @@ class AppSmokeTest {
                 stats.recordSession(bookId, now - daysAgo * day - minutes * 60_000L, minutes * 60_000L, pages = minutes, chars = minutes * 900L)
             }
         }
-        // The profile tab (1.8.0) sums everything up; its History and Statistics tabs replace the old History tab.
+        // The profile tab sums everything up; History is its second segment and the statistics open from the overview.
         clickTab("Profile")
         awaitText("Total reading time")
         settle()
         shot("10_profile")
-        clickTab("History")
+        compose.onNode(hasText("History") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)).performClick()
         awaitText("Smoke Test Book")
         shot("11_history")
-        clickTab("Statistics")
+        compose.onNode(hasText("Overview") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)).performClick()
+        awaitText("Total reading time")
+        compose.onNode(hasText("Total reading time")).performClick()
         awaitText("Time read")
         shot("12_stats")
     }
