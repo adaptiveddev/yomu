@@ -24,6 +24,8 @@ import app.yomu.domain.model.Book
 import app.yomu.domain.model.BookFormat
 import app.yomu.domain.model.ReadingStatus
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -52,30 +54,50 @@ class AudiobookStore(
 
     // ---------------------------------------------------------------- tracks
 
-    /** The tracks of [book] in listening order. */
-    suspend fun tracks(book: Book): List<AudioTrack> = withContext(Dispatchers.IO) {
+    /**
+     * The tracks of [book] in listening order. The player screen and the service both ask when a book opens; a short
+     * cache (behind a lock, so the second caller waits instead of walking a SAF folder again) answers the second one.
+     */
+    suspend fun tracks(book: Book): List<AudioTrack> = tracksLock.withLock {
+        val now = System.currentTimeMillis()
+        trackCache[book.uri]?.takeIf { now - it.first < TRACKS_TTL_MS }?.let { return@withLock it.second }
+        val list = loadTracks(book)
+        trackCache.entries.removeIf { now - it.value.first >= TRACKS_TTL_MS }
+        trackCache[book.uri] = now to list
+        list
+    }
+
+    private val tracksLock = Mutex()
+    private val trackCache = HashMap<String, Pair<Long, List<AudioTrack>>>()
+
+    private suspend fun loadTracks(book: Book): List<AudioTrack> = withContext(Dispatchers.IO) {
         val uri = Uri.parse(book.uri)
         manifest(book)?.let { return@withContext it.tracks }
         if (isFolder(uri)) {
-            return@withContext listFolder(uri).map { (path, track) -> AudioTrack(trackTitle(path), track.toString(), chapters = chapters(track)) }
+            return@withContext listFolder(uri).map { (path, track) -> AudioTrack(trackTitle(path), track.toString(), chapters = chapters(track, path)) }
                 .ifEmpty { throw AppError.FileMissing(book.uri) }
         }
-        listOf(AudioTrack(book.title, book.uri, chapters = chapters(uri)))
+        listOf(AudioTrack(book.title, book.uri, chapters = chapters(uri, Uri.decode(book.uri))))
     }
 
     private val chapterCache = ConcurrentHashMap<String, List<AudioChapter>>()
 
     /** Chapters embedded in a local audio file (M4B, MP3); remembered, since the player and its screen both ask. */
-    private fun chapters(uri: Uri): List<AudioChapter> = chapterCache.getOrPut(uri.toString()) {
-        runCatching {
-            when (uri.scheme) {
-                "file" -> FileInputStream(File(uri.path!!)).channel.use(EmbeddedChapters::read)
-                "content" -> context.contentResolver.openFileDescriptor(uri, "r")?.let { fd ->
-                    ParcelFileDescriptor.AutoCloseInputStream(fd).channel.use(EmbeddedChapters::read)
-                }.orEmpty()
-                else -> emptyList()
-            }
-        }.onFailure { Timber.d(it, "No embedded chapters in $uri") }.getOrDefault(emptyList())
+    private fun chapters(uri: Uri, name: String): List<AudioChapter> {
+        // Opening a SAF document costs a binder call: formats that never carry these chapters are not opened.
+        val ext = name.substringBefore('?').substringAfterLast('/').substringAfterLast('.', "").lowercase()
+        if (ext in AudioFiles.EXTENSIONS && ext !in CHAPTER_EXTENSIONS) return emptyList()
+        return chapterCache.getOrPut(uri.toString()) {
+            runCatching {
+                when (uri.scheme) {
+                    "file" -> FileInputStream(File(uri.path!!)).channel.use(EmbeddedChapters::read)
+                    "content" -> context.contentResolver.openFileDescriptor(uri, "r")?.let { fd ->
+                        ParcelFileDescriptor.AutoCloseInputStream(fd).channel.use(EmbeddedChapters::read)
+                    }.orEmpty()
+                    else -> emptyList()
+                }
+            }.onFailure { Timber.d(it, "No embedded chapters in $uri") }.getOrDefault(emptyList())
+        }
     }
 
     fun manifest(book: Book): AudiobookManifest? {
@@ -290,6 +312,8 @@ class AudiobookStore(
         private const val MAX_PAGE = 4L * 1024 * 1024
         private const val MAX_ZIP_BYTES = 8L * 1024 * 1024 * 1024
         private val COVER_NAMES = setOf("cover", "folder", "front", "album")
+        private val CHAPTER_EXTENSIONS = setOf("m4b", "m4a", "mp4", "aac", "mp3")
+        private const val TRACKS_TTL_MS = 30_000L
         private val URL = Regex("""https?://[^\s<>"']+""")
 
         fun isManifest(uri: String) = uri.substringBefore('?').endsWith(".${AudiobookManifest.EXTENSION}", ignoreCase = true)

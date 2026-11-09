@@ -24,4 +24,5 @@
     <string name="audio_speed_down">Медленнее</string>
     <string name="audio_speed_up">Быстрее</string>
     <string name="audio_skip_silence">Без пауз</string>
+    <string name="audio_reconnecting">Нет соединения, пробую снова…</string>
 </resources>

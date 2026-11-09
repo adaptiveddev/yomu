@@ -23,6 +23,11 @@ class AudioSettingsTest {
     }
 
     @Test
+    fun networkRetriesBackOffUpToAMinute() {
+        assertEquals(listOf(2_000L, 4_000L, 8_000L, 16_000L, 32_000L, 60_000L, 60_000L), (0..6).map(AudioPlaybackService::networkBackoff))
+    }
+
+    @Test
     fun rewindGrowsWithThePause() {
         assertEquals(0L, AudioPlaybackService.rewindAfter(30_000))
         assertEquals(3_000L, AudioPlaybackService.rewindAfter(5 * 60_000L))

@@ -55,12 +55,13 @@ class AudioPlayerViewModel(
                 audio.open(bookId, play = false)
             }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it else _loadError.value = it }
         }
-        // Positions move without player events.
-        viewModelScope.launch {
-            while (true) {
-                audio.refresh()
-                delay(TICK_MS)
-            }
+    }
+
+    /** Positions move without player events: the screen ticks while it is shown and the book plays. */
+    suspend fun tickWhilePlaying() {
+        while (true) {
+            audio.refresh()
+            delay(TICK_MS)
         }
     }
 
