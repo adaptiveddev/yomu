@@ -127,7 +127,10 @@
     <string name="details_listen">Listen</string>
     <string name="details_continue_listening">Continue listening</string>
     <string name="library_audio_link">Audiobook by link</string>
-    <string name="library_audio_link_hint">YouTube video or playlist, podcast feed, audio file</string>
+    <string name="library_audio_link_hint">YouTube link or words to search YouTube, podcast feed, audio file</string>
+    <string name="library_audio_search_title">YouTube: “%1$s”</string>
+    <string name="library_audio_search_empty">Nothing found on YouTube</string>
+    <string name="library_audio_playlist">Playlist</string>
     <string name="library_audio_link_adding">Adding the audiobook…</string>
     <string name="library_no_books_title">No books from your device yet</string>
     <string name="library_no_books_text">Import EPUB, PDF, FB2, CBZ and other files — they will appear here next to your online titles.</string>
@@ -180,4 +183,8 @@
     <string name="hint_library_select">Long-press a book to select several at once. Pull down to rescan your folders.</string>
     <string name="library_remove_book">Remove from library</string>
     <string name="library_fast_scroll">Fast scroll</string>
+    <plurals name="library_audio_videos">
+        <item quantity="one">%d video</item>
+        <item quantity="other">%d videos</item>
+    </plurals>
 </resources>
