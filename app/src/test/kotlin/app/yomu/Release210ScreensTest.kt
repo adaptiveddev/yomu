@@ -103,4 +103,24 @@ class Release210ScreensTest {
         compose.onNodeWithText("Create a private repository").performScrollTo()
         shot("221_settings_sync_github")
     }
+
+    @Test
+    fun syncCategories() {
+        compose.setContent {
+            YomuTheme(dark) { SettingsScreen(viewModel = model(), links = SettingsLinks(), initialSection = SettingsSection.SYNC) }
+        }
+        awaitText("What to sync")
+        compose.onNodeWithText("Tracker links").performScrollTo()
+        shot("222_settings_sync_categories")
+    }
+
+    @Test
+    fun notificationSettings() {
+        compose.setContent {
+            YomuTheme(dark) { SettingsScreen(viewModel = model(), links = SettingsLinks(), initialSection = SettingsSection.NOTIFICATIONS) }
+        }
+        awaitText("Notify about")
+        compose.onNodeWithText("Review reminders").performScrollTo()
+        shot("223_settings_notifications")
+    }
 }

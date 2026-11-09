@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased — GitHub sync, incognito everywhere, hidden extensions, Anki decks
+## Unreleased — GitHub sync, incognito everywhere, hidden extensions, Anki decks, notifications
 
+- **Detailed sync settings**: Settings → Sync has a switch per category — reading positions, highlights and notes, bookmarks, words, online library, tracker links, book files, deletions — plus "Only over Wi-Fi" for automatic syncs. A category switched off is neither sent nor applied on that device, and the records other devices shared stay untouched.
+- **Notifications**: a new Settings → Notifications section — permission status, system settings, a switch per kind (new chapters, downloads, sync problems, backups, finished tasks, review reminders), quiet hours (silent delivery), the list of recent notifications (also the muted ones) and a test notification. Automatic sync that keeps failing now notifies.
+- **Hide covers** (Settings → Library): a coloured placeholder with the title instead of covers everywhere, the widget included.
+- **Popular extension repositories**: the Repositories tab offers Keiyoushi, Yūzōnō, Zosetsu, Kavita and Suwayomi; adding one still shows its name, size and signing key first.
+- **Reader**: a quick display panel in the reader menu (brightness with Auto, warm filter, keep screen on; font size and theme for books), a page thumbnail while dragging the manga slider, and double-tap zoom in webtoon mode.
 - **Sync through GitHub**: a new sync method stores the sync files in a private GitHub repository (Contents API; the blob SHA is the compare-and-swap version, like a WebDAV ETag). Enter a personal access token and `owner/name`, or let the app create a private `yomu-sync` repository. Tracker links sync too, and so do book files and image folders (a full sync like WebDAV: `books/yomu-book-<sha256>.bin`, streamed and verified by reading back; GitHub's 100 MB per-file limit applies, a larger book is reported as a problem). The token is never exported to backups.
 - **Incognito mode** now covers local books too (no saved position, reading history or statistics) and is visible above every screen except the reader, with a "Turn off" button. It can be switched from the top of the settings root and from the ⋮ menu of the library.
 - **Hide extensions and sources**: the eye button in Extensions hides all sources of an extension from the catalog and the global search; the extension sheet can pin, disable or hide each source; a source's menu hides it alone. "Show hidden" in the source filters lists them again, Settings → Catalog shows the counts and restores everything.
