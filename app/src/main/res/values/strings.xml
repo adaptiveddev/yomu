@@ -43,6 +43,12 @@
     <string name="whats_new_title">What\'s new in Yomu</string>
     <string name="whats_new_ok">Got it</string>
     <string name="whats_new_all">All changes</string>
+    <string-array name="whats_new_2_1_0">
+        <item>Audiobooks: your own files and folders, LibriVox, podcasts and YouTube videos, playlists and channels, with chapters, speed, skip silence and a sleep timer.</item>
+        <item>Search YouTube right from "Audiobook by link" or the catalog, and download online audiobooks to listen offline.</item>
+        <item>Playback recovers by itself after losing the connection and resumes a few seconds earlier after a pause.</item>
+        <item>Sync to GitHub with a switch per category, and a new Notifications section in Settings.</item>
+    </string-array>
     <string-array name="whats_new_2_0_6">
         <item>MangaUpdates tracking: sign in with your username, search, bind titles, sync chapters and rating. Imported from Mihon backups too.</item>
         <item>PDF reflow now reads two-column pages in the right order, drops page numbers and rebuilds paragraphs.</item>
