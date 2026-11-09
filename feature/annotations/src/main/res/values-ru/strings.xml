@@ -75,6 +75,8 @@
     <string name="export_html">HTML</string>
     <string name="export_txt">Обычный текст</string>
     <string name="export_readwise">Readwise CSV</string>
+    <string name="export_anki_tsv">Anki (текстовый файл)</string>
+    <string name="export_anki_apkg">Колода Anki (.apkg)</string>
     <string name="page_action_translate">Перевести страницу</string>
     <string name="page_action_save">Сохранить страницу</string>
     <string name="page_action_share">Поделиться страницей</string>

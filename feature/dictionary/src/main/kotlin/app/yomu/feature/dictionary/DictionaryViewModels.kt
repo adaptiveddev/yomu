@@ -12,6 +12,7 @@ import app.yomu.core.common.UiState
 import app.yomu.core.datastore.AppSettings
 import app.yomu.core.datastore.stateIn
 import app.yomu.data.dictionary.DictionaryRepository
+import app.yomu.data.export.AnkiPackageWriter
 import app.yomu.data.repository.WordRepositoryImpl
 import app.yomu.domain.export.WordExporter
 import app.yomu.domain.export.WordFormat
@@ -165,8 +166,11 @@ class WordsViewModel(private val context: Context, private val words: WordReposi
     fun export(format: WordFormat, uri: Uri) = viewModelScope.launch(ScreenErrors) {
         runCatching {
             withContext(Dispatchers.IO) {
-                val text = WordExporter.export(selectedOrAll(), format)
-                context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
+                val list = selectedOrAll()
+                context.contentResolver.openOutputStream(uri, "wt")!!.use { out ->
+                    if (format == WordFormat.ANKI_APKG) AnkiPackageWriter.write(WordExporter.ankiDeck(list), out, File(context.cacheDir, "anki"))
+                    else out.write(WordExporter.export(list, format).toByteArray())
+                }
             }
         }.onSuccess { events.send(WordsEvent.Exported) }.onFailure { events.send(WordsEvent.Failed(it)) }
     }

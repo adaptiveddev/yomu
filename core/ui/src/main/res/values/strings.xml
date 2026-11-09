@@ -67,4 +67,8 @@
     <string name="nav_dictionary">Dictionary</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_badge">new</string>
+    <string name="incognito_mode">Incognito mode</string>
+    <string name="incognito_mode_sum">Reading history, progress, statistics and searches are not saved</string>
+    <string name="incognito_banner">Incognito: history and progress are not saved</string>
+    <string name="incognito_turn_off">Turn off</string>
 </resources>

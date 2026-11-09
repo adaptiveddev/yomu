@@ -55,6 +55,8 @@ import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.Switch
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -100,12 +102,12 @@ enum class SettingsSection(val title: Int, val summary: Int, val icon: ImageVect
     SELECTION(R.string.set_selection, R.string.set_selection_sum, Icons.Outlined.TextFields, listOf(R.string.set_selection_actions, R.string.set_custom_actions)),
     QUICK_ACTIONS(R.string.set_quick, R.string.set_quick_sum, Icons.Outlined.TouchApp, listOf(R.string.set_page_menu_style, R.string.set_selection_menu_style, R.string.set_page_actions)),
     TRANSLATION(R.string.set_translation, R.string.set_translation_sum, Icons.Outlined.Translate, listOf(R.string.set_translation_mode, R.string.set_engine, R.string.set_target_lang, R.string.set_source_lang, R.string.set_deepl_key, R.string.set_libre_url, R.string.set_llm_url, R.string.set_llm_model, R.string.set_llm_prompt, R.string.set_language_packs, R.string.set_online_dictionary, R.string.set_dictionaries, R.string.set_daily_goal, R.string.set_reminder, R.string.set_review_modes)),
-    CATALOG(R.string.set_catalog, R.string.set_catalog_sum, Icons.Outlined.Public, listOf(R.string.set_update_interval, R.string.set_update_wifi, R.string.set_show_nsfw, R.string.set_incognito, R.string.set_extensions, R.string.set_revoke_trust)),
+    CATALOG(R.string.set_catalog, R.string.set_catalog_sum, Icons.Outlined.Public, listOf(R.string.set_update_interval, R.string.set_update_wifi, R.string.set_show_nsfw, R.string.set_incognito, R.string.set_extensions, R.string.set_hidden_sources, R.string.set_revoke_trust)),
     TRACKING(R.string.set_tracking, R.string.set_tracking_sum, Icons.Outlined.TrackChanges, listOf(R.string.set_track_auto, R.string.set_track_push, R.string.set_track_keys)),
     DOWNLOADS(R.string.set_downloads, R.string.set_downloads_sum, Icons.Outlined.Download, listOf(R.string.set_download_wifi, R.string.set_parallel, R.string.set_page_threads, R.string.set_auto_download_new, R.string.set_download_ahead, R.string.set_download_retries, R.string.set_auto_delete, R.string.set_pack_cbz, R.string.set_storage, R.string.set_clear_cache)),
     NETWORK(R.string.set_network, R.string.set_network_sum, Icons.Outlined.DataUsage, listOf(R.string.set_download_wifi, R.string.set_net_update_wifi, R.string.set_models_wifi, R.string.set_data_saver, R.string.set_covers_mobile, R.string.set_warn_mobile, R.string.set_traffic, R.string.set_traffic_reset)),
     BACKUP(R.string.set_backup, R.string.set_backup_sum, Icons.Outlined.Backup, listOf(R.string.set_backup_create, R.string.set_backup_restore, R.string.set_mihon_import, R.string.set_auto_backup, R.string.set_backup_folder, R.string.set_backup_keep, R.string.set_reset_all)),
-    SYNC(R.string.set_sync_section, R.string.set_sync_section_sum, Icons.Outlined.CloudSync, listOf(R.string.set_sync, R.string.set_sync_now, R.string.set_sync_method, R.string.set_sync_folder, R.string.set_webdav_url, R.string.set_sync_check, R.string.set_sync_on_start, R.string.set_sync_on_exit, R.string.set_sync_interval, R.string.set_sync_catalog, R.string.set_sync_deletions, R.string.set_sync_problems)),
+    SYNC(R.string.set_sync_section, R.string.set_sync_section_sum, Icons.Outlined.CloudSync, listOf(R.string.set_sync, R.string.set_sync_now, R.string.set_sync_method, R.string.set_sync_folder, R.string.set_webdav_url, R.string.set_github_token, R.string.set_github_repo, R.string.set_github_create, R.string.set_sync_check, R.string.set_sync_on_start, R.string.set_sync_on_exit, R.string.set_sync_interval, R.string.set_sync_catalog, R.string.set_sync_deletions, R.string.set_sync_problems)),
     SYNC_PROBLEMS(R.string.set_sync_problems, R.string.set_sync_problems_sum, Icons.Outlined.ErrorOutline, emptyList(), visible = false),
     SECURITY(R.string.set_security, R.string.set_security_sum, Icons.Outlined.Lock, listOf(R.string.set_app_lock, R.string.set_change_pin, R.string.set_biometric, R.string.set_lock_timeout, R.string.set_secure_screen)),
     FONTS(R.string.set_fonts, R.string.set_fonts_sum, Icons.Outlined.FontDownload, listOf(R.string.set_font_import)),
@@ -195,6 +197,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, links: SettingsLinks, onBack: (
                         viewModel.updates.openDetails()
                     },
                     onOpen = { section = it },
+                    incognito = viewModel.settings.incognito.state().value,
+                    onIncognito = { on -> viewModel.set(viewModel.settings.incognito, on) },
                 )
             } else {
                 SectionContent(s, viewModel, links, onOpen = { section = it })
@@ -216,7 +220,15 @@ fun SettingsScreen(viewModel: SettingsViewModel, links: SettingsLinks, onBack: (
 }
 
 @Composable
-private fun SettingsRoot(query: String, onQuery: (String) -> Unit, update: String?, onUpdate: () -> Unit, onOpen: (SettingsSection) -> Unit) {
+private fun SettingsRoot(
+    query: String,
+    onQuery: (String) -> Unit,
+    update: String?,
+    onUpdate: () -> Unit,
+    onOpen: (SettingsSection) -> Unit,
+    incognito: Boolean,
+    onIncognito: (Boolean) -> Unit,
+) {
     val resources = LocalResources.current
     val q = query.trim().lowercase()
     val results = remember(q, resources) {
@@ -244,6 +256,24 @@ private fun SettingsRoot(query: String, onQuery: (String) -> Unit, update: Strin
             }
         } else {
             if (update != null) item(key = "update") { UpdateCard(update, onUpdate) }
+            item(key = "quick") {
+                SettingsGroup {
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable { onIncognito(!incognito) }.padding(horizontal = Dimens.l, vertical = Dimens.s),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.l),
+                    ) {
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.VisibilityOff, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.tertiary)
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(CoreR.string.incognito_mode), style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(CoreR.string.incognito_mode_sum), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                        }
+                        Switch(checked = incognito, onCheckedChange = onIncognito)
+                    }
+                }
+            }
             val visible = SettingsSection.entries.filter { it.visible }
             val groups = ROOT_GROUPS.map { g -> g.filter { it in visible } } + listOf(visible.filter { s -> ROOT_GROUPS.none { s in it } })
             groups.filter { it.isNotEmpty() }.forEachIndexed { i, group ->

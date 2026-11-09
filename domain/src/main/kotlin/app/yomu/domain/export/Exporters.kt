@@ -13,12 +13,16 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-enum class AnnotationFormat(val extension: String, val mime: String) {
+enum class AnnotationFormat(val extension: String, val mime: String, val binary: Boolean = false) {
     MARKDOWN("md", "text/markdown"),
     JSON("json", "application/json"),
     HTML("html", "text/html"),
     TXT("txt", "text/plain"),
     READWISE_CSV("csv", "text/csv"),
+    /** Highlights as Anki cards: a text file for Anki's "Import File". */
+    ANKI_TSV("txt", "text/plain"),
+    /** Highlights as a ready Anki deck (.apkg). */
+    ANKI_APKG("apkg", "application/octet-stream", binary = true),
 }
 
 object AnnotationExporter {
@@ -32,7 +36,37 @@ object AnnotationExporter {
         AnnotationFormat.HTML -> html(books)
         AnnotationFormat.TXT -> books.joinToString("\n\n") { txt(it) }
         AnnotationFormat.READWISE_CSV -> readwiseCsv(books)
+        AnnotationFormat.ANKI_TSV -> buildString {
+            appendLine("#separator:tab")
+            appendLine("#html:true")
+            appendLine("#tags column:3")
+            ankiDeck(books).notes.forEach { n ->
+                val back = listOf(n.fields[1], n.fields[2].takeIf { it.isNotEmpty() }?.let { "<small>$it</small>" }.orEmpty())
+                    .filter { it.isNotEmpty() }.joinToString("<br><br>")
+                appendLine(listOf(n.fields[0], back, n.tags.joinToString(" ")).joinToString("\t") { it.replace('\t', ' ').replace('\n', ' ') })
+            }
+        }
+        AnnotationFormat.ANKI_APKG -> throw IllegalArgumentException("An Anki package is binary: use ankiDeck() and the package writer")
     }
+
+    /** Highlights as Anki notes: the quote on the front, the note and the book on the back. */
+    fun ankiDeck(books: List<BookAnnotations>, name: String = "Yomu highlights"): AnkiDeck = AnkiDeck(
+        name, AnkiNoteType.HIGHLIGHT,
+        books.flatMap { b ->
+            b.highlights.map { h ->
+                val source = listOfNotNull(
+                    b.bookTitle,
+                    b.authors.takeIf { it.isNotEmpty() }?.joinToString(", "),
+                    h.locator.chapterTitle?.takeIf { it.isNotBlank() },
+                ).joinToString(" · ")
+                AnkiNote(
+                    key = "h:${b.bookTitle}:${h.createdAt}:${h.text.hashCode()}",
+                    fields = listOf(AnkiText.esc(h.text), h.note?.let(AnkiText::esc).orEmpty(), AnkiText.esc(source)),
+                    tags = AnkiText.tags(h.tags + "highlight"),
+                )
+            }
+        },
+    )
 
     /** Obsidian compatible Markdown with a YAML header. */
     fun markdown(b: BookAnnotations): String = buildString {
@@ -170,10 +204,62 @@ object AnnotationExporter {
     )
 }
 
-enum class WordFormat(val extension: String) { CSV("csv"), ANKI_TSV("txt") }
+enum class WordFormat(val extension: String, val mime: String, val binary: Boolean = false) {
+    CSV("csv", "text/csv"),
+    ANKI_TSV("txt", "text/plain"),
+    /** A ready Anki deck (.apkg) for Anki, AnkiDroid and AnkiMobile. */
+    ANKI_APKG("apkg", "application/octet-stream", binary = true),
+    /** Quizlet / Memrise / Knowt "Import": term, tab, definition. */
+    QUIZLET("txt", "text/plain"),
+    JSON("json", "application/json"),
+    MARKDOWN("md", "text/markdown"),
+}
 
 object WordExporter {
+    private val json = Json { prettyPrint = true; encodeDefaults = true }
+
+    @Serializable
+    data class WordDto(
+        val word: String, val translation: String?, val definition: String?, val context: String?, val book: String?,
+        val language: String?, val tags: List<String>, val level: Int, val created: Long,
+    )
+
+    /** The deck written as .apkg (see `AnkiPackageWriter` in the data layer). */
+    fun ankiDeck(words: List<Word>, name: String = "Yomu"): AnkiDeck = AnkiDeck(
+        name, AnkiNoteType.WORD,
+        words.map { w ->
+            AnkiNote(
+                key = "w:${w.lang.orEmpty()}:${w.term.lowercase()}",
+                fields = listOf(
+                    AnkiText.esc(w.term),
+                    listOfNotNull(w.translation, w.definition).filter { it.isNotBlank() }.joinToString("<br>") { AnkiText.esc(it) },
+                    w.context?.let { AnkiText.withBold(it, w.term) }.orEmpty(),
+                    w.bookTitle?.let(AnkiText::esc).orEmpty(),
+                ),
+                tags = AnkiText.tags(w.tags),
+            )
+        },
+    )
+
     fun export(words: List<Word>, format: WordFormat): String = when (format) {
+        WordFormat.ANKI_APKG -> throw IllegalArgumentException("An Anki package is binary: use ankiDeck() and the package writer")
+        WordFormat.QUIZLET -> buildString {
+            words.forEach { w ->
+                val back = listOfNotNull(w.translation, w.definition).filter { it.isNotBlank() }.joinToString("; ")
+                appendLine(listOf(w.term, back).joinToString("\t") { it.replace('\t', ' ').replace('\n', ' ') })
+            }
+        }
+        WordFormat.JSON -> json.encodeToString(
+            words.map { WordDto(it.term, it.translation, it.definition, it.context, it.bookTitle, it.lang, it.tags, it.level, it.createdAt) },
+        )
+        WordFormat.MARKDOWN -> buildString {
+            fun cell(s: String?) = s.orEmpty().replace("|", "\\|").replace("\n", " ")
+            appendLine("| Word | Translation | Context | Book |")
+            appendLine("| --- | --- | --- | --- |")
+            words.forEach { w ->
+                appendLine("| **${cell(w.term)}** | ${cell(listOfNotNull(w.translation, w.definition).joinToString("; "))} | ${cell(w.context)} | ${cell(w.bookTitle)} |")
+            }
+        }
         WordFormat.CSV -> buildString {
             appendLine("word,translation,definition,context,book,language,tags,level")
             words.forEach { w ->

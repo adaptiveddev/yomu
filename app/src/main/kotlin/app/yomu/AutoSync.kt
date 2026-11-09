@@ -30,12 +30,11 @@ class AutoSync(private val context: Context, private val settings: AppSettings) 
                 if (!settings.syncEnabled.get()) return@launch
                 if (onStart && !settings.syncOnStart.get()) return@launch
                 if (!onStart && !settings.syncOnExit.get()) return@launch
-                val webdav = settings.syncBackend.get() == SyncManager.WEBDAV
-                val configured = if (webdav) settings.webdavUrl.get().isNotBlank() else settings.syncFolder.get().isNotBlank()
-                if (!configured) return@launch
+                if (!SyncManager.isConfigured(settings)) return@launch
+                val network = SyncManager.needsNetwork(settings.syncBackend.get())
                 // Coming back after a minute is not a reason for another sync.
                 if (onStart && System.currentTimeMillis() - settings.lastSyncAt.get() < MIN_GAP_MS) return@launch
-                SyncWorker.runSoon(context, needsNetwork = webdav)
+                SyncWorker.runSoon(context, needsNetwork = network)
             }
         }
     }

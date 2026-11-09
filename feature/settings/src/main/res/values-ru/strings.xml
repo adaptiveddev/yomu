@@ -199,10 +199,14 @@
     <string name="set_update_wifi">Проверять только по Wi‑Fi</string>
     <string name="set_show_nsfw">Показывать источники 18+</string>
     <string name="set_incognito">Режим инкогнито</string>
-    <string name="set_incognito_sum">Не сохранять историю чтения тайтлов из каталогов</string>
+    <string name="set_incognito_sum">Не сохранять историю, прогресс чтения, статистику и поиски</string>
     <string name="set_extensions">Расширения</string>
     <string name="set_extensions_sum">Репозитории и установленные расширения</string>
     <string name="set_revoke_trust">Отозвать доверие ко всем расширениям</string>
+    <string name="set_hidden_sources">Скрытые расширения и источники</string>
+    <string name="set_hidden_sources_sum">Расширений: %1$d, источников: %2$d. Скрыть можно кнопкой с глазом в «Расширениях» или в меню источника</string>
+    <string name="set_hidden_sources_text">Снова показывать все скрытые расширения и источники в каталоге и глобальном поиске?</string>
+    <string name="set_hidden_sources_show">Показать все</string>
     <string name="set_trusted_count">Доверенных: %1$d</string>
     <string name="set_revoke_trust_text">Расширения будут отключены, пока вы снова им не доверитесь.</string>
     <string name="set_revoke">Отозвать</string>
@@ -259,7 +263,7 @@
     <string name="set_backup_keep">Хранить копий</string>
     <string name="set_backup_now">Сохранить копию в папку сейчас</string>
     <string name="set_sync">Синхронизация устройств</string>
-    <string name="set_sync_hint">Прогресс, закладки, заметки, слова и онлайн-библиотека объединяются через общую папку (например, синхронизируемую Syncthing, Nextcloud или Google Drive) или ваш сервер WebDAV. Сервер Yomu не используется.</string>
+    <string name="set_sync_hint">Прогресс, закладки, заметки, слова и онлайн-библиотека объединяются через общую папку (например, синхронизируемую Syncthing, Nextcloud или Google Drive), ваш сервер WebDAV или приватный репозиторий GitHub. Сервер Yomu не используется.</string>
     <string name="set_sync_folder">Папка синхронизации</string>
     <string name="set_sync_now">Синхронизировать сейчас</string>
     <string name="set_sync_done">Синхронизировано, объединено изменений: %1$d</string>
@@ -425,7 +429,7 @@
     <string name="set_app_icon_hint">Значок сменится, когда вы выйдете из приложения. Некоторые лаунчеры убирают старый значок с рабочего стола — тогда добавьте Yomu заново из списка приложений.</string>
     <!-- 2.0: sync -->
     <string name="set_sync_section">Синхронизация</string>
-    <string name="set_sync_section_sum">Общая папка или WebDAV, удаления, онлайн-библиотека</string>
+    <string name="set_sync_section_sum">Общая папка, WebDAV или GitHub, удаления, онлайн-библиотека</string>
     <string name="set_sync_on">Синхронизация включена</string>
     <string name="set_sync_target">Куда синхронизировать</string>
     <string name="set_sync_method">Способ синхронизации</string>
@@ -436,6 +440,16 @@
     <string name="set_webdav_user">Имя пользователя</string>
     <string name="set_webdav_password">Пароль</string>
     <string name="set_webdav_password_sum">Лучше пароль приложения, если сервер его поддерживает</string>
+    <string name="set_sync_target_github">Репозиторий GitHub</string>
+    <string name="set_github_token">Токен GitHub</string>
+    <string name="set_github_token_sum">Персональный токен доступа к репозиторию (Contents: чтение и запись). Создайте его на github.com/settings/tokens. Чтобы создать репозиторий из приложения, токену также нужно право создавать репозитории</string>
+    <string name="set_github_repo">Репозиторий</string>
+    <string name="set_github_repo_hint">владелец/имя, например me/yomu-sync</string>
+    <string name="set_github_create">Создать приватный репозиторий</string>
+    <string name="set_github_create_sum">Создаёт приватный репозиторий в вашем аккаунте и синхронизирует в него</string>
+    <string name="set_github_create_name">Имя репозитория</string>
+    <string name="set_github_created">Репозиторий %1$s готов</string>
+    <string name="set_github_hint">Данные синхронизации хранятся в приватном репозитории GitHub: на всех устройствах укажите один и тот же репозиторий и токен этого аккаунта. Файлы книг не копируются.</string>
     <string name="set_sync_check">Проверить подключение</string>
     <string name="set_sync_check_ok">Подключение работает</string>
     <string name="set_sync_when">Когда синхронизировать</string>

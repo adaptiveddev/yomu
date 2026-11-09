@@ -75,6 +75,8 @@
     <string name="export_html">HTML</string>
     <string name="export_txt">Plain text</string>
     <string name="export_readwise">Readwise CSV</string>
+    <string name="export_anki_tsv">Anki (text file)</string>
+    <string name="export_anki_apkg">Anki deck (.apkg)</string>
     <string name="page_action_translate">Translate page</string>
     <string name="page_action_save">Save page</string>
     <string name="page_action_share">Share page</string>

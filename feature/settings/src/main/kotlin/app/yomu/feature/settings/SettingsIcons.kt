@@ -185,6 +185,7 @@ internal fun settingIcon(title: Int): ImageVector? = when (title) {
     R.string.set_net_update_wifi -> Icons.Outlined.Update
     R.string.set_show_nsfw -> Icons.Outlined.Explicit
     R.string.set_incognito -> Icons.Outlined.VisibilityOff
+    R.string.set_hidden_sources -> Icons.Outlined.VisibilityOff
     R.string.set_extensions -> Icons.Outlined.Extension
     R.string.set_revoke_trust -> Icons.Outlined.RemoveModerator
     // Downloads and storage

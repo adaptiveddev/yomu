@@ -159,6 +159,10 @@ class AppSettings(context: Context) {
     val trustedExtensions = stringSet("trusted_extensions")
     /** Bundled extensions the user uninstalled: they are not copied back on the next start. */
     val removedBundledExtensions = stringSet("removed_bundled_extensions")
+    /** Sources (ids) the user hid from the catalog and the global search. */
+    val hiddenSources = stringSet("hidden_sources")
+    /** Extensions (package names) whose sources are all hidden from the catalog and the global search. */
+    val hiddenExtensions = stringSet("hidden_extensions")
     /** Languages shown in the list of available extensions; empty = device language, English and multilingual. */
     val extensionLanguages = stringSet("extension_languages")
     /** Chapter list sort and filters of titles without their own (see "Use for all titles" on the title page). */
@@ -210,6 +214,10 @@ class AppSettings(context: Context) {
     val webdavUrl = string("webdav_url", "")
     val webdavUser = string("webdav_user", "")
     val webdavPassword = string("webdav_password", "")
+    /** GitHub personal access token with access to [githubRepo] (contents: read and write). */
+    val githubToken = string("github_token", "")
+    /** owner/name of the (private) repository that holds the sync files. */
+    val githubRepo = string("github_repo", "")
     /** Sync when the app starts and when it goes to the background (2.0.0). */
     val syncOnStart = bool("sync_on_start", true)
     val syncOnExit = bool("sync_on_exit", true)
@@ -271,7 +279,7 @@ class AppSettings(context: Context) {
     val crashSeenAt = long("crash_seen_at", 0)
 
     /** Keys that are never exported to a backup or sync file. */
-    private val privateKeys = setOf("pin_hash", "deepl_key", "libre_key", "llm_key", "webdav_password")
+    private val privateKeys = setOf("pin_hash", "deepl_key", "libre_key", "llm_key", "webdav_password", "github_token")
 
     /** State of this installation, not a preference: never exported, and a backup never overwrites it. */
     private val deviceKeys = setOf("update_checked_at", "update_latest", "whats_new_seen", "crash_seen_at", "last_sync_error")

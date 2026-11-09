@@ -44,6 +44,15 @@ import androidx.compose.material.icons.outlined.GppMaybe
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.Switch
+import androidx.compose.ui.draw.alpha
+import app.yomu.data.source.SourceInfo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
@@ -130,6 +139,8 @@ fun ExtensionsScreen(
     val languages by viewModel.languages.collectAsStateWithLifecycle()
     val allLanguages by viewModel.allLanguages.collectAsStateWithLifecycle()
     val preview by viewModel.preview.collectAsStateWithLifecycle()
+    val hiddenExtensions by viewModel.hiddenExtensions.collectAsStateWithLifecycle()
+    val sourceInfos by viewModel.sourceInfos.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var tab by rememberSaveable { mutableIntStateOf(if (addStoreUrl != null) 2 else 0) }
     var searching by rememberSaveable { mutableStateOf(false) }
@@ -227,6 +238,8 @@ fun ExtensionsScreen(
                     onTrust = { trustFor = it }, onTrustAll = { trustAll = it },
                     onUninstall = { uninstallFor = it }, onOpen = { detailsFor = it.pkg },
                     onBrowse = { tab = 1 },
+                    hidden = hiddenExtensions,
+                    onHide = { ext, hide -> viewModel.setExtensionHidden(ext.pkg, hide) },
                 )
             }
             1 -> LazyColumn(modifier, contentPadding = PaddingValues(bottom = Dimens.xl)) {
@@ -299,6 +312,12 @@ fun ExtensionsScreen(
                 onUpdate = viewModel::update,
                 onTrust = { trustFor = ext },
                 onUninstall = { detailsFor = null; uninstallFor = ext },
+                hidden = ext.pkg in hiddenExtensions,
+                onHide = { viewModel.setExtensionHidden(ext.pkg, it) },
+                infos = sourceInfos,
+                onPinSource = viewModel::setSourcePinned,
+                onEnableSource = viewModel::setSourceEnabled,
+                onHideSource = viewModel::setSourceHidden,
             )
         }
     }
@@ -374,6 +393,8 @@ private fun LazyListScope.installedTab(
     onUninstall: (InstalledExtension) -> Unit,
     onOpen: (InstalledExtension) -> Unit,
     onBrowse: () -> Unit,
+    hidden: Set<String> = emptySet(),
+    onHide: (InstalledExtension, Boolean) -> Unit = { _, _ -> },
 ) {
     val updatePkgs = updates.map { it.installed.pkg }.toSet()
     if (installed.isEmpty()) {
@@ -423,7 +444,15 @@ private fun LazyListScope.installedTab(
     }
     val rest = installed.filter { it.status != ExtensionStatus.UNTRUSTED && it.pkg !in updatePkgs }
     items(rest, key = { "i-" + it.pkg }) { ext ->
-        InstalledRow(ext, onClick = { onOpen(ext) }) {
+        InstalledRow(ext, onClick = { onOpen(ext) }, hidden = ext.pkg in hidden) {
+            val isHidden = ext.pkg in hidden
+            IconButton(onClick = { onHide(ext, !isHidden) }) {
+                Icon(
+                    if (isHidden) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                    stringResource(if (isHidden) R.string.ext_unhide else R.string.ext_hide),
+                    tint = if (isHidden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (ext.sources.any { (it as? TachiyomiSource)?.hasPreferences == true }) {
                 IconButton(onClick = { onOpen(ext) }) { Icon(Icons.Filled.Settings, stringResource(R.string.ext_source_settings)) }
             }
@@ -496,9 +525,9 @@ private fun installedSummary(ext: InstalledExtension): String {
 }
 
 @Composable
-private fun InstalledRow(ext: InstalledExtension, onClick: () -> Unit, trailing: @Composable () -> Unit) {
+private fun InstalledRow(ext: InstalledExtension, onClick: () -> Unit, hidden: Boolean = false, trailing: @Composable () -> Unit) {
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.clickable(onClick = onClick).alpha(if (hidden) 0.6f else 1f),
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.s)) {
                 Text(ext.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -514,7 +543,11 @@ private fun InstalledRow(ext: InstalledExtension, onClick: () -> Unit, trailing:
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                ExtensionStatus.LOADED -> Text(installedSummary(ext), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                ExtensionStatus.LOADED -> Text(
+                    listOfNotNull(installedSummary(ext), if (hidden) stringResource(R.string.ext_hidden) else null).joinToString(" · "),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         },
         leadingContent = { ExtIcon(ext) },
@@ -769,6 +802,12 @@ private fun ExtensionDetailsSheet(
     onUpdate: (ExtensionUpdate) -> Unit,
     onTrust: () -> Unit,
     onUninstall: () -> Unit,
+    hidden: Boolean,
+    onHide: (Boolean) -> Unit,
+    infos: Map<Long, SourceInfo>,
+    onPinSource: (Long, Boolean) -> Unit,
+    onEnableSource: (Long, Boolean) -> Unit,
+    onHideSource: (Long, Boolean) -> Unit,
 ) {
     YomuSheet(onDismiss) {
         Row(Modifier.padding(horizontal = Dimens.l), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.m)) {
@@ -795,19 +834,59 @@ private fun ExtensionDetailsSheet(
             if (ext.status == ExtensionStatus.UNTRUSTED) FilledTonalButton(onClick = onTrust) { Text(stringResource(R.string.ext_trust)) }
             OutlinedButton(onClick = onUninstall) { Text(stringResource(R.string.ext_uninstall)) }
         }
+        ListItem(
+            modifier = Modifier.clickable { onHide(!hidden) },
+            leadingContent = { Icon(Icons.Outlined.VisibilityOff, null) },
+            headlineContent = { Text(stringResource(R.string.ext_hide_switch)) },
+            supportingContent = { Text(stringResource(R.string.ext_hide_switch_sum)) },
+            trailingContent = { Switch(checked = hidden, onCheckedChange = onHide) },
+        )
         if (ext.sources.isNotEmpty()) {
             Spacer(Modifier.height(Dimens.s))
             SectionHeader(stringResource(R.string.ext_sources) + " · " + ext.sources.size)
             ext.sources.sortedWith(compareBy(ExtensionsViewModel.languageOrder()) { it.lang }).forEach { src ->
                 val configurable = (src as? TachiyomiSource)?.hasPreferences == true
+                val info = infos[src.id]
+                val pinned = info?.pinned == true
+                val enabled = info?.enabled != false
+                val sourceHidden = info?.hidden == true
                 ListItem(
-                    modifier = if (configurable) Modifier.clickable { onOpenSettings(src.id) } else Modifier,
-                    headlineContent = { Text(src.name) },
-                    supportingContent = { Text(langLabel(src.lang)) },
-                    trailingContent = if (configurable) {
-                        { Icon(Icons.Filled.Settings, stringResource(R.string.ext_source_settings)) }
-                    } else {
-                        null
+                    modifier = (if (configurable) Modifier.clickable { onOpenSettings(src.id) } else Modifier).alpha(if (enabled && !sourceHidden) 1f else 0.6f),
+                    headlineContent = { Text(src.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    supportingContent = {
+                        Text(
+                            listOfNotNull(
+                                langLabel(src.lang),
+                                if (!enabled) stringResource(R.string.source_disabled) else null,
+                                if (sourceHidden) stringResource(R.string.source_hidden) else null,
+                            ).joinToString(" · "),
+                        )
+                    },
+                    trailingContent = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { onPinSource(src.id, !pinned) }) {
+                                Icon(
+                                    if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                    stringResource(if (pinned) R.string.source_unpin else R.string.source_pin),
+                                    tint = if (pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            IconButton(onClick = { onEnableSource(src.id, !enabled) }) {
+                                Icon(
+                                    if (enabled) Icons.Outlined.CheckCircle else Icons.Outlined.Block,
+                                    stringResource(if (enabled) R.string.source_disable else R.string.source_enable),
+                                    tint = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                                )
+                            }
+                            // Hiding a source alone means nothing while the whole extension is hidden.
+                            IconButton(onClick = { onHideSource(src.id, !sourceHidden) }, enabled = !hidden) {
+                                Icon(
+                                    if (sourceHidden) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                    stringResource(if (sourceHidden) R.string.source_unhide else R.string.source_hide),
+                                )
+                            }
+                            if (configurable) Icon(Icons.Filled.Settings, stringResource(R.string.ext_source_settings))
+                        }
                     },
                 )
             }

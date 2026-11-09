@@ -356,15 +356,15 @@ class WorkScheduler(private val context: Context, private val settings: AppSetti
     }
 
     suspend fun scheduleSync() {
-        val webdav = settings.syncBackend.get() == SyncManager.WEBDAV
-        val configured = if (webdav) settings.webdavUrl.get().isNotBlank() else settings.syncFolder.get().isNotBlank()
+        val network = SyncManager.needsNetwork(settings.syncBackend.get())
+        val configured = SyncManager.isConfigured(settings)
         val hours = settings.syncIntervalHours.get()
         if (!settings.syncEnabled.get() || !configured || hours <= 0) {
             wm.cancelUniqueWork(SyncWorker.NAME)
             return
         }
         val request = PeriodicWorkRequestBuilder<SyncWorker>(hours.coerceAtLeast(1).toLong(), TimeUnit.HOURS)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(if (webdav) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED).build())
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(if (network) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED).build())
             .build()
         wm.enqueueUniquePeriodicWork(SyncWorker.NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
     }

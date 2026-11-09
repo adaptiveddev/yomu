@@ -13,7 +13,6 @@
     <string name="catalog_check_updates">Проверить обновления</string>
     <string name="catalog_incognito_on">Режим инкогнито включён</string>
     <string name="catalog_incognito_off">Режим инкогнито выключен</string>
-    <string name="catalog_incognito_banner">Инкогнито: история чтения не сохраняется</string>
     <string name="catalog_opds_added">Каталог добавлен</string>
     <string name="catalog_local_configured">Локальная папка подключена</string>
     <string name="catalog_updates_started">Проверяем новые главы…</string>
@@ -23,6 +22,10 @@
     <string name="source_kind_local">Локальный</string>
     <string name="source_kind_extension">Расширение</string>
     <string name="source_disabled">отключён</string>
+    <string name="source_hidden">скрыт</string>
+    <string name="source_hide">Скрыть из каталога</string>
+    <string name="source_unhide">Показывать в каталоге</string>
+    <string name="source_hide_extension">Скрыть все источники %1$s</string>
     <string name="source_pin">Закрепить</string>
     <string name="source_unpin">Открепить</string>
     <string name="source_enable">Включить</string>
@@ -164,6 +167,11 @@
     <string name="ext_update_all">Обновить все</string>
     <string name="ext_updates_header">Есть обновления</string>
     <string name="ext_uninstall">Удалить</string>
+    <string name="ext_hide">Скрыть из каталога</string>
+    <string name="ext_unhide">Показывать в каталоге</string>
+    <string name="ext_hidden">скрыто</string>
+    <string name="ext_hide_switch">Скрыть в каталоге</string>
+    <string name="ext_hide_switch_sum">Его источники не показываются в каталоге и не участвуют в глобальном поиске. Тайтлы в библиотеке продолжают работать</string>
     <string name="ext_installed">Установлено: %1$s</string>
     <string name="ext_updated">Обновлено: %1$s</string>
     <string name="ext_updated_count">Обновлено расширений: %1$s</string>
@@ -359,6 +367,7 @@
     <string name="source_filter_pinned">Только закреплённые</string>
     <string name="source_filter_hide_disabled">Скрыть отключённые</string>
     <string name="source_filter_hide_unstable">Скрыть неотвечающие</string>
+    <string name="source_filter_show_hidden">Показать скрытые</string>
     <string name="source_filter_shown">%1$d из %2$d</string>
     <string name="source_filter_empty">Нет источников под эти фильтры</string>
     <string name="source_filter_languages_title">Языки источников</string>

@@ -173,7 +173,7 @@ class CatalogHomeViewModel(
         val query = q.trim()
         infos.filter { s ->
             sources.isShown(s, langs) &&
-                filter.matches(s.content.name, s.kind.name, s.pinned, s.enabled, s.isNsfw, s.id in unstable) &&
+                filter.matches(s.content.name, s.kind.name, s.pinned, s.enabled, s.isNsfw, s.id in unstable, s.hidden) &&
                 (query.isEmpty() || s.name.contains(query, ignoreCase = true) || s.extensionName?.contains(query, ignoreCase = true) == true)
         }.sortedWith(sourceComparator(sort))
     }.state(this, emptyList())
@@ -228,6 +228,8 @@ class CatalogHomeViewModel(
     }
     fun setPinned(id: Long, pinned: Boolean) = viewModelScope.launch(ScreenErrors) { sources.setPinned(id, pinned) }
     fun setEnabled(id: Long, enabled: Boolean) = viewModelScope.launch(ScreenErrors) { sources.setEnabled(id, enabled) }
+    fun setHidden(id: Long, hidden: Boolean) = viewModelScope.launch(ScreenErrors) { sources.setHidden(id, hidden) }
+    fun setExtensionHidden(pkg: String, hidden: Boolean) = viewModelScope.launch(ScreenErrors) { sources.setExtensionHidden(pkg, hidden) }
     fun setIncognito(value: Boolean) = viewModelScope.launch(ScreenErrors) { settings.incognito.set(value) }
 
     fun addOpds(name: String, url: String, user: String?, password: String?) = viewModelScope.launch(ScreenErrors) {

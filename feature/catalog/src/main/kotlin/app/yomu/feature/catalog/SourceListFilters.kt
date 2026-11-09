@@ -141,6 +141,9 @@ internal fun SourceFilterBar(
         if (filter.hideUnstable) {
             item(key = "unstable") { RemovableChip(stringResource(R.string.source_filter_hide_unstable), onRemove = { onUpdate { it.copy(hideUnstable = false) } }) }
         }
+        if (filter.showHidden) {
+            item(key = "hidden") { RemovableChip(stringResource(R.string.source_filter_show_hidden), onRemove = { onUpdate { it.copy(showHidden = false) } }) }
+        }
         if (shown < total) {
             item(key = "count") {
                 Text(
@@ -243,6 +246,7 @@ internal fun SourceFilterSheet(
             CheckRow(stringResource(R.string.source_filter_pinned), filter.pinnedOnly) { v -> onUpdate { it.copy(pinnedOnly = v) } }
             CheckRow(stringResource(R.string.source_filter_hide_disabled), filter.hideDisabled) { v -> onUpdate { it.copy(hideDisabled = v) } }
             CheckRow(stringResource(R.string.source_filter_hide_unstable), filter.hideUnstable) { v -> onUpdate { it.copy(hideUnstable = v) } }
+            CheckRow(stringResource(R.string.source_filter_show_hidden), filter.showHidden) { v -> onUpdate { it.copy(showHidden = v) } }
         }
     }
 }

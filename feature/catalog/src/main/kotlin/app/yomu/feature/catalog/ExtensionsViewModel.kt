@@ -16,6 +16,8 @@ import app.yomu.data.source.ExtensionManager
 import app.yomu.data.source.ExtensionStatus
 import app.yomu.data.source.ExtensionUpdate
 import app.yomu.data.source.InstalledExtension
+import app.yomu.data.source.SourceInfo
+import app.yomu.data.source.SourceManager
 import app.yomu.data.source.StoreInfo
 import app.yomu.data.source.StoreState
 import kotlinx.coroutines.CancellationException
@@ -48,7 +50,20 @@ class ExtensionsViewModel(
     private val context: Context,
     private val extensions: ExtensionManager,
     private val settings: AppSettings,
+    private val sources: SourceManager,
 ) : ViewModel() {
+    /** Extensions whose sources are all hidden from the catalog and the global search. */
+    val hiddenExtensions: StateFlow<Set<String>> = settings.hiddenExtensions.stateIn(viewModelScope)
+
+    /** Pin, on/off and hidden state of every source, for the settings of an extension's sources. */
+    val sourceInfos: StateFlow<Map<Long, SourceInfo>> = sources.infos.map { l -> l.associateBy { it.id } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    fun setExtensionHidden(pkg: String, hidden: Boolean) = viewModelScope.launch(ScreenErrors) { sources.setExtensionHidden(pkg, hidden) }
+    fun setSourceHidden(id: Long, hidden: Boolean) = viewModelScope.launch(ScreenErrors) { sources.setHidden(id, hidden) }
+    fun setSourcePinned(id: Long, pinned: Boolean) = viewModelScope.launch(ScreenErrors) { sources.setPinned(id, pinned) }
+    fun setSourceEnabled(id: Long, enabled: Boolean) = viewModelScope.launch(ScreenErrors) { sources.setEnabled(id, enabled) }
+
     private val _events = Channel<CatalogEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 

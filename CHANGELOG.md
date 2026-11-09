@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — GitHub sync, incognito everywhere, hidden extensions, Anki decks
+
+- **Sync through GitHub**: a new sync method stores the sync files in a private GitHub repository (Contents API; the blob SHA is the compare-and-swap version, like a WebDAV ETag). Enter a personal access token and `owner/name`, or let the app create a private `yomu-sync` repository. Tracker links sync too; book files are not copied. The token is never exported to backups.
+- **Incognito mode** now covers local books too (no saved position, reading history or statistics) and is visible above every screen except the reader, with a "Turn off" button. It can be switched from the top of the settings root and from the ⋮ menu of the library.
+- **Hide extensions and sources**: the eye button in Extensions hides all sources of an extension from the catalog and the global search; the extension sheet can pin, disable or hide each source; a source's menu hides it alone. "Show hidden" in the source filters lists them again, Settings → Catalog shows the counts and restores everything.
+- **Export words**: a ready **Anki deck (.apkg)** for Anki/AnkiDroid/AnkiMobile (re-exports update the same notes), the Anki text file, CSV, Quizlet/Memrise (tab-separated), JSON and Markdown. Highlights can be exported as an Anki deck or an Anki text file as well.
+- Tested with MockWebServer and Robolectric only: no real GitHub account or Anki import was exercised.
+
 ## 2.0.6 — trackers and PDF reflow (stages 2–3)
 
 - New **MangaUpdates** tracker: sign in with your username, search (novels and drama CDs filtered out), bind titles, list statuses (Reading / Plan to Read / Complete / Dropped / On Hold), chapters and rating (rating 0 removes it). MangaUpdates bindings from Mihon backups are imported. Written against the service API and covered by mock-server tests; a real-account check is still pending.

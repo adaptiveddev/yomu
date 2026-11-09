@@ -152,6 +152,14 @@ class SettingsViewModel(
         busy.value = false
     }
 
+    fun createGitHubRepository(name: String) = viewModelScope.launch(ScreenErrors) {
+        busy.value = true
+        runCatchingApp { sync.createGitHubRepository(name) }
+            .onSuccess { full -> _events.send(SettingsEvent.Message(R.string.set_github_created, listOf(full))); scheduler.scheduleSync() }
+            .onFailure { _events.send(SettingsEvent.Failure(it)) }
+        busy.value = false
+    }
+
     fun checkSync() = viewModelScope.launch(ScreenErrors) {
         busy.value = true
         runCatchingApp { sync.check() }

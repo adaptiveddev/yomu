@@ -197,10 +197,14 @@
     <string name="set_update_wifi">Check only over Wi‑Fi</string>
     <string name="set_show_nsfw">Show 18+ sources</string>
     <string name="set_incognito">Incognito mode</string>
-    <string name="set_incognito_sum">Don’t save reading history of catalog titles</string>
+    <string name="set_incognito_sum">Don’t save reading history, progress, statistics and searches</string>
     <string name="set_extensions">Extensions</string>
     <string name="set_extensions_sum">Repositories and installed extensions</string>
     <string name="set_revoke_trust">Revoke trust of all extensions</string>
+    <string name="set_hidden_sources">Hidden extensions and sources</string>
+    <string name="set_hidden_sources_sum">Extensions: %1$d, sources: %2$d. Hide them with the eye button in Extensions or in the menu of a source</string>
+    <string name="set_hidden_sources_text">Show all hidden extensions and sources in the catalog and the global search again?</string>
+    <string name="set_hidden_sources_show">Show all</string>
     <string name="set_trusted_count">Trusted: %1$d</string>
     <string name="set_revoke_trust_text">Extensions will be disabled until you trust them again.</string>
     <string name="set_revoke">Revoke</string>
@@ -255,7 +259,7 @@
     <string name="set_backup_keep">Backups to keep</string>
     <string name="set_backup_now">Back up to the folder now</string>
     <string name="set_sync">Sync between devices</string>
-    <string name="set_sync_hint">Progress, bookmarks, notes, words and the online library are merged through a shared folder (for example synced by Syncthing, Nextcloud or Google Drive) or your own WebDAV server. No Yomu server is involved.</string>
+    <string name="set_sync_hint">Progress, bookmarks, notes, words and the online library are merged through a shared folder (for example synced by Syncthing, Nextcloud or Google Drive), your own WebDAV server or a private GitHub repository. No Yomu server is involved.</string>
     <string name="set_sync_folder">Sync folder</string>
     <string name="set_sync_now">Sync now</string>
     <string name="set_sync_done">Synced, changes merged: %1$d</string>
@@ -421,7 +425,7 @@
     <string name="set_app_icon_hint">The icon changes when you leave the app. Some launchers remove the old icon from the home screen: then add Yomu again from the app list.</string>
     <!-- 2.0: sync -->
     <string name="set_sync_section">Sync</string>
-    <string name="set_sync_section_sum">Shared folder or WebDAV, deletions, online library</string>
+    <string name="set_sync_section_sum">Shared folder, WebDAV or GitHub, deletions, online library</string>
     <string name="set_sync_on">Sync is on</string>
     <string name="set_sync_target">Where to sync</string>
     <string name="set_sync_method">Sync method</string>
@@ -432,6 +436,16 @@
     <string name="set_webdav_user">User name</string>
     <string name="set_webdav_password">Password</string>
     <string name="set_webdav_password_sum">Use an app password if your server offers one</string>
+    <string name="set_sync_target_github">GitHub repository</string>
+    <string name="set_github_token">GitHub token</string>
+    <string name="set_github_token_sum">A personal access token with access to the repository (Contents: read and write). Create one at github.com/settings/tokens. To create a repository from the app, the token also needs permission to create repositories</string>
+    <string name="set_github_repo">Repository</string>
+    <string name="set_github_repo_hint">owner/name, for example me/yomu-sync</string>
+    <string name="set_github_create">Create a private repository</string>
+    <string name="set_github_create_sum">Creates a private repository on your account and syncs into it</string>
+    <string name="set_github_create_name">Repository name</string>
+    <string name="set_github_created">Repository %1$s is ready</string>
+    <string name="set_github_hint">Sync data is stored in a private GitHub repository: use the same token account and repository on every device. Book files are not copied.</string>
     <string name="set_sync_check">Check connection</string>
     <string name="set_sync_check_ok">Connection works</string>
     <string name="set_sync_when">When to sync</string>
