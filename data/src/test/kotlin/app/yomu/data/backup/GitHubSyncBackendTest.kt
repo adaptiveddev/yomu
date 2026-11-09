@@ -28,6 +28,7 @@ class GitHubSyncBackendTest {
     private val shas = HashMap<String, String>()
     private val repos = mutableSetOf("me/yomu-sync")
     private var push = true
+    private var putCount = 0
 
     @Before fun setUp() {
         server = MockWebServer().apply {
@@ -58,6 +59,7 @@ class GitHubSyncBackendTest {
                             MockResponse.Builder().code(200).body(Buffer().write(files[name]!!)).build()
                         }
                         contents != null && request.method == "PUT" -> {
+                            putCount++
                             val b = body(request)
                             val sha = b["sha"]?.jsonPrimitive?.content
                             when {
@@ -110,6 +112,69 @@ class GitHubSyncBackendTest {
         assertTrue(gh.read()!!.bytes.contentEquals(big))
         gh.writeTrackLinks("{}".toByteArray(), null)
         assertEquals("{}", gh.readTrackLinks()!!.bytes.decodeToString())
+    }
+
+    private val name = "books/yomu-book-"
+    private fun sha(b: ByteArray) = java.security.MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
+    private fun tmp(b: ByteArray) = java.io.File.createTempFile("gh-book", ".bin").apply { writeBytes(b); deleteOnExit() }
+
+    @Test
+    fun indexesUseCompareAndSwap() = runBlocking {
+        val gh = backend()
+        assertNull(gh.readBookIndex()); assertNull(gh.readFolderIndex())
+        gh.writeBookIndex("b1".toByteArray(), null)
+        gh.writeFolderIndex("f1".toByteArray(), null)
+        val b = gh.readBookIndex()!!
+        assertEquals("b1", b.bytes.decodeToString())
+        assertEquals("f1", gh.readFolderIndex()!!.bytes.decodeToString())
+        backend().writeBookIndex("b2".toByteArray(), b)
+        try { gh.writeBookIndex("b3".toByteArray(), b); fail() } catch (_: SyncConflictException) { }
+        try { gh.writeFolderIndex("f2".toByteArray(), null); fail() } catch (_: SyncConflictException) { }
+        assertTrue(files.containsKey("yomu-books.json") && files.containsKey("yomu-folders.json"))
+    }
+
+    @Test
+    fun uploadsAndReadsBackBooksIncludingLargeOnes() = runBlocking {
+        val gh = backend()
+        for (size in listOf(10, 5000, 2 * 1024 * 1024 + 1)) {
+            val bytes = ByteArray(size) { (it * 7 % 251).toByte() }
+            val h = sha(bytes)
+            gh.uploadBook(h, tmp(bytes))
+            assertTrue(files["$name$h.bin"]!!.contentEquals(bytes))
+            assertTrue(gh.readBook(h) { it.readBytes() }.contentEquals(bytes))
+        }
+    }
+
+    @Test
+    fun doesNotUploadAnExistingBlobAgain() = runBlocking {
+        val gh = backend()
+        val bytes = ByteArray(300) { it.toByte() }
+        val h = sha(bytes)
+        gh.uploadBook(h, tmp(bytes))
+        val puts = putCount
+        gh.uploadBook(h, tmp(bytes))
+        assertEquals(puts, putCount)
+    }
+
+    @Test
+    fun aCorruptedRemoteBlobFailsVerification() = runBlocking {
+        val gh = backend()
+        val bytes = ByteArray(300) { it.toByte() }
+        val h = sha(bytes)
+        files["$name$h.bin"] = ByteArray(300) { 1 }
+        shas["$name$h.bin"] = "sha-bad"
+        try { gh.uploadBook(h, tmp(bytes)); fail() } catch (e: IOException) { assertTrue(e.message!!.contains("integrity")) }
+        try { gh.readBook(sha(ByteArray(3))) { }; fail() } catch (e: IOException) { assertTrue(e.message!!.contains("missing")) }
+    }
+
+    @Test
+    fun rejectsInvalidHashesAndTooLargeFiles() = runBlocking {
+        try { backend().uploadBook("../x", tmp(ByteArray(3))); fail() } catch (_: IllegalArgumentException) { }
+        try { backend().readBook("ABC") { }; fail() } catch (_: IllegalArgumentException) { }
+        val small = GitHubSyncBackend(OkHttpClient(), "tok", "me/yomu-sync", api, maxBookBytes = 100)
+        val bytes = ByteArray(101)
+        try { small.uploadBook(sha(bytes), tmp(bytes)); fail() } catch (e: IOException) { assertTrue(e.message!!.contains("limit")) }
+        assertTrue(files.isEmpty())
     }
 
     @Test

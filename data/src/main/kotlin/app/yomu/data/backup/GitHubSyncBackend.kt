@@ -13,31 +13,44 @@ import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
+import java.io.ByteArrayInputStream
+import java.io.File
+import java.io.FilterOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.net.URLEncoder
 import java.util.Base64
 
 /**
- * Sync through a (private) GitHub repository: the shared files are stored at the root of the repository's default
- * branch with the Contents API. The blob SHA of a file is its version tag: GitHub refuses an update whose SHA is not
- * the current one, which gives the same compare-and-swap as a WebDAV ETag. Book files are not copied (a repository
- * is no place for large binaries).
+ * Full sync through a (private) GitHub repository: the shared files are stored in the default branch with the
+ * Contents API. The blob SHA of a file is its version tag: GitHub refuses an update whose SHA is not the current one,
+ * which gives the same compare-and-swap as a WebDAV ETag. The sync file and the indexes (`yomu-books.json`,
+ * `yomu-folders.json`, `yomu-tracking.json`) live at the root. Book files and image folders are content-addressed,
+ * immutable blobs `books/yomu-book-<sha256>.bin`: never overwritten or deleted, verified by reading them back.
+ * Uploads stream the file into a base64 JSON body (no whole-file buffer); downloads stream the raw git blob.
+ * GitHub rejects files over 100 MiB, so a larger book is refused with a clear error (a per-book problem only).
  */
 class GitHubSyncBackend(
     private val client: OkHttpClient,
     private val token: String,
     repository: String,
     private val api: String = API,
-) : SyncBackend, TrackLinkTransport {
+    private val maxBookBytes: Long = MAX_BOOK_BYTES,
+) : SyncBackend, TrackLinkTransport, FolderFilesTransport {
     private val repo: String = parseRepository(repository) ?: throw IOException("Invalid GitHub repository: use owner/name")
     override val id: String = "github:${repo.lowercase()}"
 
     private fun request(path: String): Request.Builder = authorized(Request.Builder().url("$api/repos/$repo$path"), token)
 
-    private fun contentsPath(name: String) = "/contents/" + URLEncoder.encode(name, "UTF-8").replace("+", "%20")
+    private fun contentsPath(name: String) =
+        "/contents/" + name.split('/').joinToString("/") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") }
 
-    private fun readNamed(name: String, limit: Int): SyncFile? {
+    private class Meta(val sha: String, val size: Long, val inline: ByteArray?)
+
+    private fun meta(name: String): Meta? {
         val req = request(contentsPath(name)).header("Cache-Control", "no-cache").get().build()
         val meta = client.newCall(req).execute().use { r ->
             when {
@@ -49,20 +62,28 @@ class GitHubSyncBackend(
         if (meta["type"]?.jsonPrimitive?.content != "file") throw IOException("$name in the repository is not a file")
         val sha = meta["sha"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() } ?: throw IOException("GitHub did not report the version of $name")
         val size = meta["size"]?.jsonPrimitive?.longOrNull ?: 0
-        if (size > limit) throw IOException("Sync file is too large; it was not overwritten")
         val encoded = meta["content"]?.jsonPrimitive?.content.orEmpty()
-        val bytes = if (meta["encoding"]?.jsonPrimitive?.content == "base64" && (encoded.isNotEmpty() || size == 0L)) {
+        val inline = if (meta["encoding"]?.jsonPrimitive?.content == "base64" && (encoded.isNotEmpty() || size == 0L)) {
             Base64.getMimeDecoder().decode(encoded)
-        } else {
-            // Files over 1 MB come without content: their blob is read raw, by the same SHA.
-            val blob = request("/git/blobs/$sha").header("Accept", "application/vnd.github.raw+json").get().build()
-            client.newCall(blob).execute().use { r ->
-                if (!r.isSuccessful) fail(r.code, "reading $name")
-                r.body.byteStream().use { readSyncBytes(it, limit) }
-            }
+        } else null
+        return Meta(sha, size, inline)
+    }
+
+    /** Files over 1 MB come without content: their blob is streamed raw, by the same SHA. */
+    private fun <T> streamBlob(sha: String, name: String, consume: (InputStream) -> T): T {
+        val blob = request("/git/blobs/$sha").header("Accept", "application/vnd.github.raw+json").get().build()
+        return client.newCall(blob).execute().use { r ->
+            if (!r.isSuccessful) fail(r.code, "reading $name")
+            r.body.byteStream().use(consume)
         }
+    }
+
+    private fun readNamed(name: String, limit: Int): SyncFile? {
+        val m = meta(name) ?: return null
+        if (m.size > limit) throw IOException("Sync file is too large; it was not overwritten")
+        val bytes = m.inline ?: streamBlob(m.sha, name) { readSyncBytes(it, limit) }
         if (bytes.size > limit) throw IOException("Sync file is too large; it was not overwritten")
-        return SyncFile(bytes, sha)
+        return SyncFile(bytes, m.sha)
     }
 
     private fun writeNamed(name: String, bytes: ByteArray, previous: SyncFile?, limit: Int) {
@@ -88,6 +109,55 @@ class GitHubSyncBackend(
     override suspend fun readTrackLinks(): SyncFile? = withContext(Dispatchers.IO) { readNamed(TRACK_INDEX, MAX_INDEX_BYTES) }
     override suspend fun writeTrackLinks(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { writeNamed(TRACK_INDEX, bytes, previous, MAX_INDEX_BYTES) }
 
+    override suspend fun readBookIndex(): SyncFile? = withContext(Dispatchers.IO) { readNamed(BOOK_INDEX, MAX_INDEX_BYTES) }
+    override suspend fun writeBookIndex(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { writeNamed(BOOK_INDEX, bytes, previous, MAX_INDEX_BYTES) }
+    override suspend fun readFolderIndex(): SyncFile? = withContext(Dispatchers.IO) { readNamed(FOLDER_INDEX, MAX_INDEX_BYTES) }
+    override suspend fun writeFolderIndex(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { writeNamed(FOLDER_INDEX, bytes, previous, MAX_INDEX_BYTES) }
+
+    private fun blobName(sha256: String): String {
+        require(sha256.matches(SHA256)) { "Invalid book hash" }
+        return "$BOOK_DIR/yomu-book-$sha256.bin"
+    }
+
+    override suspend fun <T> readBook(sha256: String, consume: (InputStream) -> T): T = withContext(Dispatchers.IO) {
+        val name = blobName(sha256)
+        val m = meta(name) ?: throw IOException("Book file is missing from the GitHub repository")
+        m.inline?.let { ByteArrayInputStream(it).use(consume) } ?: streamBlob(m.sha, name, consume)
+    }
+
+    /** Immutable, content-addressed blobs are never overwritten or removed; existing ones are only verified. */
+    override suspend fun uploadBook(sha256: String, file: File): Unit = withContext(Dispatchers.IO) {
+        val name = blobName(sha256)
+        val size = file.length()
+        if (size > maxBookBytes) throw IOException("The book is larger than the ${maxBookBytes / (1024 * 1024)} MB per-file limit of GitHub")
+        if (meta(name) == null) {
+            val req = request(contentsPath(name)).put(Base64JsonBody("Yomu sync: book $sha256", file)).build()
+            val code = client.newCall(req).execute().use { it.code }
+            // 422: someone created the same blob meanwhile; it is verified below like any existing one.
+            if (code !in 200..299 && code != 422) fail(code, "uploading a book")
+        }
+        readBook(sha256) { input -> BookFileSync.verifyStream(input, sha256, size) }
+    }
+
+    /** `{"message":..,"content":"<base64 of the file>"}` streamed from disk with a known length. */
+    private class Base64JsonBody(message: String, private val file: File) : RequestBody() {
+        private val head = buildJsonObject { put("message", message) }.toString().removeSuffix("}") + ",\"content\":\""
+        private val tail = "\"}"
+        private val length = file.length()
+        override fun contentType() = JSON
+        override fun contentLength() = head.length + (length + 2) / 3 * 4 + tail.length
+        override fun isOneShot() = true
+        override fun writeTo(sink: BufferedSink) {
+            sink.writeUtf8(head)
+            val out = object : FilterOutputStream(sink.outputStream()) {
+                override fun write(b: ByteArray, off: Int, len: Int) = this.out.write(b, off, len)
+                override fun close() = flush() // the sink stays open for the tail
+            }
+            Base64.getEncoder().wrap(out).use { enc -> file.inputStream().use { it.copyTo(enc) } }
+            sink.writeUtf8(tail)
+        }
+    }
+
     /** The repository exists, the token can see it and may write to it. */
     override suspend fun check(): Unit = withContext(Dispatchers.IO) {
         val info = client.newCall(request("").get().build()).execute().use { r ->
@@ -105,6 +175,13 @@ class GitHubSyncBackend(
         const val API = "https://api.github.com"
         const val DEFAULT_REPOSITORY = "yomu-sync"
         private const val TRACK_INDEX = "yomu-tracking.json"
+        const val BOOK_DIR = "books"
+
+        /** GitHub refuses files over 100 MiB. */
+        const val MAX_BOOK_BYTES = 100L * 1024 * 1024
+        private const val BOOK_INDEX = "yomu-books.json"
+        private const val FOLDER_INDEX = "yomu-folders.json"
+        private val SHA256 = Regex("[0-9a-f]{64}")
         private const val MAX_INDEX_BYTES = 4 * 1024 * 1024
         private val JSON = "application/json; charset=utf-8".toMediaType()
         private val json = Json { ignoreUnknownKeys = true }

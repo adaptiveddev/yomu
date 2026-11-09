@@ -447,7 +447,7 @@
     <string name="set_github_create_sum">Creates a private repository on your account and syncs into it</string>
     <string name="set_github_create_name">Repository name</string>
     <string name="set_github_created">Repository %1$s is ready</string>
-    <string name="set_github_hint">Sync data is stored in a private GitHub repository: use the same token account and repository on every device. Book files are not copied.</string>
+    <string name="set_github_hint">Sync data is stored in a private GitHub repository: use the same token account and repository on every device. Book files and image folders are copied too (up to 100 MB per file, the GitHub limit); larger books stay on the device. Keep the repository private.</string>
     <string name="set_sync_check">Check connection</string>
     <string name="set_sync_check_ok">Connection works</string>
     <string name="set_sync_when">When to sync</string>
