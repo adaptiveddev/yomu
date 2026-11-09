@@ -2,6 +2,8 @@
 
 ## Unreleased — audiobooks
 
+- **Audiobook player**: fine speed steps (0.5×–3×, ±0.05), the time left in the book, a sleep timer that fades out, a short rewind when resuming after a pause, and back 10 s / forward 30 s in the notification. Player settings now keep the book's other reader settings.
+- **YouTube search and stream refresh**: type words in "Audiobook by link" to search YouTube and pick a video or playlist; playlists get the channel and description; stream addresses are refreshed before they expire instead of failing after a long pause.
 - **Audiobooks**: your own audio files, folders of tracks and ZIPs of MP3s; LibriVox in the catalog (listen online or download the ZIP); YouTube videos and playlists, podcast feeds and audio links by URL or "Share → Listen in Yomu"; NotebookLM audio overviews via download/share. A player with chapters, speed, sleep timer, background playback with notification and lock-screen controls, a "now playing" bar, saved positions and listening time in the statistics. Verified with unit tests and builds; not yet on a device or against live YouTube.
 - **Audiobook chapters and YouTube**: chapters embedded in M4B/M4A (QuickTime chapter track, Nero) and MP3 (ID3v2 `CHAP`) files appear in the chapter list. YouTube videos take the chapters YouTube shows (also automatic ones) before description timestamps, keep a title when the player asks for a sign-in, and play dubbed videos in their original voice; playlist videos get their lengths. A "Skip silence" switch in the player, kept per book. Covered by unit tests on synthetic files and recorded YouTube answers; not checked on a device or against live YouTube.
 

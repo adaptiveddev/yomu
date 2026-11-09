@@ -107,6 +107,14 @@ object AudioPositions {
     /** Index in [entries] of the entry playing at [positionMs] of [track], or -1. */
     fun current(entries: List<AudioNavEntry>, track: Int, positionMs: Long): Int =
         entries.indexOfLast { it.track < track || (it.track == track && it.startMs <= positionMs) }
+
+    /** Listening time left in the book at normal speed, or null while a track length is unknown. */
+    fun remaining(durations: List<Long>, track: Int, positionMs: Long): Long? {
+        if (track !in durations.indices) return null
+        val later = durations.drop(track + 1)
+        if (durations[track] <= 0 || later.any { it <= 0 }) return null
+        return (durations[track] - positionMs).coerceAtLeast(0) + later.sum()
+    }
 }
 
 /**

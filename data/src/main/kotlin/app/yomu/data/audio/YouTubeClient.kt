@@ -28,9 +28,15 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
 import java.io.IOException
+import java.util.Locale
 
 /** A YouTube address: a video, a playlist, or a video inside a playlist. */
 data class YouTubeRef(val videoId: String?, val playlistId: String?)
+
+/** A search hit: a video ([detail] is its length) or a playlist ([detail] is its size). */
+data class YouTubeResult(val id: String, val isPlaylist: Boolean, val title: String, val author: String?, val detail: String?, val thumbnailUrl: String?) {
+    val ref: YouTubeRef get() = if (isPlaylist) YouTubeRef(null, id) else YouTubeRef(id, null)
+}
 
 /** A playable stream of a video: progressive audio or an HLS manifest, with the headers its server expects. */
 data class YouTubeStream(val url: String, val mimeType: String?, val isHls: Boolean, val headers: Map<String, String>)
@@ -73,13 +79,24 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
         )
     }
 
+    /** Videos (long ones first in relevance, as YouTube ranks them) and playlists for [query]. */
+    suspend fun search(query: String): List<YouTubeResult> = withContext(Dispatchers.IO) {
+        val locale = Locale.getDefault()
+        parseSearch(post("search", WEB, buildJsonObject { put("query", query) }, locale))
+    }
+
     /** The videos of a playlist (at most [limit]); a playlist's videos are its chapters. */
     suspend fun playlist(playlistId: String, limit: Int = MAX_PLAYLIST): AudiobookManifest = withContext(Dispatchers.IO) {
         val first = post("browse", WEB, buildJsonObject { put("browseId", "VL$playlistId") })
         val title = findAll(first, "playlistMetadataRenderer").firstNotNullOfOrNull { it.str("title") }
             ?: findAll(first, "pageHeaderViewModel").firstNotNullOfOrNull { it.obj("title")?.obj("dynamicTextViewModel")?.obj("text")?.str("content") }
             ?: throw YouTubeException(YouTubeException.Reason.NOT_FOUND)
-        val author = findAll(first, "videoOwnerRenderer").firstNotNullOfOrNull { text(it["title"]) }
+        val author = findAll(first, "playlistHeaderRenderer").firstNotNullOfOrNull { text(it["ownerText"]) }
+            ?: findAll(first, "pageHeaderViewModel").firstNotNullOfOrNull { header ->
+                findAll(header, "avatarStackViewModel").firstNotNullOfOrNull { it.obj("text")?.str("content") }?.removePrefix("by ")?.trim()
+            }
+            ?: findAll(first, "videoOwnerRenderer").firstNotNullOfOrNull { text(it["title"]) }
+        val description = findAll(first, "playlistMetadataRenderer").firstNotNullOfOrNull { it.str("description") }?.takeIf { it.isNotBlank() }
         val videos = LinkedHashMap<String, AudioTrack>()
         var page: JsonElement = first
         repeat(MAX_PAGES) {
@@ -92,6 +109,7 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
         AudiobookManifest(
             title = title,
             authors = listOfNotNull(author),
+            description = description,
             coverUrl = videos.keys.firstOrNull()?.let(::thumbnail),
             origin = AudioOrigin.YOUTUBE,
             sourceUrl = "https://www.youtube.com/playlist?list=$playlistId",
@@ -139,14 +157,14 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
         },
     ).jsonObject
 
-    private fun post(endpoint: String, c: Client, body: JsonObject): JsonElement {
+    private fun post(endpoint: String, c: Client, body: JsonObject, locale: Locale? = null): JsonElement {
         val payload = buildJsonObject {
             putJsonObject("context") {
                 putJsonObject("client") {
                     put("clientName", c.name)
                     put("clientVersion", c.version)
-                    put("hl", "en")
-                    put("gl", "US")
+                    put("hl", locale?.language?.ifBlank { null } ?: "en")
+                    put("gl", locale?.country?.ifBlank { null } ?: "US")
                     c.extra.forEach { (k, v) -> if (v is Int) put(k, v) else put(k, v.toString()) }
                 }
             }
@@ -314,6 +332,58 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
                 AudioTrack(title, AudiobookManifest.youtubeUri(id), length)
             }
             return classic + lockups
+        }
+
+        /** Videos and playlists of a search response in page order; live streams and Shorts are left out. */
+        internal fun parseSearch(page: JsonElement): List<YouTubeResult> {
+            val out = LinkedHashMap<String, YouTubeResult>()
+            walk(page, setOf("videoRenderer", "playlistRenderer", "lockupViewModel")) { key, o ->
+                val r = when (key) {
+                    "videoRenderer" -> o.str("videoId")?.let { id ->
+                        val length = text(o["lengthText"]) ?: return@let null
+                        YouTubeResult(id, false, text(o["title"]) ?: id, text(o["longBylineText"]) ?: text(o["ownerText"]), length, thumbnail(id))
+                    }
+                    "playlistRenderer" -> o.str("playlistId")?.let { id ->
+                        val first = findAll(o, "watchEndpoint").firstNotNullOfOrNull { it.str("videoId") }
+                        YouTubeResult(id, true, text(o["title"]) ?: id, text(o["longBylineText"]) ?: text(o["shortBylineText"]), o.str("videoCount"), first?.let(::thumbnail))
+                    }
+                    else -> o.str("contentId")?.let { id ->
+                        val type = o.str("contentType").orEmpty()
+                        if ("PLAYLIST" !in type && "VIDEO" !in type) return@let null
+                        val meta = o.obj("metadata")?.obj("lockupMetadataViewModel")
+                        val author = meta?.let { findAll(it, "contentMetadataViewModel").firstOrNull() }
+                            ?.let { (it["metadataRows"] as? JsonArray)?.firstOrNull() as? JsonObject }
+                            ?.let { (it["metadataParts"] as? JsonArray)?.firstOrNull() as? JsonObject }
+                            ?.obj("text")?.str("content")
+                        val badge = findAll(o, "thumbnailBadgeViewModel").firstNotNullOfOrNull { it.str("text") }
+                        val image = findAll(o, "thumbnailViewModel").firstNotNullOfOrNull { t ->
+                            ((t.obj("image")?.get("sources") as? JsonArray)?.firstOrNull() as? JsonObject)?.str("url")
+                        }
+                        val isPlaylist = "PLAYLIST" in type
+                        YouTubeResult(id, isPlaylist, meta?.obj("title")?.str("content") ?: id, author, badge, if (isPlaylist) image else thumbnail(id))
+                    }
+                }
+                if (r != null) out.putIfAbsent(r.id, r)
+            }
+            return out.values.toList()
+        }
+
+        /** When a stream address stops working (its `expire` parameter), or 0 when it does not say. */
+        fun expiresAt(url: String): Long {
+            val http = url.toHttpUrlOrNull() ?: return 0
+            val seconds = http.queryParameter("expire")?.toLongOrNull()
+                ?: http.pathSegments.indexOf("expire").takeIf { it >= 0 }?.let { http.pathSegments.getOrNull(it + 1)?.toLongOrNull() }
+            return (seconds ?: 0) * 1000
+        }
+
+        private fun walk(root: JsonElement, keys: Set<String>, onMatch: (String, JsonObject) -> Unit) {
+            when (root) {
+                is JsonObject -> root.forEach { (k, v) ->
+                    if (k in keys && v is JsonObject) onMatch(k, v) else walk(v, keys, onMatch)
+                }
+                is JsonArray -> root.forEach { walk(it, keys, onMatch) }
+                else -> Unit
+            }
         }
 
         /** Every object stored under [key] anywhere in [root]. */

@@ -75,6 +75,14 @@ class AudioTest {
     }
 
     @Test
+    fun remainingNeedsKnownLengthsAfterTheCurrentTrack() {
+        assertEquals(70_000L, AudioPositions.remaining(listOf(60_000, 50_000, 30_000), 1, 10_000))
+        assertEquals(null, AudioPositions.remaining(listOf(60_000, 50_000, 0), 1, 10_000))
+        assertEquals(0L, AudioPositions.remaining(listOf(60_000), 0, 90_000))
+        assertEquals(null, AudioPositions.remaining(listOf(60_000), 3, 0))
+    }
+
+    @Test
     fun youtubeUris() {
         assertEquals("dQw4w9WgXcQ", AudiobookManifest.youtubeId(AudiobookManifest.youtubeUri("dQw4w9WgXcQ")))
         assertEquals(null, AudiobookManifest.youtubeId("https://example.com/a.mp3"))

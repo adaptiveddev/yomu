@@ -167,6 +167,11 @@ class AudiobookStore(
         )
     }
 
+    /** YouTube videos and playlists for words typed instead of a link. */
+    suspend fun searchYouTube(query: String): List<YouTubeResult> = youtube.search(query.trim())
+
+    suspend fun addYouTube(result: YouTubeResult): ImportOutcome = withContext(Dispatchers.IO) { add(youtube(result.ref)) }
+
     private suspend fun youtube(ref: YouTubeRef): AudiobookManifest = try {
         // Mixes ("RD…") are endless generated lists, not books.
         val list = ref.playlistId?.takeIf { !it.startsWith("RD") }
