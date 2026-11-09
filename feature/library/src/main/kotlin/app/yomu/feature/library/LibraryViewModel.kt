@@ -12,6 +12,8 @@ import app.yomu.core.common.ScreenErrors
 import app.yomu.core.datastore.AppSettings
 import app.yomu.core.datastore.stateIn
 import app.yomu.data.catalog.CatalogRepository
+import app.yomu.data.download.DownloadOverview
+import app.yomu.data.download.DownloadSummary
 import app.yomu.data.library.ImportOutcome
 import app.yomu.data.library.ImportService
 import app.yomu.data.library.LibraryTabs
@@ -138,6 +140,7 @@ class LibraryViewModel(
     private val catalog: CatalogRepository,
     private val audiobooks: AudiobookStore,
     private val history: app.yomu.data.repository.ReadingHistoryRepository,
+    downloads: DownloadOverview,
 ) : ViewModel() {
     private val search = MutableStateFlow("")
     private val filter = MutableStateFlow(LibraryFilter())
@@ -160,6 +163,7 @@ class LibraryViewModel(
 
     fun setIncognito(on: Boolean) = viewModelScope.launch(ScreenErrors) { settings.incognito.set(on) }
     val importProgress = importer.progress
+    val downloadSummary: StateFlow<DownloadSummary> = downloads.summary.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadSummary())
 
     private val query: Flow<LibraryQuery> = combine(search.debounce(200), settings.librarySort.flow, settings.libraryAscending.flow, filter) { s, so, asc, f ->
         LibraryQuery(s, so, asc, f)

@@ -524,6 +524,7 @@ private fun LibraryTab(nav: NavHostController, tabs: TabsState) {
                 onOpenSettings = { tabs.select(TopLevel.SETTINGS) },
                 onOpenTitle = openTitle,
                 onReadChapter = { nav.navigate(ReaderRoute(chapterId = it)) },
+                onOpenDownloads = { nav.navigate(DownloadsRoute) },
                 online = online,
             )
         }

@@ -50,6 +50,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.Request
 import timber.log.Timber
 import java.io.File
+import kotlin.random.Random
 import java.io.FileOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -353,9 +354,10 @@ class DownloadRepository(
         val current = dao.get(task.id) ?: return
         if (current.status != DownloadStatus.RUNNING.name) return // paused or cancelled meanwhile
         val message = describe(e)
+        val kind = RetryPolicy.classify(e)
         val now = System.currentTimeMillis()
         when {
-            AppError.from(e) is AppError.NoSpace -> {
+            kind == FailureKind.NO_SPACE -> {
                 // Not the task's fault either: it is paused with the reason, and so is the rest of the queue.
                 dao.setStatus(listOf(task.id), DownloadStatus.PAUSED.name, message, now)
                 noSpace.set(true)
@@ -365,8 +367,10 @@ class DownloadRepository(
                 dao.requeue(task.id, current.attempts, message, now)
                 offline.set(true)
             }
-            SourceCalls.isTransient(e) && current.attempts < settings.downloadRetries.get().coerceIn(0, 10) -> {
-                delay(SourceCalls.backoff(RETRY_BASE_MS, current.attempts))
+            RetryPolicy.shouldRetry(kind, current.attempts, settings.downloadRetries.get().coerceIn(0, 10)) -> {
+                // The reason stays visible in the queue while the task waits for its next attempt.
+                dao.setStatus(listOf(task.id), DownloadStatus.RUNNING.name, message, now)
+                delay(RetryPolicy.delayMs(RETRY_BASE_MS, current.attempts, Random.nextDouble()))
                 if (dao.get(task.id)?.status == DownloadStatus.RUNNING.name) dao.requeue(task.id, current.attempts + 1, message, System.currentTimeMillis())
             }
             else -> {
@@ -396,13 +400,18 @@ class DownloadRepository(
 
     private fun partFile(t: DownloadTaskEntity) = File(booksDir, "task_${t.id}.part")
 
+    /** ETag or Last-Modified of the file being downloaded, sent as If-Range when the download is continued. */
+    private fun validatorFile(t: DownloadTaskEntity) = File(booksDir, "task_${t.id}.validator")
+
     /** Deletes partial files of a task that will not continue. */
     private suspend fun cleanUp(t: DownloadTaskEntity) {
         partFile(t).delete()
+        validatorFile(t).delete()
         if (t.kind == DownloadKind.CHAPTER.name) {
             val chapter = t.chapterId?.let { catalog.chapter(it) } ?: return
             val entry = catalog.entry(chapter.entryId) ?: return
             File(chapterFolder(entry), "${chapterBaseName(chapter)}.tmp").deleteRecursively()
+            File(chapterFolder(entry), "${chapterBaseName(chapter)}.cbz.part").delete()
         }
     }
 
@@ -421,19 +430,30 @@ class DownloadRepository(
     private suspend fun downloadBook(t: DownloadTaskEntity, onProgress: suspend (String, Float) -> Unit) = withContext(Dispatchers.IO) {
         val part = partFile(t)
         val start = if (part.exists()) part.length() else 0L
+        val validatorFile = validatorFile(t)
+        val validator = if (start > 0) runCatching { validatorFile.readText() }.getOrNull()?.takeIf { it.isNotBlank() } else null
         val headers = t.headersJson?.let { runCatching { Json.decodeFromString(headersSerializer, it) }.getOrNull() }.orEmpty()
         val request = Request.Builder().url(t.url).apply {
             headers.forEach { (k, v) -> header(k, v) }
-            if (start > 0) header("Range", "bytes=$start-")
+            if (start > 0) {
+                header("Range", "bytes=$start-")
+                validator?.let { header("If-Range", it) }
+            }
         }.build()
         net.downloadClient.newCall(request).await().use { r ->
             if (r.code == 416 && start > 0) {
                 // The partial file does not match the server's file any more: start over.
                 part.delete()
+                validatorFile.delete()
                 throw java.io.IOException("Range not satisfiable, restarting")
             }
             if (!r.isSuccessful) throw HttpStatusException(r.code, t.url)
-            val append = r.code == 206 && start > 0
+            val append = RangeResume.canAppend(start, r.code, r.header("Content-Range"))
+            if (r.code == 206 && !append) {
+                part.delete()
+                throw java.io.IOException("Server resumed at another position, restarting")
+            }
+            RangeResume.ifRange(r.header("ETag"), r.header("Last-Modified"))?.let { validatorFile.writeText(it) } ?: validatorFile.delete()
             val base = if (append) start else 0L
             val length = r.body.contentLength()
             val total = if (length > 0) base + length else -1L
@@ -470,6 +490,7 @@ class DownloadRepository(
             val name = Files.sanitize(disposition?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrNull() } ?: (t.title + ext))
             // Always a fresh file: an existing library book may already point to a file with the same name.
             val dest = uniqueFile(booksDir, if (name.contains('.')) name else name + ext)
+            validatorFile.delete()
             if (!part.renameTo(dest)) {
                 part.copyTo(dest, overwrite = false)
                 part.delete()
@@ -551,15 +572,20 @@ class DownloadRepository(
         val path = if (settings.packCbz.get()) {
             val cbz = File(folder, "$baseName.cbz")
             val partCbz = File(folder, "$baseName.cbz.part")
-            ZipOutputStream(partCbz.outputStream().buffered()).use { zip ->
-                files.forEach { f ->
-                    zip.putNextEntry(ZipEntry(f.name))
-                    f.inputStream().use { it.copyTo(zip) }
+            try {
+                ZipOutputStream(partCbz.outputStream().buffered()).use { zip ->
+                    files.forEach { f ->
+                        zip.putNextEntry(ZipEntry(f.name))
+                        f.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                    zip.putNextEntry(ZipEntry("ComicInfo.xml"))
+                    zip.write(comicInfo(entry.title, chapter.name, chapter.number, entry.author, entry.description, pages.size).toByteArray())
                     zip.closeEntry()
                 }
-                zip.putNextEntry(ZipEntry("ComicInfo.xml"))
-                zip.write(comicInfo(entry.title, chapter.name, chapter.number, entry.author, entry.description, pages.size).toByteArray())
-                zip.closeEntry()
+            } catch (e: Throwable) {
+                partCbz.delete() // a half-written archive must not survive a full disk or a stop
+                throw e
             }
             cbz.delete()
             if (!partCbz.renameTo(cbz)) { partCbz.copyTo(cbz, overwrite = true); partCbz.delete() }

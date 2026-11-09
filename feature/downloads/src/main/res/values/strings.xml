@@ -33,4 +33,20 @@
     <string name="downloads_clear_queue_text">Remove all waiting, paused and failed downloads? Running downloads are cancelled; downloaded chapters and books are kept.</string>
     <string name="downloads_move_to_top">Move to top</string>
     <string name="downloads_retrying">Retry %1$d of %2$d: %3$s</string>
+    <string name="downloads_summary_running">%1$d downloading</string>
+    <string name="downloads_summary_queued">%1$d queued</string>
+    <string name="downloads_summary_paused">%1$d paused</string>
+    <string name="downloads_summary_failed">%1$d failed</string>
+    <string name="downloads_percent">%1$d%%</string>
+    <string name="downloads_state_downloading">Downloading</string>
+    <string name="downloads_state_queued">In queue</string>
+    <string name="downloads_state_waiting_network">Waiting for network</string>
+    <string name="downloads_state_waiting_wifi">Waiting for Wi-Fi</string>
+    <string name="downloads_wait_offline">No connection. Downloads continue by themselves when the network is back.</string>
+    <string name="downloads_wait_wifi">“Only over Wi-Fi” is on. Downloads continue when Wi-Fi is available.</string>
+    <string name="downloads_pages_of">%1$d of %2$d pages</string>
+    <string name="downloads_tracks_of">Track %1$d of %2$d</string>
+    <string name="downloads_audiobooks">Audiobooks</string>
+    <string name="downloads_audiobook_untitled">Audiobook</string>
+    <string name="downloads_cancel_all">Cancel all</string>
 </resources>

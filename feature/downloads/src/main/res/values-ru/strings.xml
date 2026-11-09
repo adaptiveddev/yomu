@@ -33,4 +33,21 @@
     <string name="downloads_clear_queue_text">Убрать все ожидающие, приостановленные и неудачные загрузки? Текущие загрузки будут отменены, скачанные главы и книги останутся.</string>
     <string name="downloads_move_to_top">В начало очереди</string>
     <string name="downloads_retrying">Повтор %1$d из %2$d: %3$s</string>
+
+    <string name="downloads_summary_running">Скачивается: %1$d</string>
+    <string name="downloads_summary_queued">В очереди: %1$d</string>
+    <string name="downloads_summary_paused">На паузе: %1$d</string>
+    <string name="downloads_summary_failed">Ошибок: %1$d</string>
+    <string name="downloads_percent">%1$d%%</string>
+    <string name="downloads_state_downloading">Скачивается</string>
+    <string name="downloads_state_queued">В очереди</string>
+    <string name="downloads_state_waiting_network">Ожидание сети</string>
+    <string name="downloads_state_waiting_wifi">Ожидание Wi-Fi</string>
+    <string name="downloads_wait_offline">Нет соединения. Загрузки продолжатся сами, когда сеть появится.</string>
+    <string name="downloads_wait_wifi">Включено «Только по Wi-Fi». Загрузки продолжатся, когда появится Wi-Fi.</string>
+    <string name="downloads_pages_of">%1$d из %2$d стр.</string>
+    <string name="downloads_tracks_of">Трек %1$d из %2$d</string>
+    <string name="downloads_audiobooks">Аудиокниги</string>
+    <string name="downloads_audiobook_untitled">Аудиокнига</string>
+    <string name="downloads_cancel_all">Отменить все</string>
 </resources>

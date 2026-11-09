@@ -209,4 +209,12 @@
         <item quantity="many">%d видео</item>
         <item quantity="other">%d видео</item>
     </plurals>
+
+    <plurals name="library_downloads_left">
+        <item quantity="one">Загрузки: осталась %d</item>
+        <item quantity="few">Загрузки: осталось %d</item>
+        <item quantity="many">Загрузки: осталось %d</item>
+        <item quantity="other">Загрузки: осталось %d</item>
+    </plurals>
+    <string name="library_downloads_failed">Загрузки: есть ошибки</string>
 </resources>

@@ -15,6 +15,7 @@ import app.yomu.data.backup.SyncManager
 import app.yomu.data.book.pdf.PdfAnnotationStore
 import app.yomu.data.catalog.CatalogRepository
 import app.yomu.data.dictionary.DictionaryRepository
+import app.yomu.data.download.DownloadOverview
 import app.yomu.data.download.DownloadRepository
 import app.yomu.data.library.CoverStore
 import app.yomu.data.library.ImportService
@@ -68,6 +69,7 @@ val dataModule = module {
     single { LibraryTabs(get()) }
     single { CatalogRepository(androidContext(), get(), get(), get(), get(), get(), get()) }
     single { DownloadRepository(androidContext(), get(), get(), get(), get(), get(), get()) }
+    single { DownloadOverview(get(), get(), get(), get(), get()) }
     single { BackupManager(androidContext(), get(), get()) }
     single { SyncManager(androidContext(), get(), get(), get(), get()) }
     single {
