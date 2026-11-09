@@ -142,6 +142,12 @@ class AudioController(private val context: Context) {
         if (p.playWhenReady) p.pause() else { if (p.playbackState == Player.STATE_IDLE) p.prepare(); p.play() }
     }
 
+    /** Jumps back by the book's skip-back interval (the session player applies it). */
+    fun seekBack() {
+        val p = player() ?: return
+        if (p.isCommandAvailable(Player.COMMAND_SEEK_BACK)) p.seekBack()
+    }
+
     /** Position updates are not events: the screen calls this on its own clock. */
     fun refresh() {
         val c = controller?.takeIf { it.isConnected } ?: return

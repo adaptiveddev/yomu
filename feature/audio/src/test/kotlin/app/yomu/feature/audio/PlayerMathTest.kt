@@ -65,4 +65,12 @@ class PlayerMathTest {
         assertEquals(listOf(Bookmark(2, 9)), s.bookmarks)
         assertEquals(emptyList<Bookmark>(), AudioSettings.decodeBookmarks("nope"))
     }
+
+    @Test
+    fun chapterSearchMatchesEveryWordIgnoringCase() {
+        assertEquals(listOf(0, 1, 2), PlayerMath.search(marks, "  "))
+        assertEquals(listOf(1), PlayerMath.search(marks, "two"))
+        assertEquals(listOf(0, 1), PlayerMath.search(marks, "O"))
+        assertEquals(emptyList<Int>(), PlayerMath.search(marks, "one two"))
+    }
 }

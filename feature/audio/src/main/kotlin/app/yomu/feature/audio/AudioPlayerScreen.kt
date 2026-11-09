@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Bookmarks
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.GraphicEq
@@ -59,6 +61,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -69,6 +73,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -90,6 +95,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import app.yomu.core.common.Files
 import app.yomu.core.ui.components.CoverImage
 import app.yomu.core.ui.components.ErrorState
+import app.yomu.core.ui.components.SearchField
 import app.yomu.core.ui.components.SheetTitle
 import app.yomu.core.ui.components.YomuSheet
 import app.yomu.core.ui.components.coverTint
@@ -100,6 +106,7 @@ import app.yomu.domain.model.AudioNavEntry
 import app.yomu.domain.model.AudioOrigin
 import app.yomu.domain.model.AudioPositions
 import java.io.File
+import kotlinx.coroutines.launch
 import java.util.Locale
 import app.yomu.core.ui.R as CoreR
 
@@ -108,6 +115,7 @@ private const val SPEED_STEP = 0.05f
 private val SLEEP_MINUTES = listOf(5, 10, 15, 30, 45, 60, 90)
 private const val SLEEP_EXTRA_MIN = 5
 private const val MAX_SLEEP_MIN = 24 * 60
+private const val CHAPTER_SEARCH_MIN = 12
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,6 +131,8 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
     val download by viewModel.download.collectAsStateWithLifecycle()
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
     var dialog by rememberSaveable { mutableStateOf<String?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val playing = player?.isPlaying == true
     // Paused, the position only moves on seeks, which are player events: no need to poll.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -133,6 +143,7 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).coverTint(tint)) {
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
                 TopAppBar(
                     title = {},
@@ -213,10 +224,27 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
         "chapters" -> YomuSheet(onDismiss = { sheet = null }) {
             SheetTitle(stringResource(R.string.audio_chapters))
             val current = player?.let { AudioPositions.current(chapters, it.track, it.positionMs) } ?: -1
+            var query by rememberSaveable { mutableStateOf("") }
+            if (chapters.size > CHAPTER_SEARCH_MIN) {
+                SearchField(
+                    query, { query = it }, stringResource(R.string.audio_chapters_search),
+                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            val shown = remember(chapters, query) { PlayerMath.search(chapters, query) }
             val state = rememberLazyListState(initialFirstVisibleItemIndex = (current - 2).coerceAtLeast(0))
+            if (shown.isEmpty()) {
+                Text(
+                    stringResource(R.string.audio_chapters_none), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                )
+            }
             LazyColumn(state = state, modifier = Modifier.heightIn(max = 520.dp)) {
-                itemsIndexed(chapters) { i, entry ->
-                    ChapterRow(entry, chapterLengths.getOrElse(i) { 0 }, i == current) { viewModel.jump(entry); sheet = null }
+                items(shown, key = { it }) { i ->
+                    val entry = chapters[i]
+                    ChapterRow(entry, chapterLengths.getOrElse(i) { 0 }, current = i == current, heard = current >= 0 && i < current) {
+                        viewModel.jump(entry); sheet = null
+                    }
                 }
             }
         }
@@ -232,9 +260,14 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
                     Icon(Icons.Default.Add, stringResource(R.string.audio_speed_up))
                 }
             }
-            SPEEDS.forEach { v ->
-                OptionRow(speedLabel(v), selected = kotlin.math.abs(current - v) < 0.01f) { viewModel.setSpeed(v); sheet = null }
+            // How the speed changes the time left, so the choice is easier.
+            player?.let(viewModel::timeLeftMs)?.let { left ->
+                Text(
+                    stringResource(R.string.audio_book_left, duration(left)), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+                )
             }
+            ChipGrid(SPEEDS, label = { speedLabel(it) }, selected = { kotlin.math.abs(current - it) < 0.01f }) { viewModel.setSpeed(it); sheet = null }
         }
         "sleep" -> YomuSheet(onDismiss = { sheet = null }) {
             SheetTitle(stringResource(R.string.audio_sleep))
@@ -244,7 +277,7 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
             OptionRow(stringResource(R.string.audio_sleep_chapter), selected = player?.sleepEndOfChapter == true) {
                 viewModel.sleep(AudioPlaybackService.SLEEP_END_OF_CHAPTER); sheet = null
             }
-            SLEEP_MINUTES.forEach { m -> OptionRow(stringResource(R.string.audio_sleep_minutes, m), selected = false) { viewModel.sleep(m); sheet = null } }
+            ChipGrid(SLEEP_MINUTES, label = { stringResource(R.string.audio_sleep_minutes, it) }, selected = { false }) { viewModel.sleep(it); sheet = null }
             OptionRow(stringResource(R.string.audio_sleep_custom), selected = false) { sheet = null; dialog = "sleep" }
         }
         "bookmarks" -> YomuSheet(onDismiss = { sheet = null }) {
@@ -257,6 +290,17 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.audio_bookmark_add))
             }
+            // The sheet covers the screen's snackbar, so the undo for a deletion lives in the sheet itself.
+            var deleted by remember { mutableStateOf<Bookmark?>(null) }
+            deleted?.let { mark ->
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.audio_bookmark_deleted), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { viewModel.addBookmark(mark); deleted = null }) { Text(stringResource(CoreR.string.undo)) }
+                }
+            }
             if (settings.bookmarks.isEmpty()) {
                 Text(
                     stringResource(R.string.audio_bookmarks_empty), color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -265,7 +309,7 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
             } else {
                 LazyColumn(Modifier.heightIn(max = 480.dp)) {
                     itemsIndexed(settings.bookmarks) { _, mark ->
-                        BookmarkRow(mark, chapters, onClick = { viewModel.jump(mark); sheet = null }, onDelete = { viewModel.removeBookmark(mark) })
+                        BookmarkRow(mark, chapters, onClick = { viewModel.jump(mark); sheet = null }, onDelete = { viewModel.removeBookmark(mark); deleted = mark })
                     }
                 }
             }
@@ -289,16 +333,26 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
     when (dialog) {
         "bookmark" -> {
             var note by rememberSaveable { mutableStateOf("") }
+            // The spot is the one the listener heard when they asked for it, not where playback is once the note is typed.
+            val track = rememberSaveable { player?.track ?: 0 }
+            val at = rememberSaveable { player?.positionMs ?: 0L }
+            val savedMsg = stringResource(R.string.audio_bookmark_added, time(at))
             AlertDialog(
                 onDismissRequest = { dialog = null },
-                title = { Text(stringResource(R.string.audio_bookmark_here, time(player?.positionMs ?: 0))) },
+                title = { Text(stringResource(R.string.audio_bookmark_here, time(at))) },
                 text = {
                     OutlinedTextField(
                         value = note, onValueChange = { note = it.take(200) }, singleLine = true,
                         label = { Text(stringResource(R.string.audio_bookmark_note)) },
                     )
                 },
-                confirmButton = { TextButton(onClick = { viewModel.addBookmark(note); dialog = null }) { Text(stringResource(R.string.audio_bookmark_save)) } },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.addBookmark(Bookmark(track, at, note.trim(), System.currentTimeMillis()))
+                        dialog = null
+                        scope.launch { snackbar.showSnackbar(savedMsg) }
+                    }) { Text(stringResource(R.string.audio_bookmark_save)) }
+                },
                 dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(CoreR.string.cancel)) } },
             )
         }
@@ -497,21 +551,44 @@ private fun SeekBar(s: PlayerSnapshot?, span: ChapterSpan, onSeek: (Long) -> Uni
 }
 
 @Composable
-private fun ChapterRow(entry: AudioNavEntry, lengthMs: Long, current: Boolean, onClick: () -> Unit) {
+private fun ChapterRow(entry: AudioNavEntry, lengthMs: Long, current: Boolean, heard: Boolean, onClick: () -> Unit) {
     val bg = if (current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+    val dim = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         Modifier.fillMaxWidth().background(bg).heightIn(min = 52.dp).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (current) Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+        when {
+            current -> Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            heard -> Icon(Icons.Default.Check, stringResource(R.string.audio_chapter_heard), Modifier.size(20.dp), tint = dim)
+            else -> Spacer(Modifier.width(20.dp))
+        }
         Text(
             entry.title, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis,
-            color = if (current) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            color = when {
+                current -> MaterialTheme.colorScheme.primary
+                heard -> dim
+                else -> MaterialTheme.colorScheme.onSurface
+            },
             fontWeight = if (current) FontWeight.SemiBold else FontWeight.Normal,
         )
         val label = if (lengthMs > 0) time(lengthMs) else if (entry.isMark) time(entry.startMs) else null
-        if (label != null) Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (label != null) Text(label, style = MaterialTheme.typography.labelMedium, color = dim)
+    }
+}
+
+/** Presets as chips: a few rows instead of a long list in the sheet. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun <T> ChipGrid(options: List<T>, label: @Composable (T) -> String, selected: (T) -> Boolean, onSelect: (T) -> Unit) {
+    FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { v ->
+            FilterChip(selected = selected(v), onClick = { onSelect(v) }, label = { Text(label(v)) }, modifier = Modifier.heightIn(min = 48.dp))
+        }
     }
 }
 
