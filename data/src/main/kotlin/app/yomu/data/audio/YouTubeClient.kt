@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -25,6 +26,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import timber.log.Timber
 import java.io.IOException
 import java.util.Locale
 
@@ -35,9 +37,6 @@ data class YouTubeRef(val videoId: String?, val playlistId: String?)
 data class YouTubeResult(val id: String, val isPlaylist: Boolean, val title: String, val author: String?, val detail: String?, val thumbnailUrl: String?) {
     val ref: YouTubeRef get() = if (isPlaylist) YouTubeRef(null, id) else YouTubeRef(id, null)
 }
-
-/** What a watch page tells about a video besides its streams. */
-internal data class NextInfo(val title: String?, val author: String?, val description: String?, val chapters: List<AudioChapter>)
 
 /** A playable stream of a video: progressive audio or an HLS manifest, with the headers its server expects. */
 data class YouTubeStream(val url: String, val mimeType: String?, val isHls: Boolean, val headers: Map<String, String>)
@@ -57,15 +56,18 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
 
     suspend fun video(videoId: String): AudiobookManifest = withContext(Dispatchers.IO) {
         val player = runCatching { player(videoId).second }.getOrNull()
+        // The watch page's data: official chapters, and the title when the player asks for a sign-in.
+        val next = runCatching { post("next", WEB, buildJsonObject { put("videoId", videoId) }) }.onFailure { Timber.d(it, "YouTube next") }.getOrNull()
+        val nextDetails = next?.let(::parseNextDetails)
         val details = player?.obj("videoDetails")
-        // The watch page answers even when the player asks this network to sign in, and holds the creator's chapters.
-        val next = runCatching { parseNext(post("next", WEB, buildJsonObject { put("videoId", videoId) })) }.getOrNull()
-        val oembed by lazy { oembed(videoId) }
-        val title = details?.str("title") ?: next?.title ?: oembed?.first ?: throw YouTubeException(YouTubeException.Reason.NOT_FOUND)
-        val author = details?.str("author") ?: next?.author ?: oembed?.second
+        val fallback by lazy { oembed(videoId) }
+        val title = details?.str("title") ?: nextDetails?.first ?: fallback?.first ?: throw YouTubeException(YouTubeException.Reason.NOT_FOUND)
+        val author = details?.str("author")
+            ?: next?.let { n -> findAll(n, "videoOwnerRenderer").firstNotNullOfOrNull { text(it["title"]) } }
+            ?: fallback?.second
         val durationMs = (details?.str("lengthSeconds")?.toLongOrNull() ?: 0) * 1000
-        val description = details?.str("shortDescription")?.takeIf { it.isNotBlank() } ?: next?.description
-        val chapters = next?.chapters?.takeIf { it.size >= 2 } ?: ChapterMarks.parse(description, durationMs)
+        val description = details?.str("shortDescription") ?: nextDetails?.second
+        val chapters = next?.let(::parseChapters).orEmpty().ifEmpty { ChapterMarks.parse(description, durationMs) }
         AudiobookManifest(
             title = title,
             authors = listOfNotNull(author),
@@ -256,7 +258,7 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
         internal fun candidates(response: JsonObject, headers: Map<String, String>): List<YouTubeStream> {
             val streaming = response.obj("streamingData") ?: return emptyList()
             fun formats(key: String) = (streaming[key] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }.filter { it.str("url") != null }
-            val audio = formats("adaptiveFormats").filter { it.str("mimeType")?.startsWith("audio/") == true }
+            val audio = originalLanguage(formats("adaptiveFormats").filter { it.str("mimeType")?.startsWith("audio/") == true })
                 // DRC tracks are quieter copies; ExoPlayer plays mp4 everywhere, webm/opus since Android 5.
                 .filter { it.str("xtags")?.contains("drc") != true }
                 .sortedWith(compareByDescending<JsonObject> { it.str("mimeType")!!.startsWith("audio/mp4") }.thenByDescending { it["bitrate"]?.jsonPrimitive?.intOrNull ?: 0 })
@@ -266,6 +268,54 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
             val hls = listOfNotNull(streaming.str("hlsManifestUrl")?.let { YouTubeStream(it, "application/x-mpegURL", true, headers) })
             return audio + muxed + hls
         }
+
+        /**
+         * Videos with several audio languages (uploaded or automatic dubs) list each as its own formats; the default
+         * one is the original voice, which an audiobook wants rather than a dub.
+         */
+        private fun originalLanguage(formats: List<JsonObject>): List<JsonObject> {
+            if (formats.none { it.obj("audioTrack") != null }) return formats
+            fun flag(f: JsonObject) = f.obj("audioTrack")?.get("audioIsDefault")?.jsonPrimitive?.booleanOrNull == true
+            fun original(f: JsonObject) = f.obj("audioTrack")?.str("displayName")?.contains("original", ignoreCase = true) == true
+            return formats.filter(::flag).ifEmpty { formats.filter(::original) }.ifEmpty { formats }
+        }
+
+        /**
+         * The chapters YouTube shows on the progress bar (written by the uploader or generated), from a `next`
+         * response: the player bar's markers map, else the chapters panel.
+         */
+        internal fun parseChapters(next: JsonElement): List<AudioChapter> {
+            val fromBar = findAll(next, "multiMarkersPlayerBarRenderer").flatMap { bar ->
+                (bar["markersMap"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+                    .filter { it.str("key") in CHAPTER_KEYS }
+                    .flatMap { findAll(it, "chapterRenderer") }
+                    .mapNotNull { c ->
+                        val start = c["timeRangeStartMillis"]?.jsonPrimitive?.longOrNull ?: return@mapNotNull null
+                        AudioChapter(text(c["title"]) ?: return@mapNotNull null, start)
+                    }
+            }
+            val chapters = fromBar.ifEmpty {
+                findAll(next, "engagementPanelSectionListRenderer")
+                    .filter { p -> (p.str("panelIdentifier") ?: p.str("targetId")).orEmpty().let { "description-chapters" in it || "auto-chapters" in it } }
+                    .flatMap { findAll(it, "macroMarkersListItemRenderer") }
+                    .mapNotNull { m ->
+                        val start = findAll(m, "watchEndpoint").firstNotNullOfOrNull { it["startTimeSeconds"]?.jsonPrimitive?.longOrNull }?.times(1000)
+                            ?: text(m["timeDescription"])?.let(ChapterMarks::parseTime) ?: return@mapNotNull null
+                        AudioChapter(text(m["title"]) ?: return@mapNotNull null, start)
+                    }
+            }
+            val sorted = chapters.distinctBy { it.startMs }.sortedBy { it.startMs }
+            return if (sorted.size >= 2 && sorted.first().startMs == 0L) sorted else emptyList()
+        }
+
+        /** Title and description of a video from a `next` response (when the player refused to answer). */
+        internal fun parseNextDetails(next: JsonElement): Pair<String?, String?> {
+            val title = findAll(next, "videoPrimaryInfoRenderer").firstNotNullOfOrNull { text(it["title"]) }
+            val description = findAll(next, "videoSecondaryInfoRenderer").firstNotNullOfOrNull { it.obj("attributedDescription")?.str("content") }
+            return title to description
+        }
+
+        private val CHAPTER_KEYS = setOf("DESCRIPTION_CHAPTERS", "AUTO_CHAPTERS")
 
         internal fun parsePlaylistVideos(page: JsonElement): List<AudioTrack> {
             val classic = findAll(page, "playlistVideoRenderer").mapNotNull { r ->
@@ -277,29 +327,11 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
                 if (r.str("contentType")?.contains("VIDEO") != true) return@mapNotNull null
                 val id = r.str("contentId") ?: return@mapNotNull null
                 val title = r.obj("metadata")?.obj("lockupMetadataViewModel")?.obj("title")?.str("content") ?: id
-                // The new layout has no length field: the thumbnail badge shows it ("1:02:03").
-                val length = findAll(r, "thumbnailBadgeViewModel").firstNotNullOfOrNull { b -> b.str("text")?.let(ChapterMarks::parseTime) } ?: 0
+                // The length is only written on the thumbnail's badge ("12:34").
+                val length = findAll(r, "thumbnailBadgeViewModel").firstNotNullOfOrNull { b -> b.str("text")?.trim()?.let(ChapterMarks::parseTime) } ?: 0
                 AudioTrack(title, AudiobookManifest.youtubeUri(id), length)
             }
             return classic + lockups
-        }
-
-        /** Title, channel, full description and the creator's chapters from a watch page (`next`) response. */
-        internal fun parseNext(page: JsonElement): NextInfo {
-            val title = findAll(page, "videoPrimaryInfoRenderer").firstNotNullOfOrNull { text(it["title"]) }
-            val author = findAll(page, "videoOwnerRenderer").firstNotNullOfOrNull { text(it["title"]) }
-            val description = findAll(page, "videoSecondaryInfoRenderer").firstNotNullOfOrNull { it.obj("attributedDescription")?.str("content") }
-                ?: findAll(page, "attributedDescription").firstNotNullOfOrNull { it.str("content") }
-            val exact = findAll(page, "chapterRenderer").mapNotNull { c ->
-                val start = c["timeRangeStartMillis"]?.jsonPrimitive?.longOrNull ?: return@mapNotNull null
-                AudioChapter(text(c["title"]) ?: return@mapNotNull null, start)
-            }
-            val listed = findAll(page, "macroMarkersListItemRenderer").mapNotNull { m ->
-                val start = text(m["timeDescription"])?.let(ChapterMarks::parseTime) ?: return@mapNotNull null
-                AudioChapter(text(m["title"]) ?: return@mapNotNull null, start)
-            }
-            val chapters = exact.ifEmpty { listed }.distinctBy { it.startMs }.sortedBy { it.startMs }
-            return NextInfo(title, author, description?.takeIf { it.isNotBlank() }, chapters.takeIf { it.firstOrNull()?.startMs == 0L }.orEmpty())
         }
 
         /** Videos and playlists of a search response in page order; live streams and Shorts are left out. */

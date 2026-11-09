@@ -100,8 +100,6 @@ class AudioPlayerViewModel(
         audio.player()?.setPlaybackSpeed(v)
     }
 
-    fun setSkipSilence(enabled: Boolean) = audio.setSkipSilence(enabled)
-
     /** Time left in the book at the current speed, or null while some track length is unknown. */
     fun timeLeftMs(s: PlayerSnapshot): Long? {
         val durations = trackDurations.toMutableList().takeIf { it.size == s.trackCount } ?: return null
@@ -109,6 +107,8 @@ class AudioPlayerViewModel(
         if (s.durationMs > 0) durations[s.track] = s.durationMs
         return AudioPositions.remaining(durations, s.track, s.positionMs)?.let { (it / s.speed.coerceAtLeast(0.1f)).toLong() }
     }
+
+    fun toggleSkipSilence() { player.value?.let { audio.setSkipSilence(!it.skipSilence) } }
 
     fun sleep(minutes: Int) = audio.sleep(minutes)
 

@@ -94,11 +94,11 @@ class AudioController(private val context: Context) {
         )
     }
 
-    /** Shortens pauses in the recording (ExoPlayer's silence skipping); kept per book. */
+    /** Shortens pauses in speech; kept per book like the speed. */
     fun setSkipSilence(enabled: Boolean) {
         controller?.sendCustomCommand(
             SessionCommand(AudioPlaybackService.CMD_SKIP_SILENCE, Bundle.EMPTY),
-            Bundle().apply { putBoolean(AudioPlaybackService.KEY_SKIP_SILENCE, enabled) },
+            Bundle().apply { putBoolean(AudioPlaybackService.KEY_ENABLED, enabled) },
         )
     }
 

@@ -2,6 +2,7 @@ package app.yomu.data.audio
 
 import android.content.Context
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import app.yomu.core.common.AppError
 import app.yomu.core.common.AppError.AudioLink.Reason
@@ -14,6 +15,7 @@ import app.yomu.data.repository.authorsToText
 import app.yomu.data.repository.findByHash
 import app.yomu.data.repository.findByUri
 import app.yomu.data.repository.sortTitle
+import app.yomu.domain.model.AudioChapter
 import app.yomu.domain.model.AudioFiles
 import app.yomu.domain.model.AudioOrigin
 import app.yomu.domain.model.AudioTrack
@@ -55,32 +57,25 @@ class AudiobookStore(
         val uri = Uri.parse(book.uri)
         manifest(book)?.let { return@withContext it.tracks }
         if (isFolder(uri)) {
-            return@withContext listFolder(uri).map { (path, track) -> withEmbedded(AudioTrack(trackTitle(path), track.toString())) }
+            return@withContext listFolder(uri).map { (path, track) -> AudioTrack(trackTitle(path), track.toString(), chapters = chapters(track)) }
                 .ifEmpty { throw AppError.FileMissing(book.uri) }
         }
-        listOf(withEmbedded(AudioTrack(book.title, book.uri)))
+        listOf(AudioTrack(book.title, book.uri, chapters = chapters(uri)))
     }
 
-    private val embedded = ConcurrentHashMap<String, EmbeddedChapters.Info>()
+    private val chapterCache = ConcurrentHashMap<String, List<AudioChapter>>()
 
-    /** [track] with the chapters and length stored in its file (M4B chapter tracks, ID3 chapters), when it has them. */
-    private fun withEmbedded(track: AudioTrack): AudioTrack {
-        // Content addresses often hide the file name; only formats known to have no such chapters are skipped.
-        val ext = Uri.decode(track.uri).substringBefore('?').substringAfterLast('/').substringAfterLast('.', "").lowercase()
-        if (ext in AudioFiles.EXTENSIONS && ext !in CHAPTER_EXTENSIONS) return track
-        val info = embedded.getOrPut(track.uri) {
-            runCatching { readEmbedded(Uri.parse(track.uri)) }.onFailure { Timber.d(it, "No embedded chapters") }.getOrNull()
-                ?: EmbeddedChapters.Info(0, emptyList())
-        }
-        return track.copy(durationMs = info.durationMs.takeIf { it > 0 } ?: track.durationMs, chapters = info.chapters)
-    }
-
-    private fun readEmbedded(uri: Uri): EmbeddedChapters.Info? = when (uri.scheme) {
-        "file" -> FileInputStream(uri.path!!).use { EmbeddedChapters.read(it.channel) }
-        "content" -> context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-            FileInputStream(pfd.fileDescriptor).use { EmbeddedChapters.read(it.channel) }
-        }
-        else -> null
+    /** Chapters embedded in a local audio file (M4B, MP3); remembered, since the player and its screen both ask. */
+    private fun chapters(uri: Uri): List<AudioChapter> = chapterCache.getOrPut(uri.toString()) {
+        runCatching {
+            when (uri.scheme) {
+                "file" -> FileInputStream(File(uri.path!!)).channel.use(EmbeddedChapters::read)
+                "content" -> context.contentResolver.openFileDescriptor(uri, "r")?.let { fd ->
+                    ParcelFileDescriptor.AutoCloseInputStream(fd).channel.use(EmbeddedChapters::read)
+                }.orEmpty()
+                else -> emptyList()
+            }
+        }.onFailure { Timber.d(it, "No embedded chapters in $uri") }.getOrDefault(emptyList())
     }
 
     fun manifest(book: Book): AudiobookManifest? {
@@ -295,7 +290,6 @@ class AudiobookStore(
         private const val MAX_PAGE = 4L * 1024 * 1024
         private const val MAX_ZIP_BYTES = 8L * 1024 * 1024 * 1024
         private val COVER_NAMES = setOf("cover", "folder", "front", "album")
-        private val CHAPTER_EXTENSIONS = setOf("m4b", "m4a", "mp4", "aac", "mp3")
         private val URL = Regex("""https?://[^\s<>"']+""")
 
         fun isManifest(uri: String) = uri.substringBefore('?').endsWith(".${AudiobookManifest.EXTENSION}", ignoreCase = true)

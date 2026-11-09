@@ -467,7 +467,7 @@ class AudioPlaybackService : MediaSessionService() {
                 CMD_LOAD -> load(args.getLong(KEY_BOOK, -1), args.getBoolean(KEY_PLAY, false))
                 CMD_SLEEP -> sleep(args.getInt(KEY_MINUTES, 0))
                 CMD_SKIP_SILENCE -> {
-                    skipSilence = args.getBoolean(KEY_SKIP_SILENCE, false)
+                    skipSilence = args.getBoolean(KEY_ENABLED, false)
                     player.skipSilenceEnabled = skipSilence
                     saveSettings()
                     publish()
@@ -482,12 +482,13 @@ class AudioPlaybackService : MediaSessionService() {
         const val CMD_LOAD = "app.yomu.audio.LOAD"
         const val CMD_SLEEP = "app.yomu.audio.SLEEP"
         const val CMD_SKIP_SILENCE = "app.yomu.audio.SKIP_SILENCE"
+        const val KEY_ENABLED = "enabled"
+        const val KEY_SKIP_SILENCE = "skipSilence"
         const val KEY_BOOK = "book"
         const val KEY_PLAY = "play"
         const val KEY_MINUTES = "minutes"
         const val KEY_SLEEP_AT = "sleepAt"
         const val KEY_SLEEP_CHAPTER = "sleepChapter"
-        const val KEY_SKIP_SILENCE = "skipSilence"
         const val KEY_ERROR = "error"
         const val SLEEP_END_OF_CHAPTER = -1
         const val SEEK_BACK_MS = 10_000L

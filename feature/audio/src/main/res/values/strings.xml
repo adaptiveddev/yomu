@@ -24,5 +24,4 @@
     <string name="audio_speed_down">Slower</string>
     <string name="audio_speed_up">Faster</string>
     <string name="audio_skip_silence">Skip silence</string>
-    <string name="audio_skip_silence_hint">Shortens long pauses in the recording</string>
 </resources>

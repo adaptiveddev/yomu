@@ -6,257 +6,258 @@ import java.nio.channels.SeekableByteChannel
 import java.nio.charset.Charset
 
 /**
- * Chapters stored inside an audio file: MP4/M4B (a QuickTime chapter text track or a Nero `chpl` box) and MP3
- * (ID3v2 `CHAP` frames). Only headers are read, by seeking, so a large file costs a few small reads.
+ * Chapters stored inside an audio file: MP4/M4B (a QuickTime chapter text track or Nero `chpl`) and MP3 (ID3v2
+ * `CHAP` frames). Reads only the metadata, never the audio; chapters come back in time order.
  */
 object EmbeddedChapters {
-    data class Info(val durationMs: Long, val chapters: List<AudioChapter>)
+    private const val MAX_MOOV = 64L * 1024 * 1024
+    private const val MAX_ID3 = 32L * 1024 * 1024
+    private const val MAX_TEXT_SAMPLE = 4096
 
-    private const val MAX_CHAPTERS = 5_000
-
-    fun read(channel: SeekableByteChannel): Info? = runCatching {
-        val head = channel.readAt(0, 10) ?: return null
-        when {
-            head.startsWith("ID3") -> Id3(channel).read()
-            head.size >= 8 && String(head, 4, 4, Charsets.ISO_8859_1) in MP4_FIRST_BOXES -> Mp4(channel).read()
-            else -> null
+    fun read(channel: SeekableByteChannel): List<AudioChapter> {
+        val head = readAt(channel, 0, 12) ?: return emptyList()
+        val chapters = when {
+            head.ascii(0, 3) == "ID3" -> id3(channel)
+            head.ascii(4, 4) == "ftyp" -> mp4(channel)
+            else -> emptyList()
         }
-    }.getOrNull()
+        return normalize(chapters)
+    }
 
-    private val MP4_FIRST_BOXES = setOf("ftyp", "moov", "mdat", "free", "skip", "wide")
-
-    /** Chapters in time order, the first starting at 0 so the start of the file belongs to it; null below two. */
-    internal fun normalize(list: List<AudioChapter>): List<AudioChapter>? {
-        val sorted = list.filter { it.startMs >= 0 }.distinctBy { it.startMs }.sortedBy { it.startMs }
-        if (sorted.size < 2) return null
-        return sorted.mapIndexed { i, c ->
-            AudioChapter(c.title.trim().ifEmpty { "${i + 1}" }, if (i == 0) 0 else c.startMs)
-        }
+    /** Sorted by start, without duplicates; the first chapter starts the track so every position has a chapter. */
+    internal fun normalize(chapters: List<AudioChapter>): List<AudioChapter> {
+        val sorted = chapters.filter { it.startMs >= 0 }.sortedBy { it.startMs }.distinctBy { it.startMs }
+        if (sorted.size < 2) return emptyList()
+        return listOf(sorted.first().copy(startMs = 0)) + sorted.drop(1)
     }
 
     // ---------------------------------------------------------------- MP4
 
-    private class Box(val type: String, val start: Long, val bodyStart: Long, val end: Long)
+    private class Box(val type: String, val start: Int, val end: Int)
 
-    private class Mp4(private val ch: SeekableByteChannel) {
-        private val size = ch.size()
-
-        fun read(): Info? {
-            val moov = children(0, size).firstOrNull { it.type == "moov" } ?: return null
-            val boxes = children(moov.bodyStart, moov.end)
-            val duration = boxes.firstOrNull { it.type == "mvhd" }?.let(::durationOf) ?: 0L
-            val traks = boxes.filter { it.type == "trak" }.mapNotNull(::trak)
-            val chapterIds = traks.flatMap { it.chapterRefs }.toSet()
-            val qt = traks.firstOrNull { it.id in chapterIds }?.let(::textSamples)
-            val nero = boxes.firstOrNull { it.type == "udta" }?.let { u -> children(u.bodyStart, u.end).firstOrNull { it.type == "chpl" } }?.let(::chpl)
-            return Info(duration, normalize(qt.orEmpty()) ?: normalize(nero.orEmpty()).orEmpty())
+    private fun mp4(channel: SeekableByteChannel): List<AudioChapter> {
+        val size = channel.size()
+        var pos = 0L
+        while (pos + 8 <= size) {
+            val h = readAt(channel, pos, minOf(16L, size - pos).toInt()) ?: return emptyList()
+            var boxSize = h.getInt(0).toLong() and 0xFFFFFFFFL
+            var header = 8
+            if (boxSize == 1L) {
+                if (h.limit() < 16) return emptyList()
+                boxSize = h.getLong(8)
+                header = 16
+            }
+            if (boxSize == 0L) boxSize = size - pos
+            if (boxSize < header) return emptyList()
+            if (h.ascii(4, 4) == "moov") {
+                if (boxSize > MAX_MOOV) return emptyList()
+                val moov = readAt(channel, pos + header, (boxSize - header).toInt()) ?: return emptyList()
+                return quickTimeChapters(moov, channel).ifEmpty { neroChapters(moov) }
+            }
+            pos += boxSize
         }
-
-        private class Trak(
-            val id: Long, val chapterRefs: List<Long>, val timescale: Long,
-            val stts: Box?, val stsz: Box?, val stsc: Box?, val stco: Box?, val co64: Box?,
-        )
-
-        private fun trak(box: Box): Trak? {
-            val kids = children(box.bodyStart, box.end)
-            val tkhd = kids.firstOrNull { it.type == "tkhd" } ?: return null
-            val version = byteAt(tkhd.bodyStart)
-            val id = u32(tkhd.bodyStart + if (version == 1) 20 else 12)
-            val refs = kids.firstOrNull { it.type == "tref" }?.let { t -> children(t.bodyStart, t.end).filter { it.type == "chap" } }.orEmpty()
-                .flatMap { c -> (0 until ((c.end - c.bodyStart) / 4).coerceAtMost(64)).map { u32(c.bodyStart + it * 4) } }
-            val mdia = kids.firstOrNull { it.type == "mdia" } ?: return Trak(id, refs, 0, null, null, null, null, null)
-            val mdiaKids = children(mdia.bodyStart, mdia.end)
-            val mdhd = mdiaKids.firstOrNull { it.type == "mdhd" }
-            val timescale = mdhd?.let { u32(it.bodyStart + if (byteAt(it.bodyStart) == 1) 20 else 12) } ?: 0
-            val stbl = mdiaKids.firstOrNull { it.type == "minf" }?.let { m -> children(m.bodyStart, m.end).firstOrNull { it.type == "stbl" } }
-            val s = stbl?.let { children(it.bodyStart, it.end) }.orEmpty()
-            return Trak(
-                id, refs, timescale,
-                s.firstOrNull { it.type == "stts" }, s.firstOrNull { it.type == "stsz" }, s.firstOrNull { it.type == "stsc" },
-                s.firstOrNull { it.type == "stco" }, s.firstOrNull { it.type == "co64" },
-            )
-        }
-
-        /** The samples of a chapter text track: each is a 16-bit length and the title, starting at its decode time. */
-        private fun textSamples(t: Trak): List<AudioChapter>? {
-            if (t.timescale <= 0 || t.stts == null || t.stsz == null || t.stsc == null) return null
-            val starts = ArrayList<Long>()
-            var time = 0L
-            val sttsCount = u32(t.stts.bodyStart + 4).coerceAtMost(MAX_CHAPTERS.toLong()).toInt()
-            for (i in 0 until sttsCount) {
-                val count = u32(t.stts.bodyStart + 8 + i * 8L)
-                val delta = u32(t.stts.bodyStart + 12 + i * 8L)
-                for (k in 0 until count.coerceAtMost(MAX_CHAPTERS.toLong())) {
-                    if (starts.size >= MAX_CHAPTERS) break
-                    starts += time
-                    time += delta
-                }
-            }
-            val fixedSize = u32(t.stsz.bodyStart + 4)
-            val sampleCount = u32(t.stsz.bodyStart + 8).coerceAtMost(starts.size.toLong()).toInt()
-            val sizes = (0 until sampleCount).map { if (fixedSize != 0L) fixedSize else u32(t.stsz.bodyStart + 12 + it * 4L) }
-            val chunks = when {
-                t.stco != null -> (0 until u32(t.stco.bodyStart + 4).coerceAtMost(MAX_CHAPTERS.toLong())).map { u32(t.stco.bodyStart + 8 + it * 4) }
-                t.co64 != null -> (0 until u32(t.co64.bodyStart + 4).coerceAtMost(MAX_CHAPTERS.toLong())).map { u64(t.co64.bodyStart + 8 + it * 8) }
-                else -> return null
-            }
-            // stsc: runs of chunks with the same number of samples per chunk.
-            val runs = (0 until u32(t.stsc.bodyStart + 4).coerceAtMost(MAX_CHAPTERS.toLong())).map {
-                u32(t.stsc.bodyStart + 8 + it * 12).toInt() to u32(t.stsc.bodyStart + 12 + it * 12).toInt()
-            }
-            val offsets = ArrayList<Long>(sampleCount)
-            for ((c, chunkOffset) in chunks.withIndex()) {
-                val perChunk = runs.lastOrNull { it.first <= c + 1 }?.second ?: break
-                var offset = chunkOffset
-                repeat(perChunk) {
-                    if (offsets.size < sampleCount) {
-                        offsets += offset
-                        offset += sizes[offsets.size - 1]
-                    }
-                }
-                if (offsets.size >= sampleCount) break
-            }
-            return offsets.indices.mapNotNull { i ->
-                val len = u16(offsets[i])
-                if (len <= 0 || len > sizes[i] - 2) return@mapNotNull AudioChapter("", starts[i] * 1000 / t.timescale)
-                val bytes = ch.readAt(offsets[i] + 2, len) ?: return@mapNotNull null
-                AudioChapter(decodeText(bytes), starts[i] * 1000 / t.timescale)
-            }
-        }
-
-        /** Nero chapters: version, flags, (reserved), count, then start (100 ns units) and a Pascal string each. */
-        private fun chpl(box: Box): List<AudioChapter> {
-            val version = byteAt(box.bodyStart)
-            var pos = box.bodyStart + 4 + if (version > 0) 4 else 0
-            val count = byteAt(pos)
-            pos += 1
-            val out = mutableListOf<AudioChapter>()
-            repeat(count) {
-                if (pos + 9 > box.end) return out
-                val start = u64(pos)
-                val len = byteAt(pos + 8)
-                val title = ch.readAt(pos + 9, len)?.toString(Charsets.UTF_8).orEmpty()
-                out += AudioChapter(title, start / 10_000)
-                pos += 9 + len
-            }
-            return out
-        }
-
-        private fun durationOf(mvhd: Box): Long {
-            val v1 = byteAt(mvhd.bodyStart) == 1
-            val timescale = u32(mvhd.bodyStart + if (v1) 20 else 12)
-            val duration = if (v1) u64(mvhd.bodyStart + 24) else u32(mvhd.bodyStart + 16)
-            return if (timescale > 0) duration * 1000 / timescale else 0
-        }
-
-        private fun children(from: Long, to: Long): List<Box> {
-            val out = mutableListOf<Box>()
-            var pos = from
-            while (pos + 8 <= to && out.size < 1_000) {
-                val header = ch.readAt(pos, 16) ?: break
-                val b = ByteBuffer.wrap(header)
-                var boxSize = b.getInt(0).toLong() and 0xffffffffL
-                val type = String(header, 4, 4, Charsets.ISO_8859_1)
-                var body = pos + 8
-                when (boxSize) {
-                    1L -> { boxSize = b.getLong(8); body = pos + 16 }
-                    0L -> boxSize = to - pos
-                }
-                if (boxSize < body - pos || pos + boxSize > to) break
-                out += Box(type, pos, body, pos + boxSize)
-                pos += boxSize
-            }
-            return out
-        }
-
-        private fun byteAt(pos: Long): Int = ch.readAt(pos, 1)?.get(0)?.toInt()?.and(0xff) ?: 0
-        private fun u16(pos: Long): Int = ch.readAt(pos, 2)?.let { ByteBuffer.wrap(it).short.toInt() and 0xffff } ?: 0
-        private fun u32(pos: Long): Long = ch.readAt(pos, 4)?.let { ByteBuffer.wrap(it).int.toLong() and 0xffffffffL } ?: 0
-        private fun u64(pos: Long): Long = ch.readAt(pos, 8)?.let { ByteBuffer.wrap(it).long } ?: 0
-
-        private fun decodeText(bytes: ByteArray): String = when {
-            bytes.size >= 2 && bytes[0] == 0xFE.toByte() && bytes[1] == 0xFF.toByte() -> String(bytes, 2, bytes.size - 2, Charsets.UTF_16BE)
-            bytes.size >= 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xFE.toByte() -> String(bytes, 2, bytes.size - 2, Charsets.UTF_16LE)
-            else -> bytes.toString(Charsets.UTF_8)
-        }.trimEnd('\u0000')
+        return emptyList()
     }
 
-    // ---------------------------------------------------------------- ID3
-
-    private class Id3(private val ch: SeekableByteChannel) {
-        fun read(): Info? {
-            val header = ch.readAt(0, 10) ?: return null
-            val major = header[3].toInt()
-            val flags = header[5].toInt()
-            if (major !in 3..4 || flags and 0x80 != 0) return null // unsynchronised tags are rare: skip them
-            val tagEnd = 10 + syncsafe(header, 6)
-            var pos = 10L
-            if (flags and 0x40 != 0) {
-                val ext = ch.readAt(pos, 4) ?: return null
-                pos += if (major == 4) syncsafe(ext, 0) else ByteBuffer.wrap(ext).int.toLong() + 4
-            }
-            val chapters = mutableListOf<AudioChapter>()
-            frames(pos, tagEnd, major) { id, body, size ->
-                if (id == "CHAP" && chapters.size < MAX_CHAPTERS) chap(body, size, major)?.let { chapters += it }
-            }
-            return Info(0, normalize(chapters).orEmpty())
+    private fun children(b: ByteBuffer, from: Int, to: Int): List<Box> {
+        val out = mutableListOf<Box>()
+        var p = from
+        while (p + 8 <= to) {
+            var size = b.getInt(p).toLong() and 0xFFFFFFFFL
+            var header = 8
+            if (size == 1L && p + 16 <= to) { size = b.getLong(p + 8); header = 16 }
+            if (size == 0L) size = (to - p).toLong()
+            if (size < header || p + size > to) break
+            out += Box(b.ascii(p + 4, 4), p + header, (p + size).toInt())
+            p += size.toInt()
         }
-
-        private fun frames(from: Long, to: Long, major: Int, onFrame: (String, Long, Int) -> Unit) {
-            var pos = from
-            while (pos + 10 <= to) {
-                val h = ch.readAt(pos, 10) ?: return
-                if (h[0] == 0.toByte()) return // padding
-                val id = String(h, 0, 4, Charsets.ISO_8859_1)
-                val size = if (major == 4) syncsafe(h, 4) else ByteBuffer.wrap(h, 4, 4).int.toLong() and 0xffffffffL
-                if (size <= 0 || pos + 10 + size > to) return
-                onFrame(id, pos + 10, size.toInt())
-                pos += 10 + size
-            }
-        }
-
-        /** CHAP: element id (null-terminated), start and end ms, byte offsets, then sub-frames (TIT2 is the title). */
-        private fun chap(body: Long, size: Int, major: Int): AudioChapter? {
-            val bytes = ch.readAt(body, size.coerceAtMost(64 * 1024)) ?: return null
-            val idEnd = bytes.indexOf(0).takeIf { it >= 0 } ?: return null
-            if (idEnd + 17 > bytes.size) return null
-            val start = ByteBuffer.wrap(bytes, idEnd + 1, 4).int.toLong() and 0xffffffffL
-            var title = ""
-            var p = idEnd + 17
-            while (p + 10 <= bytes.size) {
-                val id = String(bytes, p, 4, Charsets.ISO_8859_1)
-                val len = if (major == 4) syncsafe(bytes, p + 4).toInt() else ByteBuffer.wrap(bytes, p + 4, 4).int
-                if (len <= 0 || p + 10 + len > bytes.size) break
-                if (id == "TIT2") title = text(bytes.copyOfRange(p + 10, p + 10 + len))
-                p += 10 + len
-            }
-            return AudioChapter(title, start)
-        }
-
-        private fun text(frame: ByteArray): String {
-            if (frame.isEmpty()) return ""
-            val charset: Charset = when (frame[0].toInt()) {
-                1 -> Charsets.UTF_16
-                2 -> Charsets.UTF_16BE
-                3 -> Charsets.UTF_8
-                else -> Charsets.ISO_8859_1
-            }
-            return String(frame, 1, frame.size - 1, charset).trimEnd('\u0000').substringBefore('\u0000').trim()
-        }
-
-        private fun syncsafe(b: ByteArray, at: Int): Long =
-            (b[at].toLong() and 0x7f shl 21) or (b[at + 1].toLong() and 0x7f shl 14) or (b[at + 2].toLong() and 0x7f shl 7) or (b[at + 3].toLong() and 0x7f)
+        return out
     }
 
-    // ---------------------------------------------------------------- io
+    private fun child(b: ByteBuffer, parent: Box?, vararg path: String): Box? {
+        var cur = parent ?: return null
+        for (type in path) cur = children(b, cur.start, cur.end).firstOrNull { it.type == type } ?: return null
+        return cur
+    }
 
-    private fun SeekableByteChannel.readAt(pos: Long, length: Int): ByteArray? {
-        if (pos < 0 || length < 0 || pos + length > size()) return null
+    /** Nero chapters: `moov/udta/chpl`, start times in 100 ns units. */
+    internal fun neroChapters(moov: ByteBuffer): List<AudioChapter> {
+        val root = Box("moov", 0, moov.limit())
+        val chpl = child(moov, root, "udta", "chpl") ?: return emptyList()
+        var p = chpl.start
+        val version = moov.get(p).toInt()
+        p += 4
+        if (version != 0) p += 4
+        if (p >= chpl.end) return emptyList()
+        val count = moov.get(p).toInt() and 0xFF
+        p += 1
+        val out = mutableListOf<AudioChapter>()
+        repeat(count) {
+            if (p + 9 > chpl.end) return out
+            val start = moov.getLong(p) / 10_000
+            val len = moov.get(p + 8).toInt() and 0xFF
+            p += 9
+            if (p + len > chpl.end) return out
+            out += AudioChapter(moov.text(p, len, Charsets.UTF_8).ifBlank { "${out.size + 1}" }, start)
+            p += len
+        }
+        return out
+    }
+
+    /** QuickTime chapters: a text track referenced by an audio track's `tref/chap`; one text sample per chapter. */
+    private fun quickTimeChapters(moov: ByteBuffer, channel: SeekableByteChannel): List<AudioChapter> {
+        val root = Box("moov", 0, moov.limit())
+        val traks = children(moov, root.start, root.end).filter { it.type == "trak" }
+        val chapterIds = traks.mapNotNull { child(moov, it, "tref", "chap") }
+            .flatMap { chap -> (chap.start until chap.end - 3 step 4).map { moov.getInt(it) } }.toSet()
+        if (chapterIds.isEmpty()) return emptyList()
+        val trak = traks.firstOrNull { t -> child(moov, t, "tkhd")?.let { trackId(moov, it) } in chapterIds } ?: return emptyList()
+        val mdhd = child(moov, trak, "mdia", "mdhd") ?: return emptyList()
+        val timescale = if (moov.get(mdhd.start).toInt() == 1) moov.getInt(mdhd.start + 20) else moov.getInt(mdhd.start + 12)
+        if (timescale <= 0) return emptyList()
+        val stbl = child(moov, trak, "mdia", "minf", "stbl") ?: return emptyList()
+        val table = sampleTable(moov, stbl) ?: return emptyList()
+        val out = mutableListOf<AudioChapter>()
+        var time = 0L
+        for (i in table.offsets.indices) {
+            val title = sampleText(channel, table.offsets[i], table.sizes[i])
+            out += AudioChapter(title?.takeIf { it.isNotBlank() } ?: "${i + 1}", time * 1000 / timescale)
+            time += table.durations.getOrElse(i) { 0 }
+        }
+        return out
+    }
+
+    private fun trackId(b: ByteBuffer, tkhd: Box): Int = if (b.get(tkhd.start).toInt() == 1) b.getInt(tkhd.start + 20) else b.getInt(tkhd.start + 12)
+
+    private class SampleTable(val offsets: List<Long>, val sizes: List<Int>, val durations: List<Long>)
+
+    private fun sampleTable(b: ByteBuffer, stbl: Box): SampleTable? {
+        val stts = child(b, stbl, "stts") ?: return null
+        val stsz = child(b, stbl, "stsz") ?: return null
+        val stsc = child(b, stbl, "stsc") ?: return null
+        val co64 = child(b, stbl, "co64")
+        val stco = child(b, stbl, "stco") ?: co64 ?: return null
+
+        val durations = mutableListOf<Long>()
+        for (e in 0 until b.getInt(stts.start + 4)) {
+            val at = stts.start + 8 + e * 8
+            if (at + 8 > stts.end) break
+            val count = b.getInt(at)
+            val delta = b.getInt(at + 4).toLong() and 0xFFFFFFFFL
+            repeat(count.coerceIn(0, 10_000)) { durations += delta }
+        }
+
+        val uniform = b.getInt(stsz.start + 4)
+        val sampleCount = b.getInt(stsz.start + 8).coerceIn(0, 10_000)
+        val sizes = List(sampleCount) { i -> if (uniform != 0) uniform else b.getInt(stsz.start + 12 + i * 4) }
+
+        val wide = stco === co64
+        val chunkCount = b.getInt(stco.start + 4)
+        val chunks = List(chunkCount.coerceIn(0, 10_000)) { i ->
+            if (wide) b.getLong(stco.start + 8 + i * 8) else b.getInt(stco.start + 8 + i * 4).toLong() and 0xFFFFFFFFL
+        }
+
+        val runs = List(b.getInt(stsc.start + 4).coerceIn(0, 10_000)) { i -> b.getInt(stsc.start + 8 + i * 12) to b.getInt(stsc.start + 12 + i * 12) }
+        val offsets = mutableListOf<Long>()
+        var sample = 0
+        for ((chunkIndex, chunkOffset) in chunks.withIndex()) {
+            val perChunk = runs.lastOrNull { it.first <= chunkIndex + 1 }?.second ?: 1
+            var at = chunkOffset
+            repeat(perChunk) {
+                if (sample >= sizes.size) return@repeat
+                offsets += at
+                at += sizes[sample]
+                sample++
+            }
+        }
+        return SampleTable(offsets, sizes.take(offsets.size), durations)
+    }
+
+    /** A text sample: a 16-bit length, then UTF-8 or UTF-16 (with a byte-order mark) text. */
+    private fun sampleText(channel: SeekableByteChannel, offset: Long, size: Int): String? {
+        if (size < 2) return null
+        val b = readAt(channel, offset, size.coerceAtMost(MAX_TEXT_SAMPLE)) ?: return null
+        val len = (b.getShort(0).toInt() and 0xFFFF).coerceAtMost(b.limit() - 2)
+        if (len <= 0) return null
+        val utf16 = len >= 2 && (b.get(2).toInt() and 0xFF) == 0xFE && (b.get(3).toInt() and 0xFF) == 0xFF
+        return b.text(2, len, if (utf16) Charsets.UTF_16 else Charsets.UTF_8).trim()
+    }
+
+    // ---------------------------------------------------------------- ID3v2
+
+    private fun id3(channel: SeekableByteChannel): List<AudioChapter> {
+        val h = readAt(channel, 0, 10) ?: return emptyList()
+        val major = h.get(3).toInt()
+        val flags = h.get(5).toInt()
+        // ID3v2.2 has no chapters; a whole-tag unsynchronised tag is rare and not worth decoding.
+        if (major !in 3..4 || flags and 0x80 != 0) return emptyList()
+        val size = syncsafe(h, 6).toLong()
+        if (size <= 0 || size > MAX_ID3) return emptyList()
+        val tag = readAt(channel, 10, size.toInt()) ?: return emptyList()
+        var start = 0
+        if (flags and 0x40 != 0) start = if (major == 4) syncsafe(tag, 0) else tag.getInt(0) + 4
+        return id3Chapters(tag, start, tag.limit(), major)
+    }
+
+    private class Frame(val id: String, val start: Int, val end: Int)
+
+    private fun frames(b: ByteBuffer, from: Int, to: Int, major: Int): List<Frame> {
+        val out = mutableListOf<Frame>()
+        var p = from
+        while (p + 10 <= to) {
+            if (b.get(p).toInt() == 0) break
+            val id = b.ascii(p, 4)
+            val size = if (major == 4) syncsafe(b, p + 4) else b.getInt(p + 4)
+            if (size < 0 || p + 10 + size > to) break
+            out += Frame(id, p + 10, p + 10 + size)
+            p += 10 + size
+        }
+        return out
+    }
+
+    internal fun id3Chapters(tag: ByteBuffer, from: Int, to: Int, major: Int): List<AudioChapter> {
+        val chapters = LinkedHashMap<String, AudioChapter>()
+        frames(tag, from, to, major).filter { it.id == "CHAP" }.forEach { f ->
+            val idEnd = (f.start until f.end).firstOrNull { tag.get(it).toInt() == 0 } ?: return@forEach
+            val element = tag.text(f.start, idEnd - f.start, Charsets.ISO_8859_1)
+            val times = idEnd + 1
+            if (times + 16 > f.end) return@forEach
+            val startMs = tag.getInt(times).toLong() and 0xFFFFFFFFL
+            val title = frames(tag, times + 16, f.end, major).firstOrNull { it.id == "TIT2" }?.let { textFrame(tag, it) }
+            chapters[element] = AudioChapter(title?.takeIf { it.isNotBlank() } ?: "${chapters.size + 1}", startMs)
+        }
+        return chapters.values.toList()
+    }
+
+    private fun textFrame(b: ByteBuffer, f: Frame): String? {
+        if (f.end - f.start < 2) return null
+        val charset = when (b.get(f.start).toInt()) {
+            0 -> Charsets.ISO_8859_1
+            1 -> Charsets.UTF_16
+            2 -> Charsets.UTF_16BE
+            else -> Charsets.UTF_8
+        }
+        return b.text(f.start + 1, f.end - f.start - 1, charset).trimEnd('\u0000').trim()
+    }
+
+    private fun syncsafe(b: ByteBuffer, at: Int): Int = (0 until 4).fold(0) { acc, i -> (acc shl 7) or (b.get(at + i).toInt() and 0x7F) }
+
+    // ---------------------------------------------------------------- bytes
+
+    private fun readAt(channel: SeekableByteChannel, position: Long, length: Int): ByteBuffer? {
+        if (length < 0 || position < 0 || position + length > channel.size()) return null
         val buffer = ByteBuffer.allocate(length)
-        position(pos)
-        while (buffer.hasRemaining()) if (read(buffer) < 0) return null
-        return buffer.array()
+        channel.position(position)
+        while (buffer.hasRemaining()) if (channel.read(buffer) < 0) return null
+        buffer.flip()
+        return buffer
     }
 
-    private fun ByteArray.startsWith(prefix: String) = size >= prefix.length && prefix.indices.all { this[it] == prefix[it].code.toByte() }
+    private fun ByteBuffer.ascii(at: Int, length: Int): String = text(at, length, Charsets.ISO_8859_1)
+
+    private fun ByteBuffer.text(at: Int, length: Int, charset: Charset): String {
+        val bytes = ByteArray(length.coerceIn(0, limit() - at))
+        for (i in bytes.indices) bytes[i] = get(at + i)
+        return String(bytes, charset)
+    }
 }
