@@ -66,6 +66,8 @@ class ImportService(
                 val name = Files.displayName(context, uri) ?: uri.lastPathSegment ?: "file"
                 _progress.value = ImportProgress(i, uris.size, name)
                 out += runCatching { importOne(uri, name, asLink, scanFolder, null) }
+                    // Leaving the screen stops the import; it must not count as a failed file and go on.
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
                     .getOrElse { e ->
                         Timber.w(e, "Import failed for $name")
                         ImportOutcome.Failed(name, e)
@@ -178,6 +180,9 @@ class ImportService(
             storedUri = Uri.fromFile(dest)
             isLinked = false
         }
+        val copiedFile = if (!isLinked && !alreadyLocal) storedUri.path?.let(::File) else null
+        var committed = false
+        try {
         val meta = try {
             MetadataExtractor.extract(context, storedUri, format, name)
         } catch (e: AppError) {
@@ -217,11 +222,16 @@ class ImportService(
             FolderRevisionCommit.initializeLocal(books.rawDb(), inserted, initialFolderRevision)
             inserted
         }
+        committed = true
         meta.cover?.let { books.setCover(id, it) }
         meta.converted?.let { converted ->
             runCatching { converted.builder.writeTo(BookFiles.convertedFile(context, id)) }.onFailure { Timber.w(it, "Conversion cache failed") }
         }
         return ImportOutcome.Added(name, id)
+        } finally {
+            // Cancelled or failed before the book was saved: no orphan copy stays in the library folder.
+            if (!committed) copiedFile?.delete()
+        }
     }
 
     private fun takePermission(uri: Uri) {

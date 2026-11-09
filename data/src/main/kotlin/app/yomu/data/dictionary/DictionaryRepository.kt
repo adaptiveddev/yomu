@@ -19,6 +19,7 @@ import app.yomu.domain.text.Lemmatizer
 import app.yomu.domain.text.TextTools
 import app.yomu.source.await
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -145,11 +146,16 @@ class DictionaryRepository(
             db.withTransaction { pending.forEach { dao.insertEntries(it) } }
             dao.refreshCount(id)
             _importProgress.value = DictImportProgress(h.name, count, done = true)
-        } catch (e: Exception) {
-            dao.delete(id)
+        } catch (e: Throwable) {
+            // Cancelled (the screen was left) or failed: the half-imported dictionary must not stay in the list.
+            withContext(NonCancellable) { dao.delete(id) }
+            if (e is kotlinx.coroutines.CancellationException) throw e
             throw AppError.CorruptedFile(e.message, e)
         }
     }
+
+    /** Removes dictionaries left half-imported by a killed process (called at start, when no import can be running). */
+    suspend fun removeUnfinished() = withContext(Dispatchers.IO) { dao.deleteUnfinished() }
 
     suspend fun suggest(prefix: String): List<String> = if (prefix.isBlank()) emptyList() else dao.suggest(Lemmatizer.normalize(prefix))
 

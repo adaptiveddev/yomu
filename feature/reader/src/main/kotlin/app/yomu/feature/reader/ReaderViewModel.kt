@@ -283,6 +283,8 @@ class ReaderViewModel(
     private var lastPage = -1
     private var tapZonesShown = false
     private var saveJob: Job? = null
+    /** The position waiting for [scheduleSave]'s debounce; written right away when the reader is left. */
+    @Volatile private var pendingLocator: Locator? = null
     private val openBookMutex = Mutex()
     private var folderReadSession: BookRepositoryImpl.FolderReadSession? = null
 
@@ -867,18 +869,30 @@ class ReaderViewModel(
     // ================================================================== progress & stats
     private fun scheduleSave(locator: Locator) {
         if (args.bookId <= 0) return
+        pendingLocator = locator
         saveJob?.cancel()
         saveJob = viewModelScope.launch(ScreenErrors) {
             delay(800)
-            // Incognito: the position is kept only while the reader is open.
-            if (settings.incognito.get()) return@launch
-            books.saveProgress(args.bookId, locator)
+            flushProgress()
         }
+    }
+
+    /** Writes the debounced position now; it must not be lost when the app goes to the background or is closed. */
+    private suspend fun flushProgress() {
+        val locator = pendingLocator ?: return
+        pendingLocator = null
+        // Incognito: the position is kept only while the reader is open.
+        if (settings.incognito.get()) return
+        withContext(NonCancellable) { books.saveProgress(args.bookId, locator) }
     }
 
     private fun markFinishedQuietly() {
         if (args.bookId <= 0) return
-        viewModelScope.launch(ScreenErrors) { books.setStatus(listOf(args.bookId), ReadingStatus.FINISHED) }
+        // App-lifetime: finishing the last page and backing out at once must still mark the book.
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+            runCatching { books.setStatus(listOf(args.bookId), ReadingStatus.FINISHED) }
+        }
     }
 
     private fun finishBook() {
@@ -887,6 +901,10 @@ class ReaderViewModel(
     }
 
     fun onPause() {
+        saveJob?.cancel()
+        // Home or the recents screen may be followed by the process being killed: save before that can happen.
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) { runCatching { flushProgress() } }
         viewModelScope.launch(ScreenErrors) { flushStats() }
     }
 
@@ -1674,8 +1692,10 @@ class ReaderViewModel(
         tts.shutdown()
         autoScrollJob?.cancel()
         val c = current()
+        saveJob?.cancel()
         kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
             try {
+                runCatching { flushProgress() }
                 runCatching { flushStatsBlocking() }
                 when (c) {
                     is ReaderContent.Text -> runCatching { c.controller.document.close() }

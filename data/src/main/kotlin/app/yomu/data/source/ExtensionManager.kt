@@ -465,8 +465,13 @@ class ExtensionManager(
         val part = File(dest.parentFile, dest.name + ".part")
         part.delete()
         src.copyTo(part, overwrite = true)
-        if (dest.exists()) { dest.setWritable(true); dest.delete() }
-        if (!part.renameTo(dest)) { part.copyTo(dest, overwrite = true); part.delete() }
+        if (dest.exists()) dest.setWritable(true)
+        // An atomic replace: a kill in between leaves the old extension, never none.
+        try {
+            java.nio.file.Files.move(part.toPath(), dest.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: Exception) {
+            if (!part.renameTo(dest)) { part.copyTo(dest, overwrite = true); part.delete() }
+        }
         dest.setReadOnly()
     }
 
