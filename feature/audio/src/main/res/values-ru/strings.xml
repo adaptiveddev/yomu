@@ -24,6 +24,7 @@
     <string name="audio_speed_down">Медленнее</string>
     <string name="audio_speed_up">Быстрее</string>
     <string name="audio_skip_silence">Без пауз</string>
+    <string name="audio_reconnecting">Нет соединения, пробую снова…</string>
     <string name="audio_offline">Прослушивание офлайн</string>
     <string name="audio_offline_hint">Сохранить дорожки на устройстве, чтобы слушать без сети.</string>
     <string name="audio_offline_state">Сохранено дорожек: %1$d из %2$d · %3$s</string>

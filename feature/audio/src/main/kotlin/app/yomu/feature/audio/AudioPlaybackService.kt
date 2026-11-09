@@ -17,8 +17,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -90,6 +92,12 @@ class AudioPlaybackService : MediaSessionService() {
     private var skipSilence = false
     private val retriedAt = mutableMapOf<Int, Long>()
     private val expiresAt = mutableMapOf<Int, Long>()
+    private val resolving = mutableSetOf<Int>()
+
+    // Bumped on every load: stream lookups still running for an earlier book (or an earlier load of the same one) are dropped.
+    private var generation = 0
+    private var retryJob: Job? = null
+    private var networkRetries = 0
 
     // Stream servers of YouTube expect the user agent of the client that asked for the address.
     private val streamHeaders = ConcurrentHashMap<String, Map<String, String>>()
@@ -102,8 +110,15 @@ class AudioPlaybackService : MediaSessionService() {
             val host = spec.uri.host.orEmpty()
             streamHeaders.entries.firstOrNull { host == it.key || host.endsWith(".${it.key}") }?.let { spec.withAdditionalHeaders(it.value) } ?: spec
         }
+        // Speech is a few kB per second: buffer minutes ahead to ride out mobile dead zones, and keep the last
+        // half minute so "back 10 s" does not download it again. The byte target (from the audio track) caps memory.
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(MIN_BUFFER_MS, MAX_BUFFER_MS, DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS, DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+            .setBackBuffer(BACK_BUFFER_MS, true)
+            .build()
         player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(withHeaders))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(withHeaders).setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(LOAD_RETRIES)))
+            .setLoadControl(loadControl)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
@@ -160,11 +175,13 @@ class AudioPlaybackService : MediaSessionService() {
         savePosition(blocking = false)
         endListening()
         loadJob?.cancel()
+        retryJob?.cancel()
+        generation++
         loadJob = scope.launch {
             publish(error = null, loading = bookId)
             runCatching {
                 val b = withContext(Dispatchers.IO) { books.getBook(bookId) } ?: error("Book $bookId not found")
-                val list = store.tracks(b)
+                val list = store.tracks(b).ifEmpty { throw app.yomu.core.common.AppError.FileMissing(b.uri) }
                 val saved = withContext(Dispatchers.IO) { books.getProgress(bookId) }
                 val start = saved?.chapter?.coerceIn(0, list.lastIndex) ?: 0
                 // Coming back after a while: repeat the last seconds heard, like after a pause.
@@ -180,11 +197,18 @@ class AudioPlaybackService : MediaSessionService() {
                 retriedAt.clear()
                 expiresAt.clear()
                 pausedAt = 0
+                networkRetries = 0
                 var startError: Throwable? = null
-                val items = list.mapIndexed { i, t ->
-                    val stream = if (i == start) runCatching { streamFor(i, t, eager = true) }.onFailure { startError = it }.getOrNull() else streamFor(i, t, eager = false)
-                    item(b, i, t, stream)
+                val first = try {
+                    resolve(list[start], fresh = false)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    startError = e
+                    null
                 }
+                first?.let { accept(start, it) }
+                val items = list.mapIndexed { i, t -> item(b, i, t, if (i == start) first else null) }
                 player.setMediaItems(items, start, position)
                 val settings = AudioSettings.of(b.readerSettingsJson)
                 player.setPlaybackParameters(PlaybackParameters(settings.speed))
@@ -207,32 +231,32 @@ class AudioPlaybackService : MediaSessionService() {
         }
     }
 
-    /** A resolved stream for YouTube tracks (only for the start track unless [eager]); other tracks play their own address. */
-    private suspend fun streamFor(index: Int, track: AudioTrack, eager: Boolean): Pair<String, String?>? {
-        val playable = AudiobookStore.playableUri(track)
-        if (playable != track.uri) {
-            // A downloaded copy: nothing to resolve.
-            resolved += index
-            return playable to null
-        }
-        val id = AudiobookManifest.youtubeId(track.uri) ?: return track.uri to null
-        if (!eager) return null
-        val s = store.youtube.stream(id)
+    /** A playable address for a YouTube track (null for other tracks, which play their own address). */
+    private class Resolved(val url: String, val mimeType: String?, val expiresAt: Long)
+
+    private suspend fun resolve(track: AudioTrack, fresh: Boolean): Resolved? {
+        if (AudiobookStore.playableUri(track) != track.uri) return null
+        val id = AudiobookManifest.youtubeId(track.uri) ?: return null
+        val s = store.youtube.stream(id, fresh = fresh)
         s.headers.takeIf { it.isNotEmpty() }?.let { streamHeaders["googlevideo.com"] = it; streamHeaders["youtube.com"] = it }
+        return Resolved(s.url, if (s.isHls) MimeTypes.APPLICATION_M3U8 else s.mimeType, YouTubeClient.expiresAt(s.url))
+    }
+
+    /** Records a stream of track [index] of the current load. */
+    private fun accept(index: Int, r: Resolved) {
         resolved += index
-        expiresAt[index] = YouTubeClient.expiresAt(s.url)
-        return s.url to if (s.isHls) MimeTypes.APPLICATION_M3U8 else s.mimeType
+        expiresAt[index] = r.expiresAt
     }
 
     /** A YouTube track without an address yet, or whose address has expired or is about to. */
     private fun needsStream(i: Int): Boolean {
-        if (i !in tracks.indices || AudiobookManifest.youtubeId(tracks[i].uri) == null) return false
+        if (!isYouTube(i)) return false
         if (i !in resolved) return true
         val expires = expiresAt[i] ?: 0
         return expires > 0 && expires < System.currentTimeMillis() + EXPIRY_MARGIN_MS
     }
 
-    private fun item(b: Book, index: Int, t: AudioTrack, stream: Pair<String, String?>?): MediaItem {
+    private fun item(b: Book, index: Int, t: AudioTrack, stream: Resolved?): MediaItem {
         val metadata = MediaMetadata.Builder()
             .setTitle(t.title)
             .setArtist(b.authorsText.ifBlank { null })
@@ -245,39 +269,70 @@ class AudioPlaybackService : MediaSessionService() {
         return MediaItem.Builder()
             .setMediaId("${b.id}/$index")
             // Not yet resolved YouTube tracks keep their "youtube:" address until just before they play.
-            .setUri(stream?.first ?: t.uri)
-            .setMimeType(stream?.second)
+            // Downloaded copies play from the device.
+            .setUri(stream?.url ?: AudiobookStore.playableUri(t))
+            .setMimeType(stream?.mimeType)
             .setMediaMetadata(metadata)
             .build()
     }
 
     /** Resolves the current YouTube track (when the user jumped to it or its address expired) and the next one before it is needed. */
-    private fun resolveAhead() {
+    private fun resolveAhead(fresh: Boolean = false) {
         val b = book ?: return
+        val gen = generation
         val current = player.currentMediaItemIndex
-        listOf(current, current + 1).filter { it !in resolving && needsStream(it) }.forEach { i ->
+        listOf(current, current + 1).filter { it !in resolving && (needsStream(it) || fresh && it == current && isYouTube(it)) }.forEach { i ->
             resolving += i
+            val track = tracks[i]
             scope.launch {
-                runCatching { streamFor(i, tracks[i], eager = true) }
-                    .onSuccess { stream ->
-                        if (book?.id != b.id || stream == null) return@onSuccess
-                        val isCurrent = player.currentMediaItemIndex == i
-                        val position = player.currentPosition
-                        val wasPlaying = player.playWhenReady
-                        player.replaceMediaItem(i, item(b, i, tracks[i], stream))
-                        if (isCurrent) {
-                            player.seekTo(i, position)
-                            player.prepare()
-                            player.playWhenReady = wasPlaying
-                        }
-                    }
-                    .onFailure { if (player.currentMediaItemIndex == i) publish(error = it.message ?: "YouTube") }
+                val result = try {
+                    Result.success(resolve(track, fresh && i == current))
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+                if (gen != generation) return@launch
                 resolving -= i
+                result.onSuccess { stream ->
+                    if (stream == null || i >= player.mediaItemCount) return@onSuccess
+                    accept(i, stream)
+                    val isCurrent = player.currentMediaItemIndex == i
+                    val position = player.currentPosition
+                    val wasPlaying = player.playWhenReady
+                    player.replaceMediaItem(i, item(b, i, track, stream))
+                    if (isCurrent) {
+                        player.seekTo(i, position)
+                        player.prepare()
+                        player.playWhenReady = wasPlaying
+                    }
+                }.onFailure { e ->
+                    if (player.currentMediaItemIndex != i) return@onFailure
+                    if (e is java.io.IOException && e !is app.yomu.data.audio.YouTubeException) retryLater { resolveAhead(fresh) }
+                    else publish(error = e.message ?: "YouTube")
+                }
             }
         }
     }
 
-    private val resolving = mutableSetOf<Int>()
+    /** A YouTube track that streams (not one with a downloaded copy). */
+    private fun isYouTube(i: Int) =
+        i in tracks.indices && AudiobookManifest.youtubeId(tracks[i].uri) != null && AudiobookStore.playableUri(tracks[i]) == tracks[i].uri
+
+    /**
+     * Tries again after a network failure, waiting longer each time (2 s up to a minute), while the user still wants
+     * to listen; a successful start resets the wait.
+     */
+    private fun retryLater(action: () -> Unit) {
+        if (retryJob?.isActive == true) return
+        val wait = networkBackoff(networkRetries++)
+        publish(error = getString(R.string.audio_reconnecting))
+        val gen = generation
+        retryJob = scope.launch {
+            delay(wait)
+            if (gen == generation && book != null && player.playWhenReady) action()
+        }
+    }
 
     private fun saveSettings() {
         val b = book ?: return
@@ -303,6 +358,8 @@ class AudioPlaybackService : MediaSessionService() {
             // "Stop" clears the playlist: the book is no longer loaded.
             if (timeline.isEmpty && book != null && loadJob?.isActive != true) {
                 endListening()
+                generation++
+                retryJob?.cancel()
                 book = null
                 tracks = emptyList()
                 nav = emptyList()
@@ -334,6 +391,10 @@ class AudioPlaybackService : MediaSessionService() {
             if (state == Player.STATE_READY) {
                 val d = player.duration
                 if (d > 0) durations[player.currentMediaItemIndex] = d
+                if (networkRetries > 0) {
+                    networkRetries = 0
+                    publish()
+                }
             }
             if (state == Player.STATE_ENDED) {
                 val b = book ?: return
@@ -348,12 +409,17 @@ class AudioPlaybackService : MediaSessionService() {
 
         override fun onPlayerError(error: PlaybackException) {
             val index = player.currentMediaItemIndex
+            // No connection (a tunnel, a lift): prepare again from the same position once the network may be back.
+            if (error.errorCode in NETWORK_ERRORS && book != null) {
+                Timber.d(error, "Audiobook network error, retrying")
+                retryLater { player.prepare() }
+                return
+            }
             // Expired or refused YouTube addresses: ask for a fresh one (at most once a minute per track), then report.
             val now = System.currentTimeMillis()
-            if (index in tracks.indices && AudiobookManifest.youtubeId(tracks[index].uri) != null && now - (retriedAt[index] ?: 0) > RETRY_WINDOW_MS) {
+            if (isYouTube(index) && now - (retriedAt[index] ?: 0) > RETRY_WINDOW_MS) {
                 retriedAt[index] = now
-                resolved -= index
-                resolveAhead()
+                resolveAhead(fresh = true)
                 return
             }
             Timber.w(error, "Audiobook playback error")
@@ -504,6 +570,18 @@ class AudioPlaybackService : MediaSessionService() {
         private const val SLEEP_FADE_MS = 20_000L
         private const val RETRY_WINDOW_MS = 60_000L
         private const val EXPIRY_MARGIN_MS = 5 * 60_000L
+        private const val MIN_BUFFER_MS = 60_000
+        private const val MAX_BUFFER_MS = 180_000
+        private const val BACK_BUFFER_MS = 30_000
+        private const val LOAD_RETRIES = 6
+        private val NETWORK_ERRORS = setOf(
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+            PlaybackException.ERROR_CODE_TIMEOUT,
+        )
+
+        /** Wait before network retry number [attempt] (from 0): 2, 4, 8, 16, 32 s, then a minute. */
+        fun networkBackoff(attempt: Int): Long = (2_000L shl attempt.coerceIn(0, 5)).coerceAtMost(60_000L)
 
         /** How far to step back when playback resumes after [pausedMs]: nothing for short pauses, up to 30 s after a day. */
         fun rewindAfter(pausedMs: Long): Long = when {

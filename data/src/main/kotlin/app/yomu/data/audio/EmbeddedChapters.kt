@@ -1,6 +1,7 @@
 package app.yomu.data.audio
 
 import app.yomu.domain.model.AudioChapter
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.channels.SeekableByteChannel
 import java.nio.charset.Charset
@@ -10,9 +11,10 @@ import java.nio.charset.Charset
  * `CHAP` frames). Reads only the metadata, never the audio; chapters come back in time order.
  */
 object EmbeddedChapters {
-    private const val MAX_MOOV = 64L * 1024 * 1024
     private const val MAX_ID3 = 32L * 1024 * 1024
     private const val MAX_TEXT_SAMPLE = 4096
+    private const val MAX_CHAPTER_TRAK = 4L * 1024 * 1024
+    private const val MAX_BOXES = 4096
 
     fun read(channel: SeekableByteChannel): List<AudioChapter> {
         val head = readAt(channel, 0, 12) ?: return emptyList()
@@ -36,28 +38,68 @@ object EmbeddedChapters {
     private class Box(val type: String, val start: Int, val end: Int)
 
     private fun mp4(channel: SeekableByteChannel): List<AudioChapter> {
-        val size = channel.size()
-        var pos = 0L
-        while (pos + 8 <= size) {
-            val h = readAt(channel, pos, minOf(16L, size - pos).toInt()) ?: return emptyList()
-            var boxSize = h.getInt(0).toLong() and 0xFFFFFFFFL
+        val moov = boxesAt(channel, 0, channel.size()).firstOrNull { it.type == "moov" } ?: return emptyList()
+        // Only the boxes chapters live in are read: a long book's sample tables and its cover art take megabytes.
+        val kids = boxesAt(channel, moov.bodyStart, moov.end)
+        class Trak(val box: FileBox, val head: ByteArray, val id: Int?, val refs: Set<Int>)
+        val traks = kids.filter { it.type == "trak" }.map { t ->
+            val head = cat(boxesAt(channel, t.bodyStart, t.end).filter { it.type == "tkhd" || it.type == "tref" }.mapNotNull { raw(channel, it) })
+            val b = ByteBuffer.wrap(head)
+            var id: Int? = null
+            val refs = mutableSetOf<Int>()
+            for (box in children(b, 0, b.limit())) {
+                when (box.type) {
+                    "tkhd" -> id = runCatching { trackId(b, box) }.getOrNull()
+                    "tref" -> child(b, box, "chap")?.let { c -> (c.start until c.end - 3 step 4).forEach { refs += b.getInt(it) } }
+                }
+            }
+            Trak(t, head, id, refs)
+        }
+        val chapterIds = traks.flatMap { it.refs }.toSet()
+        val trimmed = ByteArrayOutputStream()
+        for (t in traks) {
+            // The chapter text track is small (one sample per chapter); every other track keeps only its header.
+            val full = t.id in chapterIds && t.box.end - t.box.start <= MAX_CHAPTER_TRAK
+            trimmed.write((if (full) raw(channel, t.box) else null) ?: wrap("trak", t.head))
+        }
+        kids.firstOrNull { it.type == "udta" }?.let { udta ->
+            boxesAt(channel, udta.bodyStart, udta.end).firstOrNull { it.type == "chpl" }?.let { raw(channel, it) }?.let { trimmed.write(wrap("udta", it)) }
+        }
+        val buffer = ByteBuffer.wrap(trimmed.toByteArray())
+        return quickTimeChapters(buffer, channel).ifEmpty { neroChapters(buffer) }
+    }
+
+    /** A box of the file: [start] of its header, [bodyStart] of its content, [end] exclusive. */
+    private class FileBox(val type: String, val start: Long, val bodyStart: Long, val end: Long)
+
+    /** The boxes between [from] and [to], found by reading their headers only. */
+    private fun boxesAt(channel: SeekableByteChannel, from: Long, to: Long): List<FileBox> {
+        val out = mutableListOf<FileBox>()
+        var pos = from
+        while (pos + 8 <= to && out.size < MAX_BOXES) {
+            val h = readAt(channel, pos, minOf(16L, to - pos).toInt()) ?: break
+            var size = h.getInt(0).toLong() and 0xFFFFFFFFL
             var header = 8
-            if (boxSize == 1L) {
-                if (h.limit() < 16) return emptyList()
-                boxSize = h.getLong(8)
+            if (size == 1L) {
+                if (h.limit() < 16) break
+                size = h.getLong(8)
                 header = 16
             }
-            if (boxSize == 0L) boxSize = size - pos
-            if (boxSize < header) return emptyList()
-            if (h.ascii(4, 4) == "moov") {
-                if (boxSize > MAX_MOOV) return emptyList()
-                val moov = readAt(channel, pos + header, (boxSize - header).toInt()) ?: return emptyList()
-                return quickTimeChapters(moov, channel).ifEmpty { neroChapters(moov) }
-            }
-            pos += boxSize
+            if (size == 0L) size = to - pos
+            if (size < header || pos + size > to) break
+            out += FileBox(h.ascii(4, 4), pos, pos + header, pos + size)
+            pos += size
         }
-        return emptyList()
+        return out
     }
+
+    private fun raw(channel: SeekableByteChannel, box: FileBox): ByteArray? =
+        readAt(channel, box.start, (box.end - box.start).toInt())?.let { b -> ByteArray(b.limit()).also { b.get(it) } }
+
+    private fun wrap(type: String, body: ByteArray): ByteArray =
+        ByteBuffer.allocate(8 + body.size).putInt(8 + body.size).put(type.toByteArray(Charsets.ISO_8859_1)).put(body).array()
+
+    private fun cat(parts: List<ByteArray>): ByteArray = ByteArrayOutputStream().apply { parts.forEach { write(it) } }.toByteArray()
 
     private fun children(b: ByteBuffer, from: Int, to: Int): List<Box> {
         val out = mutableListOf<Box>()
@@ -193,10 +235,24 @@ object EmbeddedChapters {
         if (major !in 3..4 || flags and 0x80 != 0) return emptyList()
         val size = syncsafe(h, 6).toLong()
         if (size <= 0 || size > MAX_ID3) return emptyList()
-        val tag = readAt(channel, 10, size.toInt()) ?: return emptyList()
-        var start = 0
-        if (flags and 0x40 != 0) start = if (major == 4) syncsafe(tag, 0) else tag.getInt(0) + 4
-        return id3Chapters(tag, start, tag.limit(), major)
+        val end = minOf(10 + size, channel.size())
+        var pos = 10L
+        if (flags and 0x40 != 0) {
+            val ext = readAt(channel, pos, 4) ?: return emptyList()
+            pos += if (major == 4) syncsafe(ext, 0).toLong() else (ext.getInt(0).toLong() and 0xFFFFFFFFL) + 4
+        }
+        // Frame headers are read one by one and only CHAP frames are loaded: the cover picture can be megabytes.
+        val chaps = ByteArrayOutputStream()
+        while (pos + 10 <= end) {
+            val f = readAt(channel, pos, 10) ?: break
+            if (f.get(0).toInt() == 0) break
+            val frameSize = if (major == 4) syncsafe(f, 4).toLong() else f.getInt(4).toLong() and 0xFFFFFFFFL
+            if (frameSize < 0 || pos + 10 + frameSize > end) break
+            if (f.ascii(0, 4) == "CHAP") readAt(channel, pos, (10 + frameSize).toInt())?.let { b -> chaps.write(b.array(), 0, b.limit()) }
+            pos += 10 + frameSize
+        }
+        val tag = ByteBuffer.wrap(chaps.toByteArray())
+        return id3Chapters(tag, 0, tag.limit(), major)
     }
 
     private class Frame(val id: String, val start: Int, val end: Int)

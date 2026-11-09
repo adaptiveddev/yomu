@@ -24,6 +24,7 @@
     <string name="audio_speed_down">Slower</string>
     <string name="audio_speed_up">Faster</string>
     <string name="audio_skip_silence">Skip silence</string>
+    <string name="audio_reconnecting">No connection, trying again…</string>
     <string name="audio_offline">Offline listening</string>
     <string name="audio_offline_hint">Save the tracks on this device to listen without the network.</string>
     <string name="audio_offline_state">%1$d of %2$d tracks saved · %3$s</string>

@@ -196,7 +196,7 @@ fun YomuNavigation(main: MainViewModel, reduceMotion: Boolean, navLabels: Boolea
     val showIncognito = incognito && entry?.destination?.hasRoute(ReaderRoute::class) != true
     // An audiobook playing in the background: a bar on every screen but its player and the reader.
     val audio: AudioController = koinInject()
-    val nowPlaying by audio.state.collectAsStateWithLifecycle()
+    val nowPlaying by audio.nowPlaying.collectAsStateWithLifecycle(null)
     val playing = nowPlaying?.takeIf { entry?.destination?.hasRoute(ReaderRoute::class) != true }
     Column(Modifier.fillMaxSize()) {
         if (showIncognito) IncognitoBanner(onTurnOff = { main.setIncognito(false) })

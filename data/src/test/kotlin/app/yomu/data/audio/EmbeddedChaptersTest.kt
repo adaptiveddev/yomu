@@ -112,6 +112,20 @@ class EmbeddedChaptersTest {
     }
 
     @Test
+    fun id3ChaptersAfterALargePictureAndBeforeABrokenFrame() {
+        // Only frame headers are read past the picture; a frame running past the tag ends the walk without failing.
+        val frames = frame("APIC", ByteArray(3 * 1024 * 1024)) +
+            chap("a", 0, "One", utf16 = false) + chap("b", 60_000, "Two", utf16 = false) +
+            bytes { writeBytes("TXXX"); writeInt(1 shl 30); writeShort(0) }
+        val size = frames.size
+        val header = bytes {
+            writeBytes("ID3"); writeByte(3); writeByte(0); writeByte(0)
+            (3 downTo 0).forEach { writeByte(size shr (it * 7) and 0x7F) }
+        }
+        assertEquals(listOf(AudioChapter("One", 0), AudioChapter("Two", 60_000)), read(header + frames))
+    }
+
+    @Test
     fun noChaptersInPlainFiles() {
         assertTrue(read(ByteArray(64)).isEmpty())
         assertTrue(read(ftyp + box("moov", box("udta"))).isEmpty())

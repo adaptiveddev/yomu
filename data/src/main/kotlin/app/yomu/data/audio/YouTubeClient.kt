@@ -29,6 +29,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
 import java.io.IOException
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /** A YouTube address: a video, a playlist, a video inside a playlist, or a channel ([channelUrl]). */
 data class YouTubeRef(val videoId: String?, val playlistId: String?, val channelUrl: String? = null)
@@ -184,11 +185,31 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
         YouTubeSearchPage(parseSearch(page), continuation(page))
     }
 
-    /** A stream address of [videoId] (valid for a few hours); [progressive] skips HLS, for downloading a single file. */
-    suspend fun stream(videoId: String, progressive: Boolean = false): YouTubeStream = withContext(Dispatchers.IO) {
+    private val streams = ConcurrentHashMap<Pair<String, Boolean>, YouTubeStream>()
+
+    /**
+     * A stream address of [videoId] (valid for a few hours); [progressive] skips HLS, for downloading a single file.
+     * An address that still has a while to live is reused, so reopening a book does not ask YouTube again; [fresh]
+     * skips it (an address the server refused).
+     */
+    suspend fun stream(videoId: String, progressive: Boolean = false, fresh: Boolean = false): YouTubeStream = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val key = videoId to progressive
+        if (!fresh) streams[key]?.takeIf { expiresAt(it.url) > now + CACHE_MARGIN_MS }?.let { return@withContext it }
+        streams.entries.removeIf { expiresAt(it.value.url) <= now }
         var lastError: YouTubeException? = null
+        var networkError: IOException? = null
         for (c in CLIENTS) {
-            val response = runCatching { postPlayer(c, videoId) }.getOrNull() ?: continue
+            val response = try {
+                postPlayer(c, videoId)
+            } catch (e: IOException) {
+                networkError = e
+                continue
+            } catch (e: kotlinx.serialization.SerializationException) {
+                continue
+            } catch (e: IllegalArgumentException) {
+                continue
+            }
             val status = response.obj("playabilityStatus")?.str("status")
             if (status != "OK") {
                 lastError = YouTubeException(
@@ -199,12 +220,13 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
             }
             val headers = mapOf("User-Agent" to c.userAgent)
             for (candidate in candidates(response, headers).filter { !progressive || !it.isHls }) {
-                if (reachable(candidate)) return@withContext candidate
+                if (reachable(candidate)) return@withContext candidate.also { streams[key] = it }
             }
             // YouTube's own reason (the bot check of another client) explains more than this one.
             if (lastError == null) lastError = YouTubeException(YouTubeException.Reason.BLOCKED, "No reachable stream from ${c.name}")
         }
-        throw lastError ?: YouTubeException(YouTubeException.Reason.BLOCKED)
+        // Without any answer the network is the problem, not YouTube: callers retry those later.
+        throw lastError ?: networkError ?: YouTubeException(YouTubeException.Reason.BLOCKED)
     }
 
     private fun player(videoId: String): Pair<Client, JsonObject> {
@@ -275,6 +297,7 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
         private const val MAX_PLAYLIST = 500
         // Playlists come 20 videos per page.
         private const val MAX_PAGES = 30
+        private const val CACHE_MARGIN_MS = 30 * 60_000L
 
         private val WEB = Client(
             "WEB", 1, "2.20260708.01.00",

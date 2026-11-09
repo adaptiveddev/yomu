@@ -9,9 +9,12 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -44,6 +47,9 @@ class AudioController(private val context: Context) {
 
     /** Null while no book is loaded (or the service has stopped). */
     val state: StateFlow<PlayerSnapshot?> = _state.asStateFlow()
+
+    /** [state] without the moving position, for views that do not show it (they would recompose on every tick). */
+    val nowPlaying: Flow<PlayerSnapshot?> = _state.map { it?.copy(positionMs = 0, durationMs = 0, isBuffering = false) }.distinctUntilChanged()
 
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) = refresh()

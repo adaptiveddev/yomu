@@ -68,7 +68,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import app.yomu.core.common.Files
 import app.yomu.core.ui.components.CoverImage
 import app.yomu.core.ui.components.ErrorState
@@ -98,6 +101,10 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
     val offline by viewModel.offline.collectAsStateWithLifecycle()
     val download by viewModel.download.collectAsStateWithLifecycle()
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
+    val playing = player?.isPlaying == true
+    // Paused, the position only moves on seeks, which are player events: no need to poll.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(playing, lifecycle) { if (playing) lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.tickWhilePlaying() } }
 
     Scaffold(
         topBar = {
