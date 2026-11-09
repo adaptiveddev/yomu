@@ -522,6 +522,7 @@ private fun LibraryTab(nav: NavHostController, tabs: TabsState) {
                 onFindBooksOnline = { tabs.select(TopLevel.CATALOG) },
                 onOpenSettings = { tabs.select(TopLevel.SETTINGS) },
                 onOpenTitle = openTitle,
+                onReadChapter = { nav.navigate(ReaderRoute(chapterId = it)) },
                 online = online,
             )
         }

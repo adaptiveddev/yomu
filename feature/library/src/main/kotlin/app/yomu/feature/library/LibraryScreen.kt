@@ -182,6 +182,7 @@ fun LibraryScreen(
     onFindBooksOnline: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTitle: (Long) -> Unit = {},
+    onReadChapter: (Long) -> Unit = {},
     online: OnlineLibrary? = null,
 ) {
     val context = LocalContext.current
@@ -255,6 +256,8 @@ fun LibraryScreen(
                 }
                 is LibraryEvent.Message -> scope.launch { snackbar.showSnackbar(resources.getString(e.text)) }
                 is LibraryEvent.OpenBook -> onOpenBook(e.book)
+                is LibraryEvent.ReadChapter -> onReadChapter(e.chapterId)
+                is LibraryEvent.OpenTitle -> onOpenTitle(e.itemId)
             }
         }
     }
@@ -449,7 +452,7 @@ fun LibraryScreen(
                         selection = selection,
                         onlineTiles = onlineTiles,
                         header = {
-                            if (continueRow) ContinueReading(continueItems, onOpenBook, onOpenTitle)
+                            if (continueRow) ContinueReading(continueItems, onOpenBook, viewModel::continueOnline)
                             if (shelf) OnlineShelf(onlineShown, onlineTotal, onOpenTitle, onLongPress = { onlineMenu = it }, onShowAll = { onlineTab = true })
                             if (noBooksCard) NoBooksCard(onImport = { showImport = true })
                         },
@@ -664,14 +667,14 @@ private fun ActiveFilters(filter: LibraryFilter, types: Set<FormatGroup>, viewMo
     }
 }
 
-/** The latest book or online title in progress as a large card, the others in a row under it. */
+/** The latest book or online title in progress as a large card, the others in a row under it; both resume reading. */
 @Composable
-private fun ContinueReading(items: List<ContinueItem>, onOpenBook: (Book) -> Unit, onOpenTitle: (Long) -> Unit) {
+private fun ContinueReading(items: List<ContinueItem>, onOpenBook: (Book) -> Unit, onContinueTitle: (Long) -> Unit) {
     val first = items.firstOrNull() ?: return
     val open: (ContinueItem) -> Unit = { item ->
         when (item) {
             is ContinueItem.BookItem -> onOpenBook(item.book)
-            is ContinueItem.OnlineItem -> onOpenTitle(item.entry.id)
+            is ContinueItem.OnlineItem -> onContinueTitle(item.entry.id)
         }
     }
     Column(Modifier.fillMaxWidth().padding(bottom = Dimens.s)) {
@@ -736,7 +739,7 @@ private fun ContinueReading(items: List<ContinueItem>, onOpenBook: (Book) -> Uni
                             cover = item.entry.coverUrl,
                             progress = item.entry.readFraction(),
                             modifier = Modifier.width(Dimens.coverWidth - 14.dp),
-                            onClick = { onOpenTitle(item.entry.id) },
+                            onClick = { onContinueTitle(item.entry.id) },
                         )
                     }
                 }

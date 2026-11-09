@@ -124,6 +124,8 @@ sealed interface LibraryEvent {
     data class Deleted(val ids: Set<Long>) : LibraryEvent
     data class Message(val text: Int) : LibraryEvent
     data class OpenBook(val book: app.yomu.domain.model.Book) : LibraryEvent
+    data class ReadChapter(val chapterId: Long) : LibraryEvent
+    data class OpenTitle(val itemId: Long) : LibraryEvent
 }
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class, kotlinx.coroutines.DelicateCoroutinesApi::class)
@@ -135,6 +137,7 @@ class LibraryViewModel(
     private val tabs: LibraryTabs,
     private val catalog: CatalogRepository,
     private val audiobooks: AudiobookStore,
+    private val history: app.yomu.data.repository.ReadingHistoryRepository,
 ) : ViewModel() {
     private val search = MutableStateFlow("")
     private val filter = MutableStateFlow(LibraryFilter())
@@ -242,6 +245,12 @@ class LibraryViewModel(
     fun selectAll() = viewModelScope.launch(ScreenErrors) {
         val q = LibraryQuery(search.value, settings.librarySort.get(), settings.libraryAscending.get(), filter.value)
         _selection.value = books.observeBooks(q).first().map { it.id }.filter { it !in pendingDelete.value }.toSet()
+    }
+
+    /** "Continue" on an online title opens the chapter to read next; the title page only when it has no chapters. */
+    fun continueOnline(itemId: Long) = viewModelScope.launch(ScreenErrors) {
+        val chapter = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { history.resumeChapter(itemId, null) }
+        _events.send(if (chapter != null) LibraryEvent.ReadChapter(chapter) else LibraryEvent.OpenTitle(itemId))
     }
 
     // ---- import ----

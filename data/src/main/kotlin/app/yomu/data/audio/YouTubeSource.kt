@@ -53,6 +53,13 @@ class YouTubeSource(private val youtube: YouTubeClient) : CatalogSource {
 
     override fun webUrl(item: SItem): String = item.url
 
+    /**
+     * The library stores a title without its links, so the title page asks again: every YouTube video or playlist is
+     * one "Listen online" stream (the address itself; the player resolves it).
+     */
+    override suspend fun getDownloadLinks(book: SItem): List<SBookLink> =
+        book.links.ifEmpty { listOfNotNull(book.url.takeIf { YouTubeClient.parseUrl(it) != null }?.let { SBookLink(it, MIME_AUDIO_STREAM) }) }
+
     override val homeUrl: String get() = "https://www.youtube.com"
 
     private fun item(r: YouTubeResult) = SItem(
