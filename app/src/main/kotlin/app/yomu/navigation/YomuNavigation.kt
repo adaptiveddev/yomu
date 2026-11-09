@@ -295,6 +295,7 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
                                     nav.navigate(SettingsSectionRoute(section.name))
                                 }
                             },
+                            onOpenDownloads = { nav.navigate(DownloadsRoute) },
                         )
                         TopLevel.CATALOG -> CatalogScreen(
                             viewModel = koinViewModel(),

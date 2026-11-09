@@ -8,7 +8,9 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import app.yomu.core.database.BookEntity
@@ -83,6 +85,13 @@ class Release201Test {
         compose.waitForIdle()
     }
 
+    /** The overview is a lazy list: scrolls to the tracking entry (the one with a scroll action) and opens it. */
+    private fun openTracking() {
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Accounts and tracked titles"))
+        compose.onNode(hasText("Accounts and tracked titles")).performClick()
+        compose.waitForIdle()
+    }
+
     private fun seedTitle(title: String): Long = runBlocking {
         val now = System.currentTimeMillis()
         db.catalog().insert(
@@ -110,7 +119,7 @@ class Release201Test {
     )
 
     @Test
-    fun profileTrackingAndDownloadsTabs() {
+    fun profileTrackingPage() {
         val berserk = seedTitle("Berserk")
         val frieren = seedTitle("Frieren: Beyond Journey's End")
         runBlocking {
@@ -130,7 +139,7 @@ class Release201Test {
                 )
             }
         }
-        clickTab("Tracking")
+        openTracking()
         awaitText("Accounts")
         awaitText("1 change not sent yet")
         awaitText("reader")
@@ -138,9 +147,6 @@ class Release201Test {
         // Status filters: every title, then the ones read and the completed one.
         awaitText("All · 2")
         screen("210_profile_tracking")
-        clickTab("Downloads")
-        awaitText("No downloads")
-        screen("211_profile_downloads")
     }
 
     @Test
@@ -162,7 +168,7 @@ class Release201Test {
                     onOpenBook = {}, onBookDetails = { openedBook = it }, onReadChapter = {}, onOpenTitle = { openedTitle = it }, onOpenSettings = {})
             }
         }
-        clickTab("Tracking")
+        openTracking()
         awaitText("Local Manga")
         compose.onNode(hasText("Local Manga")).performClick()
         compose.waitForIdle()

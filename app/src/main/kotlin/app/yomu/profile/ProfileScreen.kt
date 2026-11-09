@@ -2,6 +2,7 @@ package app.yomu.profile
 
 import android.content.Context
 import androidx.annotation.StringRes
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.SendToMobile
@@ -33,12 +35,13 @@ import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.WorkspacePremium
 import androidx.compose.material3.AlertDialog
@@ -49,8 +52,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -81,15 +86,11 @@ import app.yomu.core.common.ErrorLog
 import app.yomu.core.common.Share
 import app.yomu.core.ui.components.BookListItem
 import app.yomu.core.ui.components.TopLevelBody
-import app.yomu.core.ui.components.YomuTab
 import app.yomu.core.ui.components.errorMessage
 import app.yomu.core.ui.components.navBarBottomPadding
 import app.yomu.core.ui.components.topLevelContentInsets
 import app.yomu.core.ui.theme.Dimens
 import app.yomu.data.repository.ReadingHistoryItem
-import app.yomu.feature.downloads.DownloadsActions
-import app.yomu.feature.downloads.DownloadsContent
-import app.yomu.feature.downloads.DownloadsViewModel
 import app.yomu.feature.library.HistoryActions
 import app.yomu.feature.library.HistoryPane
 import app.yomu.feature.library.HistoryViewModel
@@ -112,18 +113,22 @@ import app.yomu.core.ui.R as CoreR
 
 private enum class ProfileTab(@StringRes val label: Int) {
     OVERVIEW(R.string.profile_tab_overview),
-    STATS(R.string.profile_tab_stats),
     HISTORY(R.string.profile_tab_history),
+}
+
+/** Full-screen pages opened from the overview; they replace the tabs until Back. */
+private enum class ProfilePage(@StringRes val title: Int) {
+    NONE(R.string.profile_title),
+    STATS(R.string.profile_tab_stats),
     TRACKING(R.string.profile_tab_tracking),
-    DOWNLOADS(R.string.profile_tab_downloads),
 }
 
 /** Emoji avatars of the profile; "" (the first one in the picker) is the first letter of the name. */
 private val AVATARS = listOf("📚", "📖", "🦊", "🐱", "🐼", "🦉", "🐉", "🌸", "🌙", "⭐", "🔥", "🍵", "🎧", "🎮", "👾", "🍙")
 
 /**
- * The "Profile" tab (1.8.0, in place of the History tab): an overview of all reading with milestones and sharing,
- * the full statistics and the reading history as its own tabs; since 2.0.1 also the tracked titles and the downloads.
+ * The "Profile" tab: an overview (summary, milestones, recent reading, entries to the statistics, tracking and downloads)
+ * and the reading history, switched by a segmented control. Statistics and tracking open as pages inside the tab.
  */
 @Composable
 fun ProfileScreen(
@@ -135,33 +140,39 @@ fun ProfileScreen(
     onReadChapter: (Long) -> Unit,
     onOpenTitle: (Long) -> Unit,
     onOpenSettings: (SettingsSection) -> Unit,
+    onOpenDownloads: (() -> Unit)? = null,
 ) {
     var tab by rememberSaveable { mutableStateOf(ProfileTab.OVERVIEW) }
-    // Created when their tab is first opened.
-    val trackingViewModel: ProfileTrackingViewModel? = if (tab == ProfileTab.TRACKING) koinViewModel() else null
-    val downloadsViewModel: DownloadsViewModel? = if (tab == ProfileTab.DOWNLOADS) koinViewModel() else null
+    var page by rememberSaveable { mutableStateOf(ProfilePage.NONE) }
+    // Created when the page is first opened.
+    val trackingViewModel: ProfileTrackingViewModel? = if (page == ProfilePage.TRACKING) koinViewModel() else null
     var searching by rememberSaveable { mutableStateOf(false) }
     var editing by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    BackHandler(enabled = page != ProfilePage.NONE) { page = ProfilePage.NONE }
 
     Scaffold(
         contentWindowInsets = topLevelContentInsets(),
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.profile_title)) },
+                title = { Text(stringResource(page.title)) },
+                navigationIcon = {
+                    if (page != ProfilePage.NONE) {
+                        IconButton(onClick = { page = ProfilePage.NONE }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(CoreR.string.back))
+                        }
+                    }
+                },
                 actions = {
-                    when (tab) {
-                        ProfileTab.OVERVIEW -> IconButton(onClick = { editing = true }) { Icon(Icons.Outlined.Edit, stringResource(R.string.profile_edit)) }
-                        ProfileTab.STATS -> ReadingStatsActions(statsViewModel)
-                        ProfileTab.HISTORY -> HistoryActions(historyViewModel, searching, onSearching = { searching = it })
-                        ProfileTab.TRACKING -> trackingViewModel?.let { vm -> TrackingActions(vm, onOpenSettings = { onOpenSettings(SettingsSection.TRACKING) }) }
-                        ProfileTab.DOWNLOADS -> downloadsViewModel?.let { vm ->
-                            DownloadsActions(vm)
-                            IconButton(onClick = { onOpenSettings(SettingsSection.DOWNLOADS) }) {
-                                Icon(Icons.Outlined.Settings, stringResource(R.string.profile_downloads_settings))
-                            }
+                    when (page) {
+                        ProfilePage.STATS -> ReadingStatsActions(statsViewModel)
+                        ProfilePage.TRACKING -> trackingViewModel?.let { vm -> TrackingActions(vm, onOpenSettings = { onOpenSettings(SettingsSection.TRACKING) }) }
+                        ProfilePage.NONE -> when (tab) {
+                            ProfileTab.OVERVIEW -> IconButton(onClick = { editing = true }) { Icon(Icons.Outlined.Edit, stringResource(R.string.profile_edit)) }
+                            ProfileTab.HISTORY -> HistoryActions(historyViewModel, searching, onSearching = { searching = it })
                         }
                     }
                 },
@@ -170,40 +181,9 @@ fun ProfileScreen(
     ) { padding ->
         TopLevelBody(padding, Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
-                PrimaryScrollableTabRow(selectedTabIndex = tab.ordinal, edgePadding = Dimens.s) {
-                    ProfileTab.entries.forEach { t ->
-                        YomuTab(selected = tab == t, onClick = { tab = t }, text = { Text(stringResource(t.label), maxLines = 1) })
-                    }
-                }
-                when (tab) {
-                    ProfileTab.OVERVIEW -> ProfileOverview(
-                        state = state,
-                        historyViewModel = historyViewModel,
-                        snackbar = snackbar,
-                        viewModel = viewModel,
-                        onEdit = { editing = true },
-                        onOpenStats = { tab = ProfileTab.STATS },
-                        onOpenHistory = { tab = ProfileTab.HISTORY },
-                        onOpenBook = onOpenBook,
-                        onReadChapter = onReadChapter,
-                        onOpenTitle = onOpenTitle,
-                        onOpenBackup = { onOpenSettings(SettingsSection.BACKUP) },
-                    )
-                    ProfileTab.STATS -> ReadingStatsPane(statsViewModel, Modifier.fillMaxSize())
-                    ProfileTab.HISTORY -> HistoryPane(
-                        viewModel = historyViewModel,
-                        searching = searching,
-                        onSearching = { searching = it },
-                        snackbar = snackbar,
-                        onOpenBook = onOpenBook,
-                        onBookDetails = onBookDetails,
-                        onReadChapter = onReadChapter,
-                        onOpenTitle = onOpenTitle,
-                        onOpenStats = { tab = ProfileTab.STATS },
-                        modifier = Modifier.fillMaxSize(),
-                        showToday = false,
-                    )
-                    ProfileTab.TRACKING -> trackingViewModel?.let { vm ->
+                when (page) {
+                    ProfilePage.STATS -> ReadingStatsPane(statsViewModel, Modifier.fillMaxSize())
+                    ProfilePage.TRACKING -> trackingViewModel?.let { vm ->
                         TrackingPane(
                             viewModel = vm,
                             snackbar = snackbar,
@@ -213,7 +193,47 @@ fun ProfileScreen(
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
-                    ProfileTab.DOWNLOADS -> downloadsViewModel?.let { vm -> DownloadsContent(vm, Modifier.fillMaxSize()) }
+                    ProfilePage.NONE -> {
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = Dimens.l, vertical = Dimens.s)) {
+                            ProfileTab.entries.forEachIndexed { i, t ->
+                                SegmentedButton(
+                                    selected = tab == t,
+                                    onClick = { tab = t },
+                                    shape = SegmentedButtonDefaults.itemShape(i, ProfileTab.entries.size),
+                                ) { Text(stringResource(t.label), maxLines = 1) }
+                            }
+                        }
+                        when (tab) {
+                            ProfileTab.OVERVIEW -> ProfileOverview(
+                                state = state,
+                                historyViewModel = historyViewModel,
+                                snackbar = snackbar,
+                                viewModel = viewModel,
+                                onEdit = { editing = true },
+                                onOpenStats = { page = ProfilePage.STATS },
+                                onOpenHistory = { tab = ProfileTab.HISTORY },
+                                onOpenTracking = { page = ProfilePage.TRACKING },
+                                onOpenDownloads = onOpenDownloads,
+                                onOpenBook = onOpenBook,
+                                onReadChapter = onReadChapter,
+                                onOpenTitle = onOpenTitle,
+                                onOpenBackup = { onOpenSettings(SettingsSection.BACKUP) },
+                            )
+                            ProfileTab.HISTORY -> HistoryPane(
+                                viewModel = historyViewModel,
+                                searching = searching,
+                                onSearching = { searching = it },
+                                snackbar = snackbar,
+                                onOpenBook = onOpenBook,
+                                onBookDetails = onBookDetails,
+                                onReadChapter = onReadChapter,
+                                onOpenTitle = onOpenTitle,
+                                onOpenStats = { page = ProfilePage.STATS },
+                                modifier = Modifier.fillMaxSize(),
+                                showToday = false,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -232,6 +252,22 @@ fun ProfileScreen(
     }
 }
 
+/** A tappable row that opens a related page: icon, title, one line of explanation and a chevron. */
+@Composable
+private fun EntryRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(Dimens.l), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(Dimens.m))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 @Composable
 private fun ProfileOverview(
     state: ProfileUi?,
@@ -241,6 +277,8 @@ private fun ProfileOverview(
     onEdit: () -> Unit,
     onOpenStats: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenTracking: () -> Unit,
+    onOpenDownloads: (() -> Unit)?,
     onOpenBook: (Long) -> Unit,
     onReadChapter: (Long) -> Unit,
     onOpenTitle: (Long) -> Unit,
@@ -303,6 +341,12 @@ private fun ProfileOverview(
         item(key = "milestones") { MilestonesCard(state.milestones) }
         if (state.topTitles.isNotEmpty()) item(key = "top") { TopTitlesCard(state.topTitles, onOpenStats) }
         if (recent.isNotEmpty()) item(key = "recent") { RecentCard(recent, onOpen = ::openRecent, onOpenHistory = onOpenHistory) }
+        item(key = "tracking") {
+            EntryRow(Icons.Outlined.Sync, stringResource(R.string.profile_tab_tracking), stringResource(R.string.profile_tracking_entry), onOpenTracking)
+        }
+        if (onOpenDownloads != null) item(key = "downloads") {
+            EntryRow(Icons.Outlined.Download, stringResource(R.string.profile_tab_downloads), stringResource(R.string.profile_downloads_entry), onOpenDownloads)
+        }
         item(key = "share") {
             ShareSection(
                 busy = busy,
