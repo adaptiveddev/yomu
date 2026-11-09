@@ -2,6 +2,7 @@ package app.yomu.data.audio
 
 import android.content.Context
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import app.yomu.core.common.AppError
 import app.yomu.core.common.AppError.AudioLink.Reason
@@ -14,6 +15,7 @@ import app.yomu.data.repository.authorsToText
 import app.yomu.data.repository.findByHash
 import app.yomu.data.repository.findByUri
 import app.yomu.data.repository.sortTitle
+import app.yomu.domain.model.AudioChapter
 import app.yomu.domain.model.AudioFiles
 import app.yomu.domain.model.AudioOrigin
 import app.yomu.domain.model.AudioTrack
@@ -29,9 +31,11 @@ import okhttp3.Request
 import org.jsoup.Jsoup
 import timber.log.Timber
 import java.io.File
+import java.io.FileInputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
 
 /**
@@ -53,10 +57,25 @@ class AudiobookStore(
         val uri = Uri.parse(book.uri)
         manifest(book)?.let { return@withContext it.tracks }
         if (isFolder(uri)) {
-            return@withContext listFolder(uri).map { (path, track) -> AudioTrack(trackTitle(path), track.toString()) }
+            return@withContext listFolder(uri).map { (path, track) -> AudioTrack(trackTitle(path), track.toString(), chapters = chapters(track)) }
                 .ifEmpty { throw AppError.FileMissing(book.uri) }
         }
-        listOf(AudioTrack(book.title, book.uri))
+        listOf(AudioTrack(book.title, book.uri, chapters = chapters(uri)))
+    }
+
+    private val chapterCache = ConcurrentHashMap<String, List<AudioChapter>>()
+
+    /** Chapters embedded in a local audio file (M4B, MP3); remembered, since the player and its screen both ask. */
+    private fun chapters(uri: Uri): List<AudioChapter> = chapterCache.getOrPut(uri.toString()) {
+        runCatching {
+            when (uri.scheme) {
+                "file" -> FileInputStream(File(uri.path!!)).channel.use(EmbeddedChapters::read)
+                "content" -> context.contentResolver.openFileDescriptor(uri, "r")?.let { fd ->
+                    ParcelFileDescriptor.AutoCloseInputStream(fd).channel.use(EmbeddedChapters::read)
+                }.orEmpty()
+                else -> emptyList()
+            }
+        }.onFailure { Timber.d(it, "No embedded chapters in $uri") }.getOrDefault(emptyList())
     }
 
     fun manifest(book: Book): AudiobookManifest? {

@@ -52,14 +52,63 @@ class AudioParsersTest {
             {"contents":{"x":[
               {"playlistVideoRenderer":{"videoId":"aaaaaaaaaaa","title":{"runs":[{"text":"Chapter "},{"text":"1"}]},"lengthSeconds":"125"}},
               {"playlistVideoRenderer":{"videoId":"bbbbbbbbbbb","title":{"simpleText":"Chapter 2"},"isPlayable":false}},
-              {"lockupViewModel":{"contentId":"ccccccccccc","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","metadata":{"lockupMetadataViewModel":{"title":{"content":"Chapter 3"}}}}}
+              {"lockupViewModel":{"contentId":"ccccccccccc","contentType":"LOCKUP_CONTENT_TYPE_VIDEO","metadata":{"lockupMetadataViewModel":{"title":{"content":"Chapter 3"}}},"contentImage":{"thumbnailViewModel":{"overlays":[{"thumbnailOverlayBadgeViewModel":{"thumbnailBadges":[{"thumbnailBadgeViewModel":{"text":"1:02:03"}}]}}]}}}}
             ]}}
             """,
         )
         val tracks = YouTubeClient.parsePlaylistVideos(page)
         assertEquals(listOf("Chapter 1", "Chapter 3"), tracks.map { it.title })
         assertEquals("youtube:aaaaaaaaaaa", tracks.first().uri)
-        assertEquals(125_000L, tracks.first().durationMs)
+        assertEquals(listOf(125_000L, 3_723_000L), tracks.map { it.durationMs })
+    }
+
+    @Test
+    fun youtubeKeepsTheOriginalVoiceOfDubbedVideos() {
+        val response = Json.parseToJsonElement(
+            """
+            {"streamingData":{"adaptiveFormats":[
+              {"itag":140,"url":"https://v.googlevideo.com/de","mimeType":"audio/mp4","bitrate":130000,"audioTrack":{"displayName":"German","audioIsDefault":false}},
+              {"itag":140,"url":"https://v.googlevideo.com/en","mimeType":"audio/mp4","bitrate":129000,"audioTrack":{"displayName":"English original","audioIsDefault":true}},
+              {"itag":251,"url":"https://v.googlevideo.com/en-opus","mimeType":"audio/webm","bitrate":140000,"audioTrack":{"displayName":"English original","audioIsDefault":true}}
+            ]}}
+            """,
+        ).jsonObject
+        assertEquals(listOf("en", "en-opus"), YouTubeClient.candidates(response, emptyMap()).map { it.url.substringAfterLast('/') })
+    }
+
+    @Test
+    fun youtubeOfficialChapters() {
+        val bar = Json.parseToJsonElement(
+            """
+            {"playerOverlays":{"x":{"multiMarkersPlayerBarRenderer":{"markersMap":[
+              {"key":"HEATSEEKER","value":{"heatmap":{}}},
+              {"key":"DESCRIPTION_CHAPTERS","value":{"chapters":[
+                {"chapterRenderer":{"title":{"simpleText":"Intro"},"timeRangeStartMillis":0}},
+                {"chapterRenderer":{"title":{"simpleText":"Chapter 1"},"timeRangeStartMillis":95000}}
+              ]}}
+            ]}}},
+             "contents":{"videoPrimaryInfoRenderer":{"title":{"runs":[{"text":"The Book"}]}},
+               "videoSecondaryInfoRenderer":{"attributedDescription":{"content":"About it"}}}}
+            """,
+        )
+        assertEquals(listOf(0L to "Intro", 95_000L to "Chapter 1"), YouTubeClient.parseChapters(bar).map { it.startMs to it.title })
+        assertEquals("The Book" to "About it", YouTubeClient.parseNextDetails(bar))
+
+        val panel = Json.parseToJsonElement(
+            """
+            {"engagementPanels":[
+              {"engagementPanelSectionListRenderer":{"panelIdentifier":"engagement-panel-macro-markers-auto-chapters","content":{"items":[
+                {"macroMarkersListItemRenderer":{"title":{"simpleText":"Start"},"timeDescription":{"simpleText":"0:00"},"onTap":{"watchEndpoint":{"startTimeSeconds":0}}}},
+                {"macroMarkersListItemRenderer":{"title":{"simpleText":"Middle"},"timeDescription":{"simpleText":"12:30"}}}
+              ]}}},
+              {"engagementPanelSectionListRenderer":{"panelIdentifier":"engagement-panel-key-moments","content":{"items":[
+                {"macroMarkersListItemRenderer":{"title":{"simpleText":"Moment"},"timeDescription":{"simpleText":"3:00"}}}
+              ]}}}
+            ]}
+            """,
+        )
+        assertEquals(listOf(0L to "Start", 750_000L to "Middle"), YouTubeClient.parseChapters(panel).map { it.startMs to it.title })
+        assertTrue(YouTubeClient.parseChapters(Json.parseToJsonElement("{}")).isEmpty())
     }
 
     @Test

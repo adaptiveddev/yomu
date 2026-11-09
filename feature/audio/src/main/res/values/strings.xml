@@ -19,4 +19,5 @@
     <string name="audio_origin_catalog">Catalog</string>
     <string name="audio_origin_podcast">Podcast</string>
     <string name="audio_origin_link">Link</string>
+    <string name="audio_skip_silence">Skip silence</string>
 </resources>

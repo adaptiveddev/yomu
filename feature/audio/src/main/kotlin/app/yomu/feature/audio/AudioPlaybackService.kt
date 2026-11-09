@@ -46,6 +46,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.jsonObject
@@ -166,6 +168,7 @@ class AudioPlaybackService : MediaSessionService() {
                     item(b, i, t, stream)
                 }
                 player.setMediaItems(items, start, position)
+                player.skipSilenceEnabled = skipSilenceOf(b)
                 player.setPlaybackParameters(PlaybackParameters(speedOf(b)))
                 player.prepare()
                 player.playWhenReady = play
@@ -237,9 +240,32 @@ class AudioPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun speedOf(b: Book): Float = runCatching {
-        Json.parseToJsonElement(b.readerSettingsJson ?: return 1f).jsonObject["audio"]?.jsonObject?.get("speed")?.jsonPrimitive?.floatOrNull
-    }.getOrNull()?.coerceIn(0.5f, 3f) ?: 1f
+    /** The book's own player settings (`{"audio": {"speed", "skipSilence"}}` in its reader settings). */
+    private fun audioSettings(b: Book): JsonObject? = runCatching {
+        Json.parseToJsonElement(b.readerSettingsJson ?: return null).jsonObject["audio"]?.jsonObject
+    }.getOrNull()
+
+    private fun speedOf(b: Book): Float = audioSettings(b)?.get("speed")?.jsonPrimitive?.floatOrNull?.coerceIn(0.5f, 3f) ?: 1f
+
+    private fun skipSilenceOf(b: Book): Boolean = audioSettings(b)?.get("skipSilence")?.jsonPrimitive?.booleanOrNull ?: false
+
+    private fun saveAudioSettings() {
+        val b = book ?: return
+        val json = buildJsonObject {
+            put("audio", buildJsonObject {
+                put("speed", player.playbackParameters.speed)
+                put("skipSilence", player.skipSilenceEnabled)
+            })
+        }.toString()
+        book = b.copy(readerSettingsJson = json)
+        scope.launch(Dispatchers.IO) { books.saveReaderSettings(b.id, json) }
+    }
+
+    private fun setSkipSilence(enabled: Boolean) {
+        player.skipSilenceEnabled = enabled
+        saveAudioSettings()
+        publish()
+    }
 
     // ---------------------------------------------------------------- state
 
@@ -286,10 +312,7 @@ class AudioPlaybackService : MediaSessionService() {
         }
 
         override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
-            val b = book ?: return
-            val json = buildJsonObject { put("audio", buildJsonObject { put("speed", playbackParameters.speed) }) }
-            book = b.copy(readerSettingsJson = json.toString())
-            scope.launch(Dispatchers.IO) { books.saveReaderSettings(b.id, json.toString()) }
+            saveAudioSettings()
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -387,6 +410,7 @@ class AudioPlaybackService : MediaSessionService() {
                 putLong(KEY_BOOK, loading ?: book?.id ?: -1)
                 putLong(KEY_SLEEP_AT, sleepAt)
                 putBoolean(KEY_SLEEP_CHAPTER, sleepChapter)
+                putBoolean(KEY_SKIP_SILENCE, player.skipSilenceEnabled)
                 error?.let { putString(KEY_ERROR, it) }
             },
         )
@@ -399,6 +423,7 @@ class AudioPlaybackService : MediaSessionService() {
             val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
                 .add(SessionCommand(CMD_LOAD, Bundle.EMPTY))
                 .add(SessionCommand(CMD_SLEEP, Bundle.EMPTY))
+                .add(SessionCommand(CMD_SKIP_SILENCE, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands).build()
         }
@@ -407,6 +432,7 @@ class AudioPlaybackService : MediaSessionService() {
             when (customCommand.customAction) {
                 CMD_LOAD -> load(args.getLong(KEY_BOOK, -1), args.getBoolean(KEY_PLAY, false))
                 CMD_SLEEP -> sleep(args.getInt(KEY_MINUTES, 0))
+                CMD_SKIP_SILENCE -> setSkipSilence(args.getBoolean(KEY_ENABLED, false))
                 else -> return Futures.immediateFuture(SessionResult(androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED))
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
@@ -416,6 +442,9 @@ class AudioPlaybackService : MediaSessionService() {
     companion object {
         const val CMD_LOAD = "app.yomu.audio.LOAD"
         const val CMD_SLEEP = "app.yomu.audio.SLEEP"
+        const val CMD_SKIP_SILENCE = "app.yomu.audio.SKIP_SILENCE"
+        const val KEY_ENABLED = "enabled"
+        const val KEY_SKIP_SILENCE = "skipSilence"
         const val KEY_BOOK = "book"
         const val KEY_PLAY = "play"
         const val KEY_MINUTES = "minutes"

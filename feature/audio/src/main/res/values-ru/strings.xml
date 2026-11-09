@@ -19,4 +19,5 @@
     <string name="audio_origin_catalog">Каталог</string>
     <string name="audio_origin_podcast">Подкаст</string>
     <string name="audio_origin_link">Ссылка</string>
+    <string name="audio_skip_silence">Без пауз</string>
 </resources>
