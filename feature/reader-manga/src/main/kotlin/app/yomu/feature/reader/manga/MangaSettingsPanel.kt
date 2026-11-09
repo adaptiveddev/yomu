@@ -187,7 +187,7 @@ fun MangaControlSettings(s: MangaSettings, update: MangaSettingsUpdate, onPrevie
 }
 
 @Composable
-private fun zoneLabel(layout: TapZoneLayout): String = stringResource(
+fun zoneLabel(layout: TapZoneLayout): String = stringResource(
     when (layout) {
         TapZoneLayout.L_SHAPE -> R.string.mr_zone_l
         TapZoneLayout.KINDLE -> R.string.mr_zone_kindle

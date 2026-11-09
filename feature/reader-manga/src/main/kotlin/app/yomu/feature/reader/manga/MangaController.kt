@@ -58,12 +58,12 @@ enum class TapAction { PREV, NEXT, MENU }
 
 object TapZones {
     /** Action for a tap at fractions [x], [y] of the reader. */
-    fun action(layout: TapZoneLayout, inverted: Boolean, rtl: Boolean, x: Float, y: Float): TapAction {
+    fun action(layout: TapZoneLayout, inverted: Boolean, rtl: Boolean, x: Float, y: Float, sideFraction: Float = 0.4f): TapAction {
         val raw = when (layout) {
             TapZoneLayout.DISABLED -> TapAction.MENU
             TapZoneLayout.LEFT_RIGHT -> when {
-                x < 0.4f -> TapAction.PREV
-                x > 0.6f -> TapAction.NEXT
+                x < sideFraction -> TapAction.PREV
+                x > 1f - sideFraction -> TapAction.NEXT
                 else -> TapAction.MENU
             }
             TapZoneLayout.EDGES -> when {

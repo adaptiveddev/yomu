@@ -55,6 +55,8 @@ import app.yomu.domain.model.SearchHit
 import app.yomu.domain.model.TapZoneLayout
 import app.yomu.domain.model.TextPreset
 import app.yomu.domain.model.TextReaderSettings
+import app.yomu.feature.reader.manga.TapAction
+import app.yomu.feature.reader.manga.TapZones
 import app.yomu.domain.model.TocItem
 import app.yomu.domain.text.TextTools
 import app.yomu.feature.reader.epub.ChapterText
@@ -217,6 +219,13 @@ class ReaderViewModel(
     private val bookOverride = MutableStateFlow(BookReaderSettings())
     val textSettings: StateFlow<TextReaderSettings> = combine(settings.textSettings.flow, bookOverride) { g, o -> o.text ?: g }
         .stateIn(viewModelScope, SharingStarted.Eagerly, TextReaderSettings())
+    private val appDark = MutableStateFlow(false)
+    fun setAppDark(dark: Boolean) { appDark.value = dark }
+
+    /** [textSettings] with the auto night theme applied; what the page, the PDF and the reader colours use. */
+    val effectiveText: StateFlow<TextReaderSettings> = combine(textSettings, appDark) { s, dark ->
+        if (s.autoNight && dark) s.copy(theme = s.nightTheme) else s
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, TextReaderSettings())
     val mangaSettings: StateFlow<MangaSettings> = combine(settings.mangaSettings.flow, bookOverride) { g, o -> o.manga ?: g }
         .stateIn(viewModelScope, SharingStarted.Eagerly, MangaSettings())
     val pdfSettings: StateFlow<PdfSettings> = combine(settings.pdfSettings.flow, bookOverride) { g, o -> o.pdf ?: g }
@@ -299,7 +308,7 @@ class ReaderViewModel(
                     else _content.value = UiState.Error(AppError.from(e))
                 }
         }
-        viewModelScope.launch(ScreenErrors) { textSettings.collect { s -> (current() as? ReaderContent.Text)?.controller?.updateSettings(s) } }
+        viewModelScope.launch(ScreenErrors) { effectiveText.collect { s -> (current() as? ReaderContent.Text)?.controller?.updateSettings(s) } }
         viewModelScope.launch(ScreenErrors) { mangaSettings.collect { s -> (current() as? ReaderContent.Manga)?.controller?.settings = s } }
         viewModelScope.launch(ScreenErrors) { pdfSettings.collect { s -> (current() as? ReaderContent.Pdf)?.controller?.settings = s } }
         viewModelScope.launch(ScreenErrors) { highlights.collect { pushHighlights() } }
@@ -435,7 +444,7 @@ class ReaderViewModel(
     private fun newTextController(doc: app.yomu.feature.reader.epub.TextDocument): EpubController {
         val c = EpubController(context, doc, File(context.filesDir, "fonts").apply { mkdirs() })
         c.listener = this
-        c.updateSettings(textSettings.value, relayout = false)
+        c.updateSettings(effectiveText.value, relayout = false)
         c.footerSpace = common.value.footer
         c.prevLabel = context.getString(R.string.reader_prev_chapter)
         c.nextLabel = context.getString(R.string.reader_next_chapter)
@@ -598,10 +607,11 @@ class ReaderViewModel(
                 val c = (current() as ReaderContent.Text).controller
                 val turn = common.value.tapToTurn
                 val rtl = textSettings.value.rtl || c.document.rtl
-                when {
-                    turn && x < 0.25f -> if (rtl) c.next() else c.prev()
-                    turn && x > 0.75f -> if (rtl) c.prev() else c.next()
-                    else -> toggleChrome()
+                val action = if (turn) TapZones.action(common.value.textTapZones, false, rtl, x, y, sideFraction = 0.25f) else TapAction.MENU
+                when (action) {
+                    TapAction.PREV -> c.prev()
+                    TapAction.NEXT -> c.next()
+                    TapAction.MENU -> toggleChrome()
                 }
             }
             is ReaderContent.Pdf -> toggleChrome()

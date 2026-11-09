@@ -84,4 +84,5 @@
     <string name="page_action_bookmark">Bookmark</string>
     <string name="page_action_set_cover">Set as cover</string>
     <string name="page_action_note">Note</string>
+    <string name="hint_annotations_swipe">Swipe a note or bookmark to the left to delete it. You can undo it right away.</string>
 </resources>

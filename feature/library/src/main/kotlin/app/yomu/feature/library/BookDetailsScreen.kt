@@ -30,6 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
@@ -89,6 +90,7 @@ import app.yomu.core.ui.components.CoverImage
 import app.yomu.core.ui.components.SkeletonList
 import app.yomu.core.ui.components.TextInputDialog
 import app.yomu.core.ui.components.YomuFab
+import app.yomu.core.ui.components.coverTint
 import app.yomu.core.ui.components.sharedCover
 import app.yomu.core.ui.theme.Dimens
 import app.yomu.feature.catalog.TrackingButton
@@ -109,6 +111,7 @@ fun BookDetailsScreen(
     onOpenEditor: (Book) -> Unit,
     onOpenAnnotations: (Book) -> Unit,
     onOpenPageLayout: ((Book) -> Unit)? = null,
+    inPane: Boolean = false,
 ) {
     val book by viewModel.book.collectAsStateWithLifecycle()
     val extras by viewModel.extras.collectAsStateWithLifecycle()
@@ -131,7 +134,12 @@ fun BookDetailsScreen(
         topBar = {
             TopAppBar(
                 title = {},
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(app.yomu.core.ui.R.string.back)) } },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        if (inPane) Icon(Icons.Default.Close, stringResource(app.yomu.core.ui.R.string.close))
+                        else Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(app.yomu.core.ui.R.string.back))
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 actions = {
                     if (current != null && current.id > 0) {
@@ -203,6 +211,7 @@ fun BookDetailsScreen(
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Box(Modifier.fillMaxWidth().height(300.dp)) {
                 val cover = current.coverPath?.takeIf { !app.yomu.core.ui.components.LocalHideCovers.current }?.let { File(it) }
+                val tint = app.yomu.core.ui.components.rememberCoverColor(cover, app.yomu.core.ui.components.coverPlaceholderColor(current.title))
                 if (cover != null) {
                     AsyncImage(
                         model = cover, contentDescription = null, contentScale = ContentScale.Crop,
@@ -214,8 +223,10 @@ fun BookDetailsScreen(
                         Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), MaterialTheme.colorScheme.surface)),
                     ),
                 )
+                // Over the scrim, or it would wash the colour out.
+                Box(Modifier.matchParentSize().coverTint(tint))
                 Row(Modifier.align(Alignment.BottomStart).padding(Dimens.l), verticalAlignment = Alignment.Bottom) {
-                    CoverImage(cover, current.title, Modifier.width(120.dp).sharedCover("book-${current.id}"))
+                    CoverImage(cover, current.title, Modifier.width(120.dp).then(if (inPane) Modifier else Modifier.sharedCover("book-${current.id}")))
                     Column(Modifier.padding(start = Dimens.l).weight(1f)) {
                         Text(current.title, style = MaterialTheme.typography.titleLarge, maxLines = 4, overflow = TextOverflow.Ellipsis)
                         if (current.authors.isNotEmpty()) Text(current.authorsText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

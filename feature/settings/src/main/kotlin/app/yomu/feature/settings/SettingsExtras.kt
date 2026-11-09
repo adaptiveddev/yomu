@@ -158,7 +158,7 @@ internal fun SecretInputDialog(title: String, initial: String, onConfirm: (Strin
                     singleLine = true,
                     visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
-                        IconButton(onClick = { visible = !visible }) { Icon(if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, null) }
+                        IconButton(onClick = { visible = !visible }) { Icon(if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, stringResource(if (visible) R.string.set_secret_hide else R.string.set_secret_show)) }
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )

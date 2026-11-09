@@ -58,6 +58,8 @@ import app.yomu.core.datastore.stateIn
 import app.yomu.core.ui.components.ConfirmDialog
 import app.yomu.core.ui.components.EmptyState
 import app.yomu.core.ui.components.PreferenceHeader
+import app.yomu.core.ui.components.SwipeAction
+import app.yomu.core.ui.components.SwipeActionsBox
 import app.yomu.core.ui.components.motionItem
 import app.yomu.core.ui.components.navBarBottomPadding
 import app.yomu.core.ui.theme.Dimens
@@ -391,6 +393,17 @@ private fun DownloadRow(item: DownloadItem, vm: DownloadsViewModel, label: Strin
         else -> stringResource(R.string.downloads_waiting)
     }
     val warn = item.status == DownloadStatus.FAILED || retrying
+    val failed = item.status == DownloadStatus.FAILED
+    val removable = failed || item.status == DownloadStatus.DONE || item.status == DownloadStatus.CANCELLED
+    SwipeActionsBox(
+        modifier = modifier,
+        start = if (failed) SwipeAction.neutral(Icons.Filled.Refresh, stringResource(CoreR.string.retry)) { vm.resume(listOf(item)) } else null,
+        end = if (removable) {
+            SwipeAction.destructive(stringResource(R.string.downloads_remove)) { vm.remove(item) }
+        } else {
+            SwipeAction.destructive(stringResource(R.string.downloads_cancel)) { vm.cancel(listOf(item)) }
+        },
+    ) {
     ListItem(
         headlineContent = { Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
@@ -453,6 +466,6 @@ private fun DownloadRow(item: DownloadItem, vm: DownloadsViewModel, label: Strin
                 }
             }
         },
-        modifier = modifier,
     )
+    }
 }

@@ -597,4 +597,6 @@
     <string name="set_notify_test_sum">Checks the permission, quiet hours and the list</string>
     <string name="set_notify_test_title">Yomu notifications work</string>
     <string name="set_notify_test_text">This is how Yomu notifies you about new chapters, downloads and sync.</string>
+    <string name="set_secret_show">Show</string>
+    <string name="set_secret_hide">Hide</string>
 </resources>

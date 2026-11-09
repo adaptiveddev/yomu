@@ -55,13 +55,27 @@ fun Modifier.sharedCover(key: String): Modifier {
 /** Haptics that respect the user setting. */
 val LocalHapticsEnabled = staticCompositionLocalOf { true }
 
-fun interface Haptic { fun perform() }
+/** [perform] is the strong "something was saved" buzz; the others are lighter, for toggles, steps and thresholds. */
+interface Haptic {
+    fun perform()
+    fun tick() = Unit
+    fun confirm() = perform()
+    fun toggle(on: Boolean) = tick()
+}
 
 @Composable
 fun rememberHaptic(): Haptic {
     val enabled = LocalHapticsEnabled.current
     val h = LocalHapticFeedback.current
-    return remember(enabled, h) { Haptic { if (enabled) h.performHapticFeedback(HapticFeedbackType.LongPress) } }
+    return remember(enabled, h) {
+        object : Haptic {
+            private fun play(type: HapticFeedbackType) { if (enabled) h.performHapticFeedback(type) }
+            override fun perform() = play(HapticFeedbackType.LongPress)
+            override fun tick() = play(HapticFeedbackType.SegmentTick)
+            override fun confirm() = play(HapticFeedbackType.Confirm)
+            override fun toggle(on: Boolean) = play(if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+        }
+    }
 }
 
 /** One-time hints ("tap on a word", manga tap zones). Backed by the settings store in the app. */
@@ -72,12 +86,13 @@ interface HintStore {
 
 val LocalHintStore = staticCompositionLocalOf<HintStore?> { null }
 
+/** [after]: shown only once that hint has been dismissed, so a screen never stacks several hints at once. */
 @Composable
-fun OneTimeHint(key: String, text: String, modifier: Modifier = Modifier) {
+fun OneTimeHint(key: String, text: String, modifier: Modifier = Modifier, after: String? = null) {
     val store = LocalHintStore.current ?: return
     var visible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(key) { visible = !store.isShown(key) }
+    LaunchedEffect(key, after) { visible = !store.isShown(key) && (after == null || store.isShown(after)) }
     if (!visible) return
     Surface(color = MaterialTheme.colorScheme.inverseSurface, shape = MaterialTheme.shapes.medium, modifier = modifier.padding(Dimens.l)) {
         Column(Modifier.padding(Dimens.l)) {

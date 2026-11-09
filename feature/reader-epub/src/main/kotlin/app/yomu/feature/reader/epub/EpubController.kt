@@ -188,6 +188,7 @@ class EpubController(
         put("wordTap", wordTap.name)
         put("lang", document.language ?: "")
         put("reduceMotion", reduceMotion)
+        put("pageAnimation", settings.pageAnimation.name)
         put("hasPrev", chapter > 0)
         put("hasNext", chapter < document.chapterCount - 1)
         put("prevLabel", prevLabel)

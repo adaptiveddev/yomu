@@ -257,17 +257,20 @@ fun PreferenceItem(title: String, summary: String? = null, icon: ImageVector? = 
 
 @Composable
 fun PreferenceSwitch(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, summary: String? = null, icon: ImageVector? = null, enabled: Boolean = true) {
+    val haptic = rememberHaptic()
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            .selectable(selected = checked, enabled = enabled, role = Role.Switch, onClick = { onCheckedChange(!checked) })
+            .selectable(selected = checked, enabled = enabled, role = Role.Switch, onClick = { haptic.toggle(!checked); onCheckedChange(!checked) })
             .padding(horizontal = Dimens.l, vertical = Dimens.m),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Dimens.l),
     ) {
         if (icon != null) PrefIcon(icon, enabled)
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            if (!summary.isNullOrBlank()) Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.4f))
+            if (!summary.isNullOrBlank()) {
+                Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.5f))
+            }
         }
         Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
@@ -289,7 +292,13 @@ fun PreferenceSlider(
             Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             Text(valueLabel(value), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
-        Slider(value = value, onValueChange = onValueChange, valueRange = range, steps = steps)
+        val haptic = rememberHaptic()
+        Slider(
+            value = value,
+            onValueChange = { v -> if (steps > 0 && v != value) haptic.tick(); onValueChange(v) },
+            valueRange = range,
+            steps = steps,
+        )
     }
 }
 

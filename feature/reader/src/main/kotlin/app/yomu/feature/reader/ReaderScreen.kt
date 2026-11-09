@@ -1,5 +1,6 @@
 package app.yomu.feature.reader
 
+import android.provider.Settings
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -191,6 +192,7 @@ fun ReaderScreen(
     val passwordNeeded by viewModel.passwordNeeded.collectAsStateWithLifecycle()
     val common by viewModel.common.collectAsStateWithLifecycle()
     val textSettings by viewModel.textSettings.collectAsStateWithLifecycle()
+    val readerText by viewModel.effectiveText.collectAsStateWithLifecycle()
     val imageCanvas by viewModel.imageCanvas.collectAsStateWithLifecycle()
     val mangaSettings by viewModel.mangaSettings.collectAsStateWithLifecycle()
     val pdfSettings by viewModel.pdfSettings.collectAsStateWithLifecycle()
@@ -241,7 +243,18 @@ fun ReaderScreen(
     val bookLang = viewModel.book?.language
     val author = viewModel.book?.authors?.joinToString()
 
-    ReaderWindowEffects(common, chrome || sheet != ReaderSheet.NONE, lastInteraction)
+    val appDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    LaunchedEffect(appDark) { viewModel.setAppDark(appDark) }
+
+    // Live value of an edge swipe; written to the settings once, when the finger lifts.
+    var edge by remember { mutableStateOf<EdgeAdjust?>(null) }
+    var edgeShown by remember { mutableStateOf(false) }
+    var edgeHold by remember { mutableStateOf<EdgeAdjust?>(null) }
+    val liveCommon = edgeHold?.let { if (it.brightness) common.copy(brightness = it.value) else common.copy(warmFilter = it.value) } ?: common
+    val context0 = LocalContext.current
+    LaunchedEffect(edgeHold) { if (edgeShown && edgeHold == null) { delay(700); edgeShown = false } }
+
+    ReaderWindowEffects(liveCommon, chrome || sheet != ReaderSheet.NONE, lastInteraction)
 
     // Panels hide by themselves after a few seconds of inactivity: reading comes first.
     LaunchedEffect(chrome, lastInteraction, sheet, quickPanel) {
@@ -352,7 +365,7 @@ fun ReaderScreen(
                 viewModel.clearSelection()
             }
             SelectionAction.SHARE_IMAGE -> {
-                val dark = Color(textSettings.background).luminance() < 0.5f
+                val dark = Color(readerText.background).luminance() < 0.5f
                 scope.launch { runCatching { QuoteImage.share(context, sel.text.trim(), title, author, dark, resources.getString(CoreR.string.share)) } }
                 viewModel.clearSelection()
             }
@@ -377,7 +390,7 @@ fun ReaderScreen(
         Modifier
             .fillMaxSize()
             // Loading, errors and "no text" use the page colours too: no black flash before a light page, readable messages.
-            .background(if (data is ReaderContent.Text || (data == null && !imageCanvas)) Color(textSettings.background) else Color.Black)
+            .background(if (data is ReaderContent.Text || (data == null && !imageCanvas)) Color(readerText.background) else Color.Black)
             .pointerInput(Unit) {
                 awaitPointerEventScope {
                     while (true) {
@@ -385,9 +398,25 @@ fun ReaderScreen(
                         lastInteraction = System.currentTimeMillis()
                     }
                 }
-            },
+            }
+            .edgeAdjust(
+                enabled = common.edgeGestures && (data is ReaderContent.Text || data is ReaderContent.Pdf) && !chrome && sheet == ReaderSheet.NONE && selection == null,
+                startValue = { brightness ->
+                    if (!brightness) common.warmFilter
+                    else if (common.brightness >= 0f) common.brightness
+                    else runCatching { Settings.System.getInt(context0.contentResolver, Settings.System.SCREEN_BRIGHTNESS) / 255f }.getOrDefault(0.5f)
+                },
+                onChange = { edge = it; edgeHold = it; edgeShown = true },
+                onEnd = { v ->
+                    scope.launch {
+                        viewModel.updateCommon { if (v.brightness) it.copy(brightness = v.value) else it.copy(warmFilter = v.value) }.join()
+                        delay(200)
+                        edgeHold = null
+                    }
+                },
+            ),
     ) {
-        val stateColor = if (imageCanvas) Color(0xFFE3E3E3) else Color(textSettings.foreground)
+        val stateColor = if (imageCanvas) Color(0xFFE3E3E3) else Color(readerText.foreground)
         when (val s = content) {
             UiState.Loading -> ReaderSkeleton(stateColor)
             UiState.Empty -> CompositionLocalProvider(LocalContentColor provides stateColor) {
@@ -407,14 +436,16 @@ fun ReaderScreen(
                 is ReaderContent.Text -> key(c.controller) {
                     EpubReaderView(c.controller, onAttached = { viewModel.onWebViewAttached(c.controller) })
                 }
-                is ReaderContent.Pdf -> PdfReaderView(c.controller, viewModel, textSettings, landscape)
+                is ReaderContent.Pdf -> PdfReaderView(c.controller, viewModel, readerText, landscape)
                 is ReaderContent.Manga -> MangaReaderView(c.controller, viewModel, landscape, hasPrev, hasNext)
             }
         }
 
-        if (common.warmFilter > 0f) {
-            Box(Modifier.matchParentSize().background(Color(0xFFFF8A1F).copy(alpha = (common.warmFilter * 0.35f).coerceIn(0f, 0.35f))))
+        if (liveCommon.warmFilter > 0f) {
+            Box(Modifier.matchParentSize().background(Color(0xFFFF8A1F).copy(alpha = (liveCommon.warmFilter * 0.35f).coerceIn(0f, 0.35f))))
         }
+
+        EdgeAdjustPill(edge, edgeShown, Modifier.align(Alignment.Center))
 
         bilingual?.let { p ->
             LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).statusBarsPadding())
@@ -428,6 +459,12 @@ fun ReaderScreen(
             )
         } else if (data != null && !chrome) {
             OneTimeHint("reader_gestures", stringResource(R.string.hint_reader_gestures), Modifier.align(Alignment.Center).widthIn(max = 420.dp))
+            if (common.edgeGestures && (data is ReaderContent.Text || data is ReaderContent.Pdf)) {
+                OneTimeHint(
+                    "reader_edge_gestures", stringResource(R.string.hint_reader_edges),
+                    Modifier.align(Alignment.Center).widthIn(max = 420.dp), after = "reader_gestures",
+                )
+            }
         }
 
         // Status line while reading: page, progress, chapter, clock.
@@ -440,10 +477,10 @@ fun ReaderScreen(
             ) {
                 ReaderFooter(
                     position = position,
-                    color = Color(textSettings.foreground).copy(alpha = 0.55f),
+                    color = Color(readerText.foreground).copy(alpha = 0.55f),
                     showClock = common.footerClock,
                     showChapter = common.footerChapter,
-                    horizontalPadding = textSettings.marginHorizontal.coerceIn(12, 48),
+                    horizontalPadding = readerText.marginHorizontal.coerceIn(12, 48),
                     pill = data is ReaderContent.Pdf,
                 )
             }

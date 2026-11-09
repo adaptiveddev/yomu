@@ -157,9 +157,23 @@
     var n = pageCount();
     i = Math.max(0, Math.min(n - 1, i));
     var x = i * pageW * (isRtlDoc() ? -1 : 1);
-    if (smooth && !cfg.reduceMotion && Math.abs(Math.abs(se.scrollLeft) - i * pageW) <= pageW * 1.5) se.scrollTo({ left: x, behavior: 'smooth' });
+    var anim = cfg.reduceMotion ? 'NONE' : (cfg.pageAnimation || 'SLIDE');
+    if (smooth && anim === 'FADE') {
+      var el = document.documentElement;
+      el.style.transition = 'opacity 110ms ease-out';
+      el.style.opacity = '0';
+      setTimeout(function () {
+        se.scrollLeft = x;
+        el.style.transition = 'opacity 150ms ease-in';
+        el.style.opacity = '1';
+        report();
+      }, 120);
+      setTimeout(report, 300);
+      return;
+    }
+    if (smooth && anim === 'SLIDE' && Math.abs(Math.abs(se.scrollLeft) - i * pageW) <= pageW * 1.5) se.scrollTo({ left: x, behavior: 'smooth' });
     else se.scrollLeft = x;
-    setTimeout(report, smooth ? 350 : 30);
+    setTimeout(report, smooth && anim === 'SLIDE' ? 350 : 30);
   }
   function progression() {
     if (cfg.vertical) { var mx = se.scrollWidth - pageW; return mx <= 0 ? 1 : Math.min(1, Math.abs(se.scrollLeft) / mx); }
@@ -234,14 +248,15 @@
     goToOffset(off, false);
     return true;
   }
+  function scrollBehavior() { return cfg.reduceMotion || cfg.pageAnimation === 'NONE' || cfg.pageAnimation === 'FADE' ? 'auto' : 'smooth'; }
   function next() {
     if (cfg.paged && !cfg.vertical) {
       var p = currentPage();
       if (p >= pageCount() - 1) B.onEdge('next'); else setPage(p + 1, true);
     } else {
       var before = cfg.vertical ? Math.abs(se.scrollLeft) : se.scrollTop;
-      if (cfg.vertical) se.scrollBy({ left: -(pageW - 40), behavior: cfg.reduceMotion ? 'auto' : 'smooth' });
-      else se.scrollBy({ top: pageH - 60, behavior: cfg.reduceMotion ? 'auto' : 'smooth' });
+      if (cfg.vertical) se.scrollBy({ left: -(pageW - 40), behavior: scrollBehavior() });
+      else se.scrollBy({ top: pageH - 60, behavior: scrollBehavior() });
       setTimeout(function () { var after = cfg.vertical ? Math.abs(se.scrollLeft) : se.scrollTop; if (Math.abs(after - before) < 2) B.onEdge('next'); else report(); }, 400);
     }
   }
@@ -251,8 +266,8 @@
       if (p <= 0) B.onEdge('prev'); else setPage(p - 1, true);
     } else {
       var before = cfg.vertical ? Math.abs(se.scrollLeft) : se.scrollTop;
-      if (cfg.vertical) se.scrollBy({ left: pageW - 40, behavior: cfg.reduceMotion ? 'auto' : 'smooth' });
-      else se.scrollBy({ top: -(pageH - 60), behavior: cfg.reduceMotion ? 'auto' : 'smooth' });
+      if (cfg.vertical) se.scrollBy({ left: pageW - 40, behavior: scrollBehavior() });
+      else se.scrollBy({ top: -(pageH - 60), behavior: scrollBehavior() });
       setTimeout(function () { var after = cfg.vertical ? Math.abs(se.scrollLeft) : se.scrollTop; if (Math.abs(after - before) < 2) B.onEdge('prev'); else report(); }, 400);
     }
   }

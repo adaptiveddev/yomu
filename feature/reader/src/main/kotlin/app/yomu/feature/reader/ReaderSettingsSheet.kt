@@ -64,7 +64,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.yomu.core.common.Files
+import app.yomu.core.ui.components.OptionTiles
 import app.yomu.core.ui.components.PreferenceChoice
+import app.yomu.core.ui.components.TileOption
+import app.yomu.domain.model.PageTurnAnimation
+import app.yomu.domain.model.TapZoneLayout
+import app.yomu.feature.reader.manga.TapZonesDiagram
+import app.yomu.feature.reader.manga.zoneLabel
 import app.yomu.core.ui.components.PreferenceSlider
 import app.yomu.core.ui.components.PreferenceSwitch
 import app.yomu.core.ui.components.YomuSheet
@@ -127,8 +133,18 @@ fun ReaderSettingsSheet(
                 }
                 1 -> {
                     if (content is ReaderContent.Text) {
-                        ThemePicker(text) { t -> viewModel.updateText { it.copy(theme = t) } }
+                        ThemePicker(text, { t -> viewModel.updateText { it.copy(theme = t) } })
                         if (text.theme == ReaderTheme.CUSTOM) CustomColors(text, viewModel)
+                        PreferenceSwitch(stringResource(R.string.rs_auto_night), text.autoNight, { v -> viewModel.updateText { it.copy(autoNight = v) } }, summary = stringResource(R.string.rs_auto_night_summary))
+                        if (text.autoNight) {
+                            ThemePicker(
+                                text,
+                                { t -> viewModel.updateText { it.copy(nightTheme = t) } },
+                                themes = listOf(ReaderTheme.GRAY, ReaderTheme.DARK, ReaderTheme.BLACK),
+                                selected = text.nightTheme,
+                                title = stringResource(R.string.rs_night_theme),
+                            )
+                        }
                     }
                     DisplaySettings(common, viewModel, showFooter = content !is ReaderContent.Manga)
                 }
@@ -179,6 +195,18 @@ private fun TextSettings(s: TextReaderSettings, vm: ReaderViewModel) {
     }
     PreferenceSwitch(stringResource(R.string.rs_hyphenation), s.hyphenation, { v -> vm.updateText { it.copy(hyphenation = v) } })
     PreferenceSwitch(stringResource(R.string.rs_paged), s.paged, { v -> vm.updateText { it.copy(paged = v) } }, summary = stringResource(if (s.paged) R.string.rs_paged_on else R.string.rs_paged_off))
+    if (s.paged && !s.verticalText) {
+        PreferenceChoice(
+            stringResource(R.string.rs_page_anim),
+            listOf(
+                PageTurnAnimation.SLIDE to stringResource(R.string.rs_page_anim_slide),
+                PageTurnAnimation.FADE to stringResource(R.string.rs_page_anim_fade),
+                PageTurnAnimation.NONE to stringResource(R.string.rs_page_anim_none),
+            ),
+            s.pageAnimation,
+            { v -> vm.updateText { it.copy(pageAnimation = v) } },
+        )
+    }
     PreferenceSwitch(stringResource(R.string.rs_vertical), s.verticalText, { v -> vm.updateText { it.copy(verticalText = v) } }, summary = stringResource(R.string.rs_vertical_summary))
     PreferenceSwitch(stringResource(R.string.rs_rtl), s.rtl, { v -> vm.updateText { it.copy(rtl = v) } })
     PreferenceSwitch(stringResource(R.string.rs_publisher), s.publisherStyles, { v -> vm.updateText { it.copy(publisherStyles = v) } }, summary = stringResource(R.string.rs_publisher_summary))
@@ -323,22 +351,28 @@ private fun fontLabel(f: String): String = when (f) {
 }
 
 @Composable
-fun ThemePicker(s: TextReaderSettings, onSelect: (ReaderTheme) -> Unit) {
-    Text(stringResource(R.string.rs_theme), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = Dimens.l, top = Dimens.m))
+fun ThemePicker(
+    s: TextReaderSettings,
+    onSelect: (ReaderTheme) -> Unit,
+    themes: List<ReaderTheme> = ReaderTheme.entries,
+    selected: ReaderTheme = s.theme,
+    title: String = stringResource(R.string.rs_theme),
+) {
+    Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = Dimens.l, top = Dimens.m))
     Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Dimens.l, vertical = Dimens.s), horizontalArrangement = Arrangement.spacedBy(Dimens.m)) {
-        ReaderTheme.entries.forEach { t ->
+        themes.forEach { t ->
             val bg = Color(if (t == ReaderTheme.CUSTOM) s.customBackground else t.bg)
             val fg = Color(if (t == ReaderTheme.CUSTOM) s.customText else t.fg)
             val name = stringResource(t.label())
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable { onSelect(t) }.semantics { contentDescription = name; role = Role.RadioButton; selected = s.theme == t },
+                modifier = Modifier.clickable { onSelect(t) }.semantics { contentDescription = name; role = Role.RadioButton; this.selected = selected == t },
             ) {
                 Box(
-                    Modifier.size(48.dp).background(bg, CircleShape).border(if (s.theme == t) 3.dp else 1.dp, if (s.theme == t) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape),
+                    Modifier.size(48.dp).background(bg, CircleShape).border(if (selected == t) 3.dp else 1.dp, if (selected == t) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (s.theme == t) Icon(Icons.Default.Check, null, tint = fg) else Text("Aa", color = fg)
+                    if (selected == t) Icon(Icons.Default.Check, null, tint = fg) else Text("Aa", color = fg)
                 }
                 Text(name, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 2.dp))
             }
@@ -426,6 +460,17 @@ private fun ControlSettings(content: ReaderContent, c: CommonReaderSettings, m: 
         MangaControlSettings(m, { transform -> vm.updateManga(transform) }, onPreviewZones = vm::previewTapZones)
     } else {
         PreferenceSwitch(stringResource(R.string.rs_tap_turn), c.tapToTurn, { v -> vm.updateCommon { it.copy(tapToTurn = v) } })
+        if (content is ReaderContent.Text) {
+            Text(stringResource(R.string.rs_tap_zones), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = Dimens.l, top = Dimens.s))
+            OptionTiles(
+                TapZoneLayout.entries.map { layout ->
+                    TileOption(layout, zoneLabel(layout), preview = { _ -> TapZonesDiagram(layout, false, false, sideFraction = 0.25f) })
+                },
+                c.textTapZones,
+                { v -> vm.updateCommon { it.copy(textTapZones = v) } },
+            )
+        }
+        PreferenceSwitch(stringResource(R.string.rs_edge_gestures), c.edgeGestures, { v -> vm.updateCommon { it.copy(edgeGestures = v) } }, summary = stringResource(R.string.rs_edge_gestures_summary))
         PreferenceSwitch(stringResource(R.string.rs_volume_keys), c.volumeKeys, { v -> vm.updateCommon { it.copy(volumeKeys = v) } })
     }
     if (content is ReaderContent.Text) {

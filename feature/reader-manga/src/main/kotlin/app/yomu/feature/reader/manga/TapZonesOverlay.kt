@@ -29,9 +29,9 @@ internal val PrevZoneColor = Color(0xFFE5793F)
 internal val NextZoneColor = Color(0xFF5468E0)
 
 /** Samples [TapZones.action] on a grid, so the drawing always matches what a tap does. */
-private class ZoneGrid(val cols: Int, val rows: Int, layout: TapZoneLayout, inverted: Boolean, rtl: Boolean) {
+private class ZoneGrid(val cols: Int, val rows: Int, layout: TapZoneLayout, inverted: Boolean, rtl: Boolean, sideFraction: Float = 0.4f) {
     val cells: Array<TapAction> = Array(cols * rows) { i ->
-        TapZones.action(layout, inverted, rtl, (i % cols + 0.5f) / cols, (i / cols + 0.5f) / rows)
+        TapZones.action(layout, inverted, rtl, (i % cols + 0.5f) / cols, (i / cols + 0.5f) / rows, sideFraction)
     }
 
     operator fun get(c: Int, r: Int) = cells[r * cols + c]
@@ -117,8 +117,8 @@ internal fun TapZonesOverlay(layout: TapZoneLayout, inverted: Boolean, rtl: Bool
 
 /** Miniature of a tap zone layout for the settings tiles. */
 @Composable
-fun TapZonesDiagram(layout: TapZoneLayout, inverted: Boolean, rtl: Boolean, modifier: Modifier = Modifier) {
-    val grid = remember(layout, inverted, rtl) { ZoneGrid(12, 18, layout, inverted, rtl) }
+fun TapZonesDiagram(layout: TapZoneLayout, inverted: Boolean, rtl: Boolean, modifier: Modifier = Modifier, sideFraction: Float = 0.4f) {
+    val grid = remember(layout, inverted, rtl, sideFraction) { ZoneGrid(12, 18, layout, inverted, rtl, sideFraction) }
     val frame = LocalContentColor.current
     Canvas(modifier.size(width = 20.dp, height = 30.dp)) {
         val cw = size.width / grid.cols

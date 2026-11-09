@@ -42,15 +42,20 @@ import androidx.compose.ui.unit.dp
 import app.yomu.core.ui.theme.Dimens
 import coil3.compose.AsyncImage
 
+/** Main colour of the generated placeholder for [title]; also tints pages of books without a cover image. */
+fun coverPlaceholderColor(title: String): Color = Color.hsl(placeholderHue(title), 0.42f, 0.45f)
+
+// Hues from cyan through blue, violet and pink to orange: no greens, in line with the lavender palette.
+private fun placeholderHue(title: String): Float = (200f + title.hashCode().mod(180)) % 360f
+
 /**
  * Cover with a generated placeholder behind the image: a colour derived from the title and the title itself, or its
  * initials on thumbnails too narrow for whole words (no "Smok/e" breaks in lists and history).
  */
 @Composable
 fun CoverImage(model: Any?, title: String, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
-    // Hues from cyan through blue, violet and pink to orange: no greens, in line with the lavender palette.
-    val hue = (200f + title.hashCode().mod(180)) % 360f
-    val c1 = Color.hsl(hue, 0.42f, 0.45f)
+    val hue = placeholderHue(title)
+    val c1 = coverPlaceholderColor(title)
     val c2 = Color.hsl((hue + 25f) % 360f, 0.46f, 0.30f)
     BoxWithConstraints(
         modifier

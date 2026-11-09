@@ -10,7 +10,11 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
@@ -80,7 +84,15 @@ fun NavShell(
             if (horizontal) {
                 YomuNavRail(items, selected, onSelect, slide, onPress = onPress)
             } else if (type == NavigationSuiteType.NavigationBar) {
-                FloatingNavBar(items, selected, showLabels, onSelect, slide, onPress = onPress)
+                // A fade from the page colour behind the pill, so lists don't run into it. It has no pointer input:
+                // touches above the pill still reach the screen below.
+                val bg = MaterialTheme.colorScheme.background
+                Box(
+                    slide.background(Brush.verticalGradient(0f to Color.Transparent, 0.5f to bg.copy(alpha = 0.82f), 1f to bg))
+                        .padding(top = 20.dp),
+                ) {
+                    FloatingNavBar(items, selected, showLabels, onSelect, onPress = onPress)
+                }
             }
         }
     }
