@@ -187,4 +187,10 @@
         <item quantity="one">%d video</item>
         <item quantity="other">%d videos</item>
     </plurals>
+
+    <plurals name="library_downloads_left">
+        <item quantity="one">Downloads: %d left</item>
+        <item quantity="other">Downloads: %d left</item>
+    </plurals>
+    <string name="library_downloads_failed">Downloads: some failed</string>
 </resources>

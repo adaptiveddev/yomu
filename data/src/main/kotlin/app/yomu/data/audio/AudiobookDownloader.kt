@@ -1,6 +1,7 @@
 package app.yomu.data.audio
 
 import android.content.Context
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -12,6 +13,9 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import app.yomu.data.R
+import app.yomu.data.download.FailureKind
+import app.yomu.data.download.RetryPolicy
+import app.yomu.data.source.SourceCalls
 import app.yomu.data.work.Notifications
 import app.yomu.domain.model.AudioTrack
 import app.yomu.domain.model.AudiobookManifest
@@ -20,6 +24,9 @@ import app.yomu.domain.repository.BookRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -29,6 +36,7 @@ import org.koin.core.component.inject
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
 
 /** How much of an online audiobook is kept on the device. */
@@ -37,7 +45,18 @@ data class AudioDownloadState(val downloaded: Int, val total: Int, val bytes: Lo
 }
 
 /** A running download: [fraction] of the book, [track] being fetched (0-based). */
-data class AudioDownloadProgress(val running: Boolean, val fraction: Float, val track: Int, val total: Int, val error: String?)
+data class AudioDownloadProgress(
+    val running: Boolean,
+    val fraction: Float,
+    val track: Int,
+    val total: Int,
+    val error: String?,
+    /** Queued for the network or for a retry after a transient error (nothing is transferred right now). */
+    val waiting: Boolean = false,
+)
+
+/** An offline download of one audiobook in the queue (see [AudiobookDownloader.queue]). */
+data class AudioQueueEntry(val bookId: Long, val progress: AudioDownloadProgress)
 
 /**
  * Offline copies of online audiobooks (YouTube, podcasts, catalog streams): every track is saved next to the book's
@@ -60,9 +79,9 @@ class AudiobookDownloader(
 
     /** Downloads the missing tracks of [book]; [onProgress] gets the book fraction and the track index. */
     suspend fun download(book: Book, onProgress: suspend (Float, Int, Int) -> Unit) = withContext(Dispatchers.IO) {
-        val dir = store.downloadDir(book) ?: throw IOException("Not an online audiobook")
+        val dir = store.downloadDir(book) ?: error("Not an online audiobook")
         dir.mkdirs()
-        var manifest = store.manifest(book) ?: throw IOException("Not an online audiobook")
+        var manifest = store.manifest(book) ?: error("Not an online audiobook")
         val todo = manifest.tracks.indices.filter { isRemote(manifest.tracks[it].uri) }
         todo.forEachIndexed { n, i ->
             val track = manifest.tracks[i]
@@ -99,8 +118,11 @@ class AudiobookDownloader(
         val chunk = if (youtubeId != null) YOUTUBE_CHUNK else Long.MAX_VALUE
         RandomAccessFile(part, "rw").use { out ->
             var pos = out.length()
-            while (length == null || pos < length) {
+            while (length.let { it == null || pos < it }) {
                 coroutineContext.ensureActive()
+                // A failed request (network switch, VPN, 5xx) is retried from the bytes already on disk.
+                SourceCalls.retrying(REQUEST_ATTEMPTS, baseDelayMs = RETRY_BASE_MS) {
+                pos = out.length()
                 val end = if (chunk == Long.MAX_VALUE) "" else ((length?.let { minOf(it, pos + chunk) } ?: (pos + chunk)) - 1).toString()
                 val request = Request.Builder().url(url).apply {
                     headers.forEach { (k, v) -> header(k, v) }
@@ -139,6 +161,7 @@ class AudiobookDownloader(
                     // Without a known length, one whole response is the file.
                     if (length == null) length = pos
                 }
+                }
             }
         }
         val file = File(dir, "$base.${extension(mime, track.uri)}")
@@ -154,8 +177,16 @@ class AudiobookDownloader(
         val request = OneTimeWorkRequestBuilder<AudiobookDownloadWorker>()
             .setInputData(workDataOf(AudiobookDownloadWorker.KEY_BOOK to bookId))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WORK_BACKOFF_MS, TimeUnit.MILLISECONDS)
+            .addTag(TAG)
+            .addTag(BOOK_TAG + bookId)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(workName(bookId), ExistingWorkPolicy.KEEP, request)
+    }
+
+    /** Forgets finished (failed) downloads so they leave the queue list. */
+    fun dismissFinished() {
+        WorkManager.getInstance(context).pruneWork()
     }
 
     fun cancel(bookId: Long) {
@@ -165,19 +196,41 @@ class AudiobookDownloader(
     /** The download of [bookId] while it is queued or running, then its last result (null when there is none). */
     fun progress(bookId: Long): Flow<AudioDownloadProgress?> =
         WorkManager.getInstance(context).getWorkInfosForUniqueWorkFlow(workName(bookId)).map { infos ->
-            val info = infos.lastOrNull() ?: return@map null
-            AudioDownloadProgress(
-                running = !info.state.isFinished,
-                fraction = info.progress.getFloat(AudiobookDownloadWorker.KEY_PROGRESS, 0f),
-                track = info.progress.getInt(AudiobookDownloadWorker.KEY_TRACK, 0),
-                total = info.progress.getInt(AudiobookDownloadWorker.KEY_TOTAL, 0),
-                error = if (info.state == WorkInfo.State.FAILED) info.outputData.getString(AudiobookDownloadWorker.KEY_ERROR) ?: "" else null,
-            )
+            infos.lastOrNull()?.let(::toProgress)
         }
+
+    /** Every audiobook download that is queued, running or failed, in the order WorkManager lists them. */
+    fun queue(): Flow<List<AudioQueueEntry>> = flow {
+        // WorkManager is touched when collected, so building the flow works before it is initialised.
+        emitAll(WorkManager.getInstance(context).getWorkInfosByTagFlow(TAG))
+    }.map { infos ->
+        infos.filter { it.state != WorkInfo.State.CANCELLED && it.state != WorkInfo.State.SUCCEEDED }.mapNotNull { info ->
+            val id = info.tags.firstNotNullOfOrNull { it.removePrefix(BOOK_TAG).takeIf { s -> s != it }?.toLongOrNull() }
+            id?.let { AudioQueueEntry(it, toProgress(info)) }
+        }
+    }.catch { e -> if (e is IllegalStateException) emit(emptyList()) else throw e }
+
+
+    private fun toProgress(info: WorkInfo) = AudioDownloadProgress(
+        running = !info.state.isFinished,
+        fraction = info.progress.getFloat(AudiobookDownloadWorker.KEY_PROGRESS, 0f),
+        track = info.progress.getInt(AudiobookDownloadWorker.KEY_TRACK, 0),
+        total = info.progress.getInt(AudiobookDownloadWorker.KEY_TOTAL, 0),
+        error = if (info.state == WorkInfo.State.FAILED) info.outputData.getString(AudiobookDownloadWorker.KEY_ERROR) ?: "" else null,
+        waiting = info.state == WorkInfo.State.ENQUEUED || info.state == WorkInfo.State.BLOCKED,
+    )
 
     companion object {
         private const val YOUTUBE_CHUNK = 10L * 1024 * 1024
         private const val REPORT_MS = 500L
+        private const val TAG = "audiobook_download"
+        private const val BOOK_TAG = "audiobook_book:"
+        private const val REQUEST_ATTEMPTS = 4
+        private const val RETRY_BASE_MS = 2_000L
+        private const val WORK_BACKOFF_MS = 30_000L
+
+        /** Runs of the worker that retry transient errors before the download is reported as failed. */
+        const val MAX_RUNS = 6
 
         fun workName(bookId: Long) = "audiobook_download_$bookId"
 
@@ -233,6 +286,8 @@ class AudiobookDownloadWorker(context: Context, params: WorkerParameters) : Coro
             },
             onFailure = { e ->
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                // Network trouble (also a VPN switch) is retried later with WorkManager's backoff instead of failing the book.
+                if (RetryPolicy.classify(e) == FailureKind.TRANSIENT && runAttemptCount + 1 < AudiobookDownloader.MAX_RUNS) return Result.retry()
                 timber.log.Timber.w(e, "Audiobook download failed")
                 Notifications.notify(
                     applicationContext, Notifications.ID_AUDIO_DOWNLOAD_DONE,
