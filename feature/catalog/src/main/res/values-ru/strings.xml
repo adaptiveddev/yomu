@@ -13,7 +13,6 @@
     <string name="catalog_check_updates">Проверить обновления</string>
     <string name="catalog_incognito_on">Режим инкогнито включён</string>
     <string name="catalog_incognito_off">Режим инкогнито выключен</string>
-    <string name="catalog_incognito_banner">Инкогнито: история чтения не сохраняется</string>
     <string name="catalog_opds_added">Каталог добавлен</string>
     <string name="catalog_local_configured">Локальная папка подключена</string>
     <string name="catalog_updates_started">Проверяем новые главы…</string>
@@ -23,6 +22,10 @@
     <string name="source_kind_local">Локальный</string>
     <string name="source_kind_extension">Расширение</string>
     <string name="source_disabled">отключён</string>
+    <string name="source_hidden">скрыт</string>
+    <string name="source_hide">Скрыть из каталога</string>
+    <string name="source_unhide">Показывать в каталоге</string>
+    <string name="source_hide_extension">Скрыть все источники %1$s</string>
     <string name="source_pin">Закрепить</string>
     <string name="source_unpin">Открепить</string>
     <string name="source_enable">Включить</string>
@@ -141,6 +144,13 @@
     <string name="ext_repo_warning">Расширения — сторонний код, который выполняется внутри приложения и имеет доступ к сети. Добавляйте только репозитории, которым доверяете. Yomu не размещает и не проверяет расширения и не отвечает за содержимое сайтов, которые они открывают.</string>
     <string name="ext_add_repo">Добавить репозиторий</string>
     <string name="ext_remove_repo">Удалить репозиторий</string>
+    <string name="ext_rec_title">Популярные репозитории</string>
+    <string name="ext_rec_note">Репозитории сообщества, не связанные с Yomu. Перед добавлением Yomu покажет название, число расширений и ключ подписи; после установки расширениям всё равно нужно ваше доверие.</string>
+    <string name="ext_rec_keiyoushi">Основной репозиторий сообщества: больше тысячи источников манги на всех языках</string>
+    <string name="ext_rec_yuzono">Keiyoushi плюс дополнительные и исправленные расширения, обновляется каждые несколько часов</string>
+    <string name="ext_rec_zosetsu">Дополнительные источники, которых нет в Keiyoushi</string>
+    <string name="ext_rec_kavita">Kavita: чтение с вашего сервера Kavita</string>
+    <string name="ext_rec_suwayomi">Suwayomi: чтение с вашего сервера Suwayomi</string>
     <string name="ext_remove_repo_text">Установленные из него расширения останутся, но перестанут обновляться.</string>
     <string name="ext_repo_url">Адрес репозитория</string>
     <string name="ext_repo_url_hint">https://…/index.min.json</string>
@@ -164,6 +174,11 @@
     <string name="ext_update_all">Обновить все</string>
     <string name="ext_updates_header">Есть обновления</string>
     <string name="ext_uninstall">Удалить</string>
+    <string name="ext_hide">Скрыть из каталога</string>
+    <string name="ext_unhide">Показывать в каталоге</string>
+    <string name="ext_hidden">скрыто</string>
+    <string name="ext_hide_switch">Скрыть в каталоге</string>
+    <string name="ext_hide_switch_sum">Его источники не показываются в каталоге и не участвуют в глобальном поиске. Тайтлы в библиотеке продолжают работать</string>
     <string name="ext_installed">Установлено: %1$s</string>
     <string name="ext_updated">Обновлено: %1$s</string>
     <string name="ext_updated_count">Обновлено расширений: %1$s</string>
@@ -359,6 +374,7 @@
     <string name="source_filter_pinned">Только закреплённые</string>
     <string name="source_filter_hide_disabled">Скрыть отключённые</string>
     <string name="source_filter_hide_unstable">Скрыть неотвечающие</string>
+    <string name="source_filter_show_hidden">Показать скрытые</string>
     <string name="source_filter_shown">%1$d из %2$d</string>
     <string name="source_filter_empty">Нет источников под эти фильтры</string>
     <string name="source_filter_languages_title">Языки источников</string>

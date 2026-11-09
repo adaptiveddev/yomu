@@ -34,10 +34,7 @@ class SyncManager(
     private val mutex = Mutex()
 
     /** Whether a sync target is set up (the folder or the WebDAV address). */
-    suspend fun isConfigured(): Boolean = when (settings.syncBackend.get()) {
-        WEBDAV -> settings.webdavUrl.get().isNotBlank()
-        else -> settings.syncFolder.get().isNotBlank()
-    }
+    suspend fun isConfigured(): Boolean = isConfigured(settings)
 
     suspend fun backend(): SyncBackend = when (settings.syncBackend.get()) {
         WEBDAV -> WebDavSyncBackend(
@@ -46,7 +43,19 @@ class SyncManager(
             settings.webdavUser.get(),
             settings.webdavPassword.get(),
         )
+        GITHUB -> GitHubSyncBackend(
+            client(),
+            settings.githubToken.get().takeIf { it.isNotBlank() } ?: error("The GitHub token is not set"),
+            settings.githubRepo.get().takeIf { it.isNotBlank() } ?: error("The GitHub repository is not set"),
+        )
         else -> FolderSyncBackend(context, settings.syncFolder.get().takeIf { it.isNotBlank() }?.let(Uri::parse) ?: error("Sync folder is not selected"))
+    }
+
+    /** Creates a private repository for the sync with the saved token and selects it. */
+    suspend fun createGitHubRepository(name: String): String {
+        val full = GitHubSyncBackend.createRepository(client(), settings.githubToken.get(), name)
+        settings.githubRepo.set(full)
+        return full
     }
 
     /** Checks that the target can be reached (for "Test connection"). */
@@ -259,7 +268,11 @@ class SyncManager(
             try { deletion.publish(remote) } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: IOException) { /* recorded inside */ }
         }
-        val options = SyncMerger.Options(catalog = settings.syncCatalog.get(), deletions = settings.syncDeletions.get(), device = deviceName())
+        val options = SyncMerger.Options(
+            catalog = settings.syncCatalog.get(), deletions = settings.syncDeletions.get(), device = deviceName(),
+            progress = settings.syncProgress.get(), annotations = settings.syncAnnotations.get(),
+            bookmarks = settings.syncBookmarks.get(), words = settings.syncWords.get(),
+        )
         val stableFolders = db.books().all().filter { it.format == "FOLDER" && it.fileHash?.let(FolderManifestCodec::validId) == true }
         val outcome = if (folderSnapshot != null || stableFolders.isNotEmpty()) {
             val revisions = folderSnapshot?.revisions.orEmpty().associateByTo(LinkedHashMap()) { it.id }
@@ -274,7 +287,7 @@ class SyncManager(
         } else mergeAndWrite(db, backend, file, remote, base, System.currentTimeMillis(), options)
         // Only after the file was written: the base describes what the shared file and this device agree on.
         saveBase(context, outcome.base)
-        val trackChanges = if (backend is TrackLinkTransport) {
+        val trackChanges = if (backend is TrackLinkTransport && settings.syncTrackLinks.get()) {
             TrackLinkSync(context, db).sync(backend, backend.id, settings.syncCatalog.get(), settings.syncDeletions.get())
         } else 0
         if (deletion != null) {
@@ -292,6 +305,17 @@ class SyncManager(
         const val FILE_NAME = "yomu-sync.json"
         const val FOLDER = "FOLDER"
         const val WEBDAV = "WEBDAV"
+        const val GITHUB = "GITHUB"
+
+        /** Whether the selected target is set up (the folder, the WebDAV address or the GitHub token and repository). */
+        suspend fun isConfigured(settings: AppSettings): Boolean = when (settings.syncBackend.get()) {
+            WEBDAV -> settings.webdavUrl.get().isNotBlank()
+            GITHUB -> settings.githubToken.get().isNotBlank() && settings.githubRepo.get().isNotBlank()
+            else -> settings.syncFolder.get().isNotBlank()
+        }
+
+        /** Network targets wait for a connection; a shared folder does not. */
+        fun needsNetwork(backend: String): Boolean = backend == WEBDAV || backend == GITHUB
 
         internal data class SyncDocument(val state: SyncState, val folderSnapshot: FolderMetadataSnapshot? = null)
 

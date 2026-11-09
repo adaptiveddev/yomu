@@ -145,6 +145,9 @@ class LibraryViewModel(
     val grid = settings.libraryGrid.stateIn(viewModelScope)
     val columns = settings.gridColumns.stateIn(viewModelScope)
     val showContinue = settings.showContinueReading.stateIn(viewModelScope)
+    val incognito = settings.incognito.stateIn(viewModelScope)
+
+    fun setIncognito(on: Boolean) = viewModelScope.launch(ScreenErrors) { settings.incognito.set(on) }
     val importProgress = importer.progress
 
     private val query: Flow<LibraryQuery> = combine(search.debounce(200), settings.librarySort.flow, settings.libraryAscending.flow, filter) { s, so, asc, f ->

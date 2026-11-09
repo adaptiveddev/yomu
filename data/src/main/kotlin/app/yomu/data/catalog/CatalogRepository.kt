@@ -323,7 +323,7 @@ class CatalogRepository(
     private fun searchTargets(onlyContent: SourceContent?): List<CatalogSource> {
         // Only the languages the catalog shows: every MangaDex language would otherwise be asked the same question.
         val langs = sources.languages.value
-        return sources.infos.value.filter { it.enabled && sources.isShown(it, langs) && (onlyContent == null || it.content == onlyContent) }
+        return sources.infos.value.filter { it.enabled && !it.hidden && sources.isShown(it, langs) && (onlyContent == null || it.content == onlyContent) }
             .sortedWith(compareByDescending<app.yomu.data.source.SourceInfo> { it.pinned }.thenByDescending { it.lastUsedAt }.thenBy { it.name.lowercase() })
             .mapNotNull { info -> sources.get(info.id)?.takeIf { it.supportsSearch } }
             .filter { it.id != sources.local.id || sources.local.isConfigured }

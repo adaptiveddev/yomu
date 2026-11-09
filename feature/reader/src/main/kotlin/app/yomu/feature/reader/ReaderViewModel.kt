@@ -870,6 +870,8 @@ class ReaderViewModel(
         saveJob?.cancel()
         saveJob = viewModelScope.launch(ScreenErrors) {
             delay(800)
+            // Incognito: the position is kept only while the reader is open.
+            if (settings.incognito.get()) return@launch
             books.saveProgress(args.bookId, locator)
         }
     }
@@ -918,6 +920,8 @@ class ReaderViewModel(
         sessionPages = 0
         sessionChars = 0
         if (duration < 5_000) return
+        // Incognito: no reading history or statistics.
+        if (settings.incognito.get()) return
         withContext(NonCancellable) {
             stats.recordSession(args.bookId.takeIf { it > 0 }, start, duration, pages, chars, onlineEntryId.takeIf { isOnline })
             if (chars > 500 && duration > 60_000) {

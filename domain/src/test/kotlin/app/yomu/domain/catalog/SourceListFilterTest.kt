@@ -14,7 +14,18 @@ class SourceListFilterTest {
         enabled: Boolean = true,
         nsfw: Boolean = false,
         unstable: Boolean = false,
-    ) = matches(content, kind, pinned, enabled, nsfw, unstable)
+        hidden: Boolean = false,
+    ) = matches(content, kind, pinned, enabled, nsfw, unstable, hidden)
+
+    @Test
+    fun `hidden sources are listed only on request`() {
+        assertFalse(SourceListFilter().passes(hidden = true))
+        assertTrue(SourceListFilter().passes(hidden = false))
+        val show = SourceListFilter(showHidden = true)
+        assertEquals(1, show.activeCount)
+        assertTrue(show.passes(hidden = true))
+        assertTrue(show.passes(hidden = false))
+    }
 
     @Test
     fun `the default filter shows every source`() {

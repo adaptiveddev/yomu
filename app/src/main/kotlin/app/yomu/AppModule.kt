@@ -192,6 +192,13 @@ class MainViewModel(
     /** Version of a newer release found by a check: a dot on the Settings tab. */
     val updateAvailable: StateFlow<String?> = updates.available.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** Incognito mode: a strip above every screen says it is on. */
+    val incognito: StateFlow<Boolean> = settings.incognito.flow.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setIncognito(on: Boolean) = viewModelScope.launch(ScreenErrors) { settings.incognito.set(on) }
+
+    val hideCovers: StateFlow<Boolean> = settings.hideCovers.flow.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     init {
         viewModelScope.launch(ScreenErrors) {
             val code = BuildConfig.VERSION_CODE.toLong()

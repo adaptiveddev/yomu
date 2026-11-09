@@ -111,6 +111,8 @@ fun AnnotationFormat.label(): Int = when (this) {
     AnnotationFormat.HTML -> R.string.export_html
     AnnotationFormat.TXT -> R.string.export_txt
     AnnotationFormat.READWISE_CSV -> R.string.export_readwise
+    AnnotationFormat.ANKI_TSV -> R.string.export_anki_tsv
+    AnnotationFormat.ANKI_APKG -> R.string.export_anki_apkg
 }
 
 fun HighlightStyle.label(): Int = when (this) {

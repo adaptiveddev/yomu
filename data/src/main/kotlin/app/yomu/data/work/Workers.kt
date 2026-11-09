@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import timber.log.Timber
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -54,6 +55,8 @@ object Notifications {
     const val ID_TRANSLATION = 1006
     const val ID_SCAN = 1007
     const val ID_DOWNLOAD_DONE = 1008
+    const val ID_SYNC = 1009
+    const val ID_TEST = 1010
 
     /** Intent action of the notifications that open the download queue (handled by the app's main activity). */
     const val ACTION_OPEN_DOWNLOADS = "app.yomu.action.OPEN_DOWNLOADS"
@@ -82,9 +85,49 @@ object Notifications {
             }
         }
 
-    fun notify(context: Context, id: Int, builder: NotificationCompat.Builder) {
+    /** Settings → Notifications; kept current by the app (see [watch]). */
+    @Volatile var prefs: NotificationPrefs = NotificationPrefs()
+
+    /** Keeps [prefs] in step with the settings for as long as [scope] lives. */
+    fun watch(scope: kotlinx.coroutines.CoroutineScope, settings: AppSettings) {
+        scope.launch {
+            kotlinx.coroutines.flow.combine(
+                settings.notifyDisabled.flow, settings.quietHours.flow, settings.quietFrom.flow, settings.quietTo.flow,
+            ) { off, quiet, from, to ->
+                NotificationPrefs(off.mapNotNull { n -> NotifyKind.entries.firstOrNull { it.name == n } }.toSet(), quiet, from, to)
+            }.collect { prefs = it }
+        }
+    }
+
+    /** The kind of a notification posted on [channel] when the caller does not say. */
+    private fun kindOf(channel: String?): NotifyKind = when (channel) {
+        DOWNLOADS -> NotifyKind.DOWNLOADS
+        UPDATES -> NotifyKind.NEW_CHAPTERS
+        BACKUP -> NotifyKind.BACKUP
+        REMINDERS -> NotifyKind.REMINDERS
+        else -> NotifyKind.TASKS
+    }
+
+    /**
+     * Posts a notification unless its [kind] is switched off; every one is kept in the in-app list of recent
+     * notifications. During quiet hours it arrives silently.
+     */
+    fun notify(context: Context, id: Int, builder: NotificationCompat.Builder, kind: NotifyKind? = null) {
+        val p = prefs
+        val quiet = p.isQuiet(Calendar.getInstance().get(Calendar.HOUR_OF_DAY))
+        if (quiet) builder.setSilent(true)
+        val n = runCatching { builder.build() }.getOrNull() ?: return
+        val k = kind ?: kindOf(n.channelId)
+        val shown = p.allows(k)
+        runCatching {
+            val extras = n.extras
+            val title = extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.toString().orEmpty()
+            val text = (extras.getCharSequence(NotificationCompat.EXTRA_BIG_TEXT) ?: extras.getCharSequence(NotificationCompat.EXTRA_TEXT))?.toString().orEmpty()
+            if (title.isNotBlank()) NotificationLog.get(context).add(NotificationRecord(System.currentTimeMillis(), k.name, title, text, shown))
+        }
+        if (!shown) return
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        runCatching { NotificationManagerCompat.from(context).notify(id, builder.build()) }
+        runCatching { NotificationManagerCompat.from(context).notify(id, n) }
     }
 
     fun foreground(
@@ -268,6 +311,16 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             { Result.success() },
             { e ->
                 Timber.w(e, "Sync failed")
+                // Only the last attempt tells the user: short network blips are retried quietly.
+                if (runAttemptCount >= 2) {
+                    val ctx = applicationContext
+                    Notifications.notify(
+                        ctx, Notifications.ID_SYNC,
+                        Notifications.builder(ctx, Notifications.TASKS).setContentTitle(ctx.getString(R.string.notif_sync_failed))
+                            .setContentText(e.message ?: e.javaClass.simpleName).setAutoCancel(true),
+                        NotifyKind.SYNC,
+                    )
+                }
                 // A one-time sync (start, leaving the app) is not retried forever: the periodic one comes anyway.
                 if (runAttemptCount < 3) Result.retry() else Result.failure()
             },
@@ -281,9 +334,9 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         fun runNow(context: Context) = WorkManager.getInstance(context).enqueueUniqueWork("${NAME}_now", ExistingWorkPolicy.REPLACE, OneTimeWorkRequestBuilder<SyncWorker>().build())
 
         /** An automatic sync (app start, app left): one at a time, with a network when the target is a server. */
-        fun runSoon(context: Context, needsNetwork: Boolean) {
+        fun runSoon(context: Context, needsNetwork: Boolean, wifiOnly: Boolean = false) {
             val request = OneTimeWorkRequestBuilder<SyncWorker>()
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(if (needsNetwork) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED).build())
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(syncNetwork(needsNetwork, wifiOnly)).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork("${NAME}_auto", ExistingWorkPolicy.KEEP, request)
@@ -356,15 +409,15 @@ class WorkScheduler(private val context: Context, private val settings: AppSetti
     }
 
     suspend fun scheduleSync() {
-        val webdav = settings.syncBackend.get() == SyncManager.WEBDAV
-        val configured = if (webdav) settings.webdavUrl.get().isNotBlank() else settings.syncFolder.get().isNotBlank()
+        val network = SyncManager.needsNetwork(settings.syncBackend.get())
+        val configured = SyncManager.isConfigured(settings)
         val hours = settings.syncIntervalHours.get()
         if (!settings.syncEnabled.get() || !configured || hours <= 0) {
             wm.cancelUniqueWork(SyncWorker.NAME)
             return
         }
         val request = PeriodicWorkRequestBuilder<SyncWorker>(hours.coerceAtLeast(1).toLong(), TimeUnit.HOURS)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(if (webdav) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED).build())
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(syncNetwork(network, settings.syncWifiOnly.get())).build())
             .build()
         wm.enqueueUniquePeriodicWork(SyncWorker.NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
@@ -385,4 +438,11 @@ class WorkScheduler(private val context: Context, private val settings: AppSetti
         val request = PeriodicWorkRequestBuilder<ReminderWorker>(1, TimeUnit.DAYS).setInitialDelay(delay, TimeUnit.MILLISECONDS).build()
         wm.enqueueUniquePeriodicWork(ReminderWorker.NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
+}
+
+/** Network a background sync waits for: none for a shared folder, Wi-Fi (unmetered) when the user asked for it. */
+internal fun syncNetwork(needsNetwork: Boolean, wifiOnly: Boolean): NetworkType = when {
+    !needsNetwork -> NetworkType.NOT_REQUIRED
+    wifiOnly -> NetworkType.UNMETERED
+    else -> NetworkType.CONNECTED
 }

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Password
@@ -56,6 +57,7 @@ import app.yomu.core.ui.components.PreferenceSwitch
 import app.yomu.core.ui.components.TextInputDialog
 import app.yomu.core.ui.components.navBarBottomPadding
 import app.yomu.core.ui.theme.Dimens
+import app.yomu.data.backup.GitHubSyncBackend
 import app.yomu.data.backup.SyncManager
 import app.yomu.domain.model.QuickActions
 import app.yomu.domain.model.QuickMenuStyle
@@ -78,11 +80,19 @@ internal fun ColumnScope.SyncSection(vm: SettingsViewModel, onOpenProblems: () -
     val backend by s.syncBackend.state()
     val folder by s.syncFolder.state()
     val url by s.webdavUrl.state()
+    val githubToken by s.githubToken.state()
+    val githubRepo by s.githubRepo.state()
     val enabled by s.syncEnabled.state()
     val lastSync by s.lastSyncAt.state()
     val lastError by s.lastSyncError.state()
     val webdav = backend == SyncManager.WEBDAV
-    val configured = if (webdav) url.isNotBlank() else folder.isNotBlank()
+    val github = backend == SyncManager.GITHUB
+    val configured = when {
+        webdav -> url.isNotBlank()
+        github -> githubToken.isNotBlank() && githubRepo.isNotBlank()
+        else -> folder.isNotBlank()
+    }
+    var createRepo by remember { mutableStateOf(false) }
     val folderPick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let(vm::setSyncFolder) }
 
     Hint(stringResource(R.string.set_sync_hint))
@@ -101,13 +111,28 @@ internal fun ColumnScope.SyncSection(vm: SettingsViewModel, onOpenProblems: () -
     PreferenceHeader(stringResource(R.string.set_sync_target))
     ChoicePref(
         vm, s.syncBackend, R.string.set_sync_method,
-        listOf(SyncManager.FOLDER to stringResource(R.string.set_sync_target_folder), SyncManager.WEBDAV to stringResource(R.string.set_sync_target_webdav)),
+        listOf(
+            SyncManager.FOLDER to stringResource(R.string.set_sync_target_folder),
+            SyncManager.WEBDAV to stringResource(R.string.set_sync_target_webdav),
+            SyncManager.GITHUB to stringResource(R.string.set_sync_target_github),
+        ),
         after = { vm.rescheduleSync() },
     )
     if (webdav) {
         TextPref(vm, s.webdavUrl, R.string.set_webdav_url, summaryWhenEmpty = R.string.set_webdav_url_hint, icon = Icons.Outlined.CloudSync)
         TextPref(vm, s.webdavUser, R.string.set_webdav_user, icon = Icons.Outlined.Person)
         TextPref(vm, s.webdavPassword, R.string.set_webdav_password, secret = true, summaryWhenEmpty = R.string.set_webdav_password_sum, icon = Icons.Outlined.Password)
+    } else if (github) {
+        Hint(stringResource(R.string.set_github_hint))
+        TextPref(vm, s.githubToken, R.string.set_github_token, secret = true, summaryWhenEmpty = R.string.set_github_token_sum, icon = Icons.Outlined.Key)
+        TextPref(vm, s.githubRepo, R.string.set_github_repo, summaryWhenEmpty = R.string.set_github_repo_hint, icon = Icons.Outlined.CloudSync)
+        PreferenceItem(
+            stringResource(R.string.set_github_create),
+            stringResource(R.string.set_github_create_sum),
+            enabled = githubToken.isNotBlank(),
+            onClick = { createRepo = true },
+            icon = Icons.Outlined.CreateNewFolder,
+        )
     } else {
         PreferenceItem(
             stringResource(R.string.set_sync_folder),
@@ -117,6 +142,15 @@ internal fun ColumnScope.SyncSection(vm: SettingsViewModel, onOpenProblems: () -
         )
     }
     PreferenceItem(stringResource(R.string.set_sync_check), enabled = configured, onClick = vm::checkSync, icon = settingIcon(R.string.set_sync_check))
+    if (createRepo) {
+        TextInputDialog(
+            title = stringResource(R.string.set_github_create),
+            initial = GitHubSyncBackend.DEFAULT_REPOSITORY,
+            label = stringResource(R.string.set_github_create_name),
+            onConfirm = { name -> createRepo = false; vm.createGitHubRepository(name) },
+            onDismiss = { createRepo = false },
+        )
+    }
 
     PreferenceHeader(stringResource(R.string.set_sync_when))
     SwitchPref(vm, s.syncOnStart, R.string.set_sync_on_start)
@@ -126,14 +160,23 @@ internal fun ColumnScope.SyncSection(vm: SettingsViewModel, onOpenProblems: () -
         listOf(0, 1, 3, 6, 12, 24).map { h -> h to if (h <= 0) stringResource(R.string.set_off) else pluralStringResource(R.plurals.set_every_hours, h, h) },
         after = { vm.rescheduleSync() },
     )
+    if (webdav || github) SwitchPref(vm, s.syncWifiOnly, R.string.set_sync_wifi_only, R.string.set_sync_wifi_only_sum, after = { vm.rescheduleSync() })
 
     PreferenceHeader(stringResource(R.string.set_sync_what))
+    Hint(stringResource(R.string.set_sync_what_hint))
+    SwitchPref(vm, s.syncProgress, R.string.set_sync_progress, R.string.set_sync_progress_sum)
+    SwitchPref(vm, s.syncAnnotations, R.string.set_sync_annotations, R.string.set_sync_annotations_sum)
+    SwitchPref(vm, s.syncBookmarks, R.string.set_sync_bookmarks, R.string.set_sync_bookmarks_sum)
+    SwitchPref(vm, s.syncWords, R.string.set_sync_words, R.string.set_sync_words_sum)
     SwitchPref(vm, s.syncCatalog, R.string.set_sync_catalog, R.string.set_sync_catalog_sum)
+    SwitchPref(vm, s.syncTrackLinks, R.string.set_sync_track_links, R.string.set_sync_track_links_sum)
     SwitchPref(vm, s.syncBookFiles, R.string.set_sync_book_files, R.string.set_sync_book_files_sum)
     SwitchPref(vm, s.syncDeletions, R.string.set_sync_deletions, R.string.set_sync_deletions_sum)
     if (webdav) {
         Hint(stringResource(R.string.set_sync_track_links_hint))
         Hint(stringResource(R.string.set_sync_webdav_etag_hint))
+    } else if (github) {
+        Hint(stringResource(R.string.set_sync_track_links_hint))
     } else {
         Hint(stringResource(R.string.set_sync_track_links_hint))
         Hint(stringResource(R.string.set_sync_folder_warning))

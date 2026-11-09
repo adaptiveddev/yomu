@@ -58,6 +58,8 @@ data class SourceInfo(
     val icon: Drawable? = null,
     /** Key of the logo bundled for a built-in source ([LOGO_MANGADEX], …), shown when there is no [icon]. */
     val logo: String? = null,
+    /** Hidden by the user, alone or with its whole extension: not listed in the catalog nor asked by global search. */
+    val hidden: Boolean = false,
 ) {
     enum class Kind { BUILT_IN, OPDS, LOCAL, EXTENSION }
 
@@ -107,7 +109,7 @@ class SourceManager(
         builtIn.filter { it is LocalSource || it.id !in extIds } + o + ext.filter { it.id != LocalSource.ID }
     }.stateIn(scope, SharingStarted.Eagerly, builtIn)
 
-    val infos: StateFlow<List<SourceInfo>> = combine(sources, db.sources().observe()) { list, rows ->
+    val infos: StateFlow<List<SourceInfo>> = combine(sources, db.sources().observe(), settings.hiddenSources.flow, settings.hiddenExtensions.flow) { list, rows, hiddenSources, hiddenExtensions ->
         val byId = rows.associateBy { it.id }
         // The extension of every source in one pass: looking it up per source went over all sources of all
         // extensions for each one (millions of comparisons with the big repositories, on every list change).
@@ -135,6 +137,7 @@ class SourceManager(
                 isNsfw = ext?.isNsfw == true,
                 icon = ext?.icon,
                 logo = if (ext == null) logoOf(s) else null,
+                hidden = s.id.toString() in hiddenSources || (ext != null && ext.pkg in hiddenExtensions),
             )
         }
     }.stateIn(scope, SharingStarted.Eagerly, emptyList())
@@ -236,6 +239,20 @@ class SourceManager(
     suspend fun setEnabled(id: Long, enabled: Boolean) {
         ensureRow(id)
         db.sources().setEnabled(id, enabled)
+    }
+
+    suspend fun setHidden(id: Long, hidden: Boolean) {
+        settings.hiddenSources.update { if (hidden) it + id.toString() else it - id.toString() }
+    }
+
+    suspend fun setExtensionHidden(pkg: String, hidden: Boolean) {
+        settings.hiddenExtensions.update { if (hidden) it + pkg else it - pkg }
+    }
+
+    /** Shows every hidden source and extension again. */
+    suspend fun unhideAll() {
+        settings.hiddenSources.set(emptySet())
+        settings.hiddenExtensions.set(emptySet())
     }
 
     /** When each source was last marked as used in this run (see [touch]). */

@@ -14,6 +14,7 @@ import app.yomu.AppLockController
 import app.yomu.MainViewModel
 import app.yomu.core.ui.components.HintStore
 import app.yomu.core.ui.components.LocalHapticsEnabled
+import app.yomu.core.ui.components.LocalHideCovers
 import app.yomu.core.ui.components.LauncherIcons
 import app.yomu.core.ui.components.LocalHintStore
 import app.yomu.core.ui.components.LocalLauncherIcons
@@ -29,10 +30,12 @@ fun YomuRoot(viewModel: MainViewModel, lock: AppLockController, hints: HintStore
     val locked by lock.locked.collectAsStateWithLifecycle()
     val whatsNew by viewModel.whatsNew.collectAsStateWithLifecycle()
     val crash by viewModel.crash.collectAsStateWithLifecycle()
+    val hideCovers by viewModel.hideCovers.collectAsStateWithLifecycle()
     val s = state ?: return
     YomuTheme(s.theme) {
         CompositionLocalProvider(
             LocalHapticsEnabled provides s.haptics,
+            LocalHideCovers provides hideCovers,
             LocalHintStore provides hints,
             LocalLauncherIcons provides launcherIcons,
             LocalReduceMotion provides s.reduceMotion,

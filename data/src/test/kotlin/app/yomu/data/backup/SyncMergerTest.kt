@@ -36,10 +36,10 @@ class SyncMergerTest {
         val db: YomuDatabase = YomuDatabase.build(context, inMemory = true)
         var base: SyncBase? = null
 
-        fun sync(deletions: Boolean = true): Int = runBlocking {
+        fun sync(deletions: Boolean = true, options: SyncMerger.Options = SyncMerger.Options(deletions = deletions)): Int = runBlocking {
             clock += 1000
             val remote = shared?.let { json.decodeFromString(SyncState.serializer(), it) }
-            val out = SyncMerger(db).merge(remote, base, "test", clock, SyncMerger.Options(deletions = deletions))
+            val out = SyncMerger(db).merge(remote, base, "test", clock, options)
             shared = json.encodeToString(SyncState.serializer(), out.state)
             base = out.base
             out.changed
@@ -116,6 +116,32 @@ class SyncMergerTest {
         assertNull(shared)
         assertEquals(2, a.db.books().all().size)
         assertEquals(listOf("keep"), a.highlights())
+    }
+
+    @Test
+    fun switchedOffCategoriesAreNeitherSentNorReceivedNorDeleted() {
+        val bookA = a.addBook("granular")
+        val bookB = b.addBook("granular")
+        a.highlight(bookA, "shared by A")
+        a.word("alpha")
+        a.sync()
+        // B syncs without highlights and words: nothing arrives, its own records stay private.
+        val off = SyncMerger.Options(annotations = false, words = false)
+        b.highlight(bookB, "private to B")
+        b.word("beta")
+        b.sync(options = off)
+        assertEquals(listOf("private to B"), b.highlights())
+        assertEquals(listOf("beta"), b.words())
+        // A's records are still in the shared file: they were not taken for deletions.
+        a.sync()
+        assertEquals(listOf("shared by A"), a.highlights())
+        assertEquals(listOf("alpha"), a.words())
+        b.sync(options = off)
+        // Switched back on, both sides meet.
+        b.sync()
+        a.sync()
+        assertEquals(listOf("private to B", "shared by A"), a.highlights().sorted())
+        assertEquals(listOf("alpha", "beta"), b.words().sorted())
     }
 
     @Test

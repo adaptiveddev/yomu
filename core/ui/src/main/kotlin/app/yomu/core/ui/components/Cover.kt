@@ -78,7 +78,7 @@ fun CoverImage(model: Any?, title: String, modifier: Modifier = Modifier, conten
                 modifier = Modifier.padding(Dimens.s),
             )
         }
-        if (model != null) {
+        if (model != null && !LocalHideCovers.current) {
             AsyncImage(model = model, contentDescription = null, contentScale = contentScale, modifier = Modifier.fillMaxSize())
         }
     }

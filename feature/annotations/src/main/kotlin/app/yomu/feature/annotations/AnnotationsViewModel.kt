@@ -9,6 +9,7 @@ import app.yomu.core.common.UiState
 import app.yomu.data.repository.AnnotationRepositoryImpl
 import app.yomu.data.repository.BookRepositoryImpl
 import app.yomu.domain.export.AnnotationExporter
+import app.yomu.data.export.AnkiPackageWriter
 import app.yomu.domain.export.AnnotationFormat
 import app.yomu.domain.model.Bookmark
 import app.yomu.domain.model.Highlight
@@ -207,8 +208,13 @@ class AnnotationsViewModel(
         runCatching {
             withContext(Dispatchers.IO) {
                 val data = if (allBooks) repo.allAnnotations() else listOfNotNull(repo.bookAnnotations(bookId))
-                val text = AnnotationExporter.export(data, format)
-                context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
+                context.contentResolver.openOutputStream(uri, "wt")!!.use { out ->
+                    if (format == AnnotationFormat.ANKI_APKG) {
+                        AnkiPackageWriter.write(AnnotationExporter.ankiDeck(data), out, java.io.File(context.cacheDir, "anki"))
+                    } else {
+                        out.write(AnnotationExporter.export(data, format).toByteArray())
+                    }
+                }
             }
         }.onSuccess { events.send(AnnotationsEvent.Exported) }
             .onFailure { events.send(AnnotationsEvent.Failed(it)) }

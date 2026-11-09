@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -109,8 +110,10 @@ fun WordsContent(viewModel: WordsViewModel, onOpenBook: (Long, Locator?, String)
     var sortMenu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Word?>(null) }
     var tagDialog by rememberSaveable { mutableStateOf(false) }
-    val exportCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { it?.let { u -> viewModel.export(WordFormat.CSV, u) } }
-    val exportTsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { it?.let { u -> viewModel.export(WordFormat.ANKI_TSV, u) } }
+    var exportDialog by rememberSaveable { mutableStateOf(false) }
+    val exporters = WordFormat.entries.associateWith { f ->
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(f.mime)) { it?.let { u -> viewModel.export(f, u) } }
+    }
     val importCsv = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(viewModel::importCsv) }
     val deletedMsg = stringResource(R.string.words_deleted)
     val undo = stringResource(UiR.string.undo)
@@ -135,7 +138,7 @@ fun WordsContent(viewModel: WordsViewModel, onOpenBook: (Long, Locator?, String)
                     Text(stringResource(R.string.words_selected, selection.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     IconButton(onClick = viewModel::selectAll) { Icon(Icons.Default.SelectAll, stringResource(UiR.string.select_all)) }
                     IconButton(onClick = { tagDialog = true }) { Icon(Icons.AutoMirrored.Filled.Label, stringResource(R.string.words_add_tag)) }
-                    IconButton(onClick = { exportTsv.launch("yomu-words-anki.txt") }) { Icon(Icons.Default.FileDownload, stringResource(R.string.words_export_anki)) }
+                    IconButton(onClick = { exportDialog = true }) { Icon(Icons.Default.FileDownload, stringResource(R.string.words_export)) }
                     IconButton(onClick = { viewModel.delete(selection) }) { Icon(Icons.Default.Delete, stringResource(UiR.string.delete)) }
                 }
             } else {
@@ -156,8 +159,7 @@ fun WordsContent(viewModel: WordsViewModel, onOpenBook: (Long, Locator?, String)
                     Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(UiR.string.more)) }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                            DropdownMenuItem(text = { Text(stringResource(R.string.words_export_csv)) }, leadingIcon = { Icon(Icons.Default.FileDownload, null) }, onClick = { menu = false; exportCsv.launch("yomu-words.csv") })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.words_export_anki)) }, leadingIcon = { Icon(Icons.Default.FileDownload, null) }, onClick = { menu = false; exportTsv.launch("yomu-words-anki.txt") })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.words_export)) }, leadingIcon = { Icon(Icons.Default.FileDownload, null) }, onClick = { menu = false; exportDialog = true })
                             DropdownMenuItem(text = { Text(stringResource(R.string.words_send_ankidroid)) }, leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) }, onClick = { menu = false; viewModel.sendToAnkiDroid() })
                             DropdownMenuItem(text = { Text(stringResource(R.string.words_import_csv)) }, leadingIcon = { Icon(Icons.Default.FileUpload, null) }, onClick = { menu = false; importCsv.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "*/*")) })
                         }
@@ -209,6 +211,20 @@ fun WordsContent(viewModel: WordsViewModel, onOpenBook: (Long, Locator?, String)
             onOpenBook = if (w.bookId != null) ({ editing = null; onOpenBook(w.bookId!!, w.locator, "w:${w.id}:${w.createdAt}") }) else null,
             onDelete = { viewModel.delete(setOf(w.id)); editing = null },
             onDismiss = { editing = null },
+        )
+    }
+    if (exportDialog) {
+        WordExportDialog(
+            onPick = { f ->
+                exportDialog = false
+                val name = when (f) {
+                    WordFormat.ANKI_TSV -> "yomu-words-anki"
+                    WordFormat.QUIZLET -> "yomu-words-quizlet"
+                    else -> "yomu-words"
+                }
+                exporters.getValue(f).launch("$name.${f.extension}")
+            },
+            onDismiss = { exportDialog = false },
         )
     }
     if (tagDialog) {
@@ -268,6 +284,38 @@ private fun WordEditDialog(word: Word, onSave: (Word) -> Unit, onReset: () -> Un
                 )
             }) { Text(stringResource(UiR.string.save)) }
         },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(UiR.string.cancel)) } },
+    )
+}
+
+/** Formats of the word export, the Anki deck first. */
+@Composable
+private fun WordExportDialog(onPick: (WordFormat) -> Unit, onDismiss: () -> Unit) {
+    val order = listOf(WordFormat.ANKI_APKG, WordFormat.ANKI_TSV, WordFormat.CSV, WordFormat.QUIZLET, WordFormat.JSON, WordFormat.MARKDOWN)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.words_export_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                order.forEach { f ->
+                    val (title, summary) = when (f) {
+                        WordFormat.ANKI_APKG -> R.string.words_export_apkg to R.string.words_export_apkg_sum
+                        WordFormat.ANKI_TSV -> R.string.words_export_anki to R.string.words_export_anki_sum
+                        WordFormat.CSV -> R.string.words_export_csv to R.string.words_export_csv_sum
+                        WordFormat.QUIZLET -> R.string.words_export_quizlet to R.string.words_export_quizlet_sum
+                        WordFormat.JSON -> R.string.words_export_json to R.string.words_export_json_sum
+                        WordFormat.MARKDOWN -> R.string.words_export_md to R.string.words_export_md_sum
+                    }
+                    ListItem(
+                        headlineContent = { Text(stringResource(title)) },
+                        supportingContent = { Text(stringResource(summary)) },
+                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                        modifier = Modifier.clickable { onPick(f) },
+                    )
+                }
+            }
+        },
+        confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(UiR.string.cancel)) } },
     )
 }

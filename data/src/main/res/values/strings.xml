@@ -14,6 +14,7 @@
     </plurals>
     <string name="notif_backup_done">Backup created</string>
     <string name="notif_backup_failed">Backup failed</string>
+    <string name="notif_sync_failed">Sync failed</string>
     <string name="notif_sync_done">Synchronised</string>
     <string name="notif_review_title">Time to review words</string>
     <plurals name="notif_review_text">

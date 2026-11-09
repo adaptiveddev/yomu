@@ -39,6 +39,25 @@ class ExportersTest {
     }
 
     @Test
+    fun `quizlet json and markdown word exports`() {
+        val words = listOf(Word(term = "cat", translation = "кошка", definition = "a pet", context = "a | cat", bookTitle = "B"))
+        assertEquals("cat\tкошка; a pet\n", WordExporter.export(words, WordFormat.QUIZLET))
+        val json = WordExporter.export(words, WordFormat.JSON)
+        assertTrue(json.contains("\"word\": \"cat\"") && json.contains("\"translation\": \"кошка\""))
+        val md = WordExporter.export(words, WordFormat.MARKDOWN).lines()
+        assertEquals("| **cat** | кошка; a pet | a \\| cat | B |", md[2])
+    }
+
+    @Test
+    fun `anki deck notes escape html and bold the word`() {
+        val deck = WordExporter.ankiDeck(listOf(Word(term = "a<b", translation = "x", context = "say A<B now", tags = listOf("my tag"))))
+        val note = deck.notes.single()
+        assertEquals(listOf("a&lt;b", "x", "say <b>A&lt;B</b> now", ""), note.fields)
+        assertEquals(listOf("my_tag", "yomu"), note.tags)
+        assertEquals(deck.type.fields.size, note.fields.size)
+    }
+
+    @Test
     fun `anki export has header and tags`() {
         val tsv = WordExporter.export(listOf(Word(term = "cat", translation = "кошка", context = "a cat")), WordFormat.ANKI_TSV)
         assertTrue(tsv.startsWith("#separator:tab"))

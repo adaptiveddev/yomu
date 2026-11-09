@@ -59,6 +59,9 @@ import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.Switch
+import androidx.compose.ui.draw.scale
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -191,6 +194,7 @@ fun LibraryScreen(
     val onlineCount by viewModel.onlineCount.collectAsStateWithLifecycle()
     val onlineShown by viewModel.onlineShown.collectAsStateWithLifecycle()
     val tabPick by viewModel.tabPick.collectAsStateWithLifecycle()
+    val incognito by viewModel.incognito.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -310,6 +314,12 @@ fun LibraryScreen(
                                     text = { Text(stringResource(R.string.library_rescan)) },
                                     leadingIcon = { Icon(Icons.Default.Refresh, null) },
                                     onClick = { showMenu = false; viewModel.rescan() },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(CoreR.string.incognito_mode)) },
+                                    leadingIcon = { Icon(Icons.Outlined.VisibilityOff, null) },
+                                    trailingIcon = { Switch(checked = incognito, onCheckedChange = null, modifier = Modifier.scale(0.8f)) },
+                                    onClick = { showMenu = false; viewModel.setIncognito(!incognito) },
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(CoreR.string.settings)) },

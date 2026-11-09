@@ -100,6 +100,8 @@ class AppSettings(context: Context) {
     val librarySort = enum("library_sort", LibrarySort.LAST_READ)
     val libraryAscending = bool("library_ascending", false)
     val showContinueReading = bool("show_continue", true)
+    /** Covers are replaced by their generated placeholder everywhere in the app (and the home-screen widget). */
+    val hideCovers = bool("hide_covers", false)
     /** COPY or LINK. */
     val importMode = string("import_mode", "COPY")
     val scanFolders = stringSet("scan_folders")
@@ -148,6 +150,14 @@ class AppSettings(context: Context) {
     val reminderEnabled = bool("reminder_enabled", false)
     val reminderHour = int("reminder_hour", 19)
     val reminderMinute = int("reminder_minute", 0)
+
+    // Notifications
+    /** Kinds of notifications switched off (names of data.work.NotifyKind); they still appear in the in-app list. */
+    val notifyDisabled = stringSet("notify_disabled")
+    /** Quiet hours: notifications arrive without sound or vibration from [quietFrom] to [quietTo] (hours). */
+    val quietHours = bool("quiet_hours", false)
+    val quietFrom = int("quiet_from", 22)
+    val quietTo = int("quiet_to", 8)
     val reviewModes = stringSet("review_modes", setOf("WORD_TO_TRANSLATION", "TRANSLATION_TO_WORD", "CLOZE"))
 
     // Catalog
@@ -159,6 +169,10 @@ class AppSettings(context: Context) {
     val trustedExtensions = stringSet("trusted_extensions")
     /** Bundled extensions the user uninstalled: they are not copied back on the next start. */
     val removedBundledExtensions = stringSet("removed_bundled_extensions")
+    /** Sources (ids) the user hid from the catalog and the global search. */
+    val hiddenSources = stringSet("hidden_sources")
+    /** Extensions (package names) whose sources are all hidden from the catalog and the global search. */
+    val hiddenExtensions = stringSet("hidden_extensions")
     /** Languages shown in the list of available extensions; empty = device language, English and multilingual. */
     val extensionLanguages = stringSet("extension_languages")
     /** Chapter list sort and filters of titles without their own (see "Use for all titles" on the title page). */
@@ -210,6 +224,10 @@ class AppSettings(context: Context) {
     val webdavUrl = string("webdav_url", "")
     val webdavUser = string("webdav_user", "")
     val webdavPassword = string("webdav_password", "")
+    /** GitHub personal access token with access to [githubRepo] (contents: read and write). */
+    val githubToken = string("github_token", "")
+    /** owner/name of the (private) repository that holds the sync files. */
+    val githubRepo = string("github_repo", "")
     /** Sync when the app starts and when it goes to the background (2.0.0). */
     val syncOnStart = bool("sync_on_start", true)
     val syncOnExit = bool("sync_on_exit", true)
@@ -220,6 +238,14 @@ class AppSettings(context: Context) {
     val syncBookFiles = bool("sync_book_files", false)
     /** Deleted highlights, notes, bookmarks, words and online titles are deleted on the other devices too (2.0.0). */
     val syncDeletions = bool("sync_deletions", true)
+    /** Granular sync (what takes part): reading positions and statuses, highlights with notes, bookmarks, words, tracker links. */
+    val syncProgress = bool("sync_progress", true)
+    val syncAnnotations = bool("sync_annotations", true)
+    val syncBookmarks = bool("sync_bookmarks", true)
+    val syncWords = bool("sync_words", true)
+    val syncTrackLinks = bool("sync_track_links", true)
+    /** Automatic syncs over a network target wait for Wi-Fi (or another unmetered network). */
+    val syncWifiOnly = bool("sync_wifi_only", false)
     /** Result of the last sync attempt: empty = success, otherwise the error text. */
     val lastSyncError = string("last_sync_error", "")
 
@@ -271,7 +297,7 @@ class AppSettings(context: Context) {
     val crashSeenAt = long("crash_seen_at", 0)
 
     /** Keys that are never exported to a backup or sync file. */
-    private val privateKeys = setOf("pin_hash", "deepl_key", "libre_key", "llm_key", "webdav_password")
+    private val privateKeys = setOf("pin_hash", "deepl_key", "libre_key", "llm_key", "webdav_password", "github_token")
 
     /** State of this installation, not a preference: never exported, and a backup never overwrites it. */
     private val deviceKeys = setOf("update_checked_at", "update_latest", "whats_new_seen", "crash_seen_at", "last_sync_error")

@@ -13,7 +13,6 @@
     <string name="catalog_check_updates">Check for updates</string>
     <string name="catalog_incognito_on">Incognito mode is on</string>
     <string name="catalog_incognito_off">Incognito mode is off</string>
-    <string name="catalog_incognito_banner">Incognito: reading history is not saved</string>
     <string name="catalog_opds_added">Catalog added</string>
     <string name="catalog_local_configured">Local folder connected</string>
     <string name="catalog_updates_started">Checking for new chapters…</string>
@@ -23,6 +22,10 @@
     <string name="source_kind_local">Local</string>
     <string name="source_kind_extension">Extension</string>
     <string name="source_disabled">disabled</string>
+    <string name="source_hidden">hidden</string>
+    <string name="source_hide">Hide from the catalog</string>
+    <string name="source_unhide">Show in the catalog</string>
+    <string name="source_hide_extension">Hide all sources of %1$s</string>
     <string name="source_pin">Pin</string>
     <string name="source_unpin">Unpin</string>
     <string name="source_enable">Enable</string>
@@ -137,6 +140,13 @@
     <string name="ext_repo_warning">Extensions are third-party code that runs inside the app with network access. Add only repositories you trust. Yomu does not host or review extensions and is not responsible for the content of the sites they open.</string>
     <string name="ext_add_repo">Add repository</string>
     <string name="ext_remove_repo">Remove repository</string>
+    <string name="ext_rec_title">Popular repositories</string>
+    <string name="ext_rec_note">Community repositories, not affiliated with Yomu. Before adding, Yomu shows the name, the number of extensions and the signing key; extensions still need your trust after install.</string>
+    <string name="ext_rec_keiyoushi">The main community repository: over a thousand manga sources in every language</string>
+    <string name="ext_rec_yuzono">Keiyoushi plus extra and fixed extensions, merged every few hours</string>
+    <string name="ext_rec_zosetsu">Extra sources that are not in Keiyoushi</string>
+    <string name="ext_rec_kavita">Kavita: read from your own Kavita server</string>
+    <string name="ext_rec_suwayomi">Suwayomi: read from your own Suwayomi server</string>
     <string name="ext_remove_repo_text">Extensions installed from it stay installed, but will not get updates.</string>
     <string name="ext_repo_url">Repository address</string>
     <string name="ext_repo_url_hint">https://…/index.min.json</string>
@@ -160,6 +170,11 @@
     <string name="ext_update_all">Update all</string>
     <string name="ext_updates_header">Updates available</string>
     <string name="ext_uninstall">Uninstall</string>
+    <string name="ext_hide">Hide from the catalog</string>
+    <string name="ext_unhide">Show in the catalog</string>
+    <string name="ext_hidden">hidden</string>
+    <string name="ext_hide_switch">Hide in the catalog</string>
+    <string name="ext_hide_switch_sum">Its sources are not listed in the catalog and are not asked by the global search. Titles in your library keep working</string>
     <string name="ext_installed">Installed: %1$s</string>
     <string name="ext_updated">Updated: %1$s</string>
     <string name="ext_updated_count">Extensions updated: %1$s</string>
@@ -347,6 +362,7 @@
     <string name="source_filter_pinned">Pinned only</string>
     <string name="source_filter_hide_disabled">Hide disabled</string>
     <string name="source_filter_hide_unstable">Hide not responding</string>
+    <string name="source_filter_show_hidden">Show hidden</string>
     <string name="source_filter_shown">%1$d of %2$d</string>
     <string name="source_filter_empty">No sources match the filters</string>
     <string name="source_filter_languages_title">Source languages</string>

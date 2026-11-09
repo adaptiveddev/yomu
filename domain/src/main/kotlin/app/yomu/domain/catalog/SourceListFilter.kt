@@ -21,10 +21,12 @@ data class SourceListFilter(
     val nsfw: NsfwFilter = NsfwFilter.ALL,
     /** Hides the sources shown as "not responding". */
     val hideUnstable: Boolean = false,
+    /** Lists the sources the user hid (one by one or with their whole extension). */
+    val showHidden: Boolean = false,
 ) {
     /** Number of filters that differ from "show everything" (for the badge of the filter button). */
     val activeCount: Int
-        get() = listOf(content.isNotEmpty(), kinds.isNotEmpty(), pinnedOnly, hideDisabled, nsfw != NsfwFilter.ALL, hideUnstable).count { it }
+        get() = listOf(content.isNotEmpty(), kinds.isNotEmpty(), pinnedOnly, hideDisabled, nsfw != NsfwFilter.ALL, hideUnstable, showHidden).count { it }
 
     val isActive: Boolean get() = activeCount > 0
 
@@ -32,7 +34,7 @@ data class SourceListFilter(
      * Whether a source passes. A pure function of the source's properties so the list can be filtered off the main
      * thread and tested without Android.
      */
-    fun matches(content: String, kind: String, pinned: Boolean, enabled: Boolean, nsfw: Boolean, unstable: Boolean): Boolean =
+    fun matches(content: String, kind: String, pinned: Boolean, enabled: Boolean, nsfw: Boolean, unstable: Boolean, hidden: Boolean = false): Boolean =
         (this.content.isEmpty() || content in this.content) &&
             (kinds.isEmpty() || kind in kinds) &&
             (!pinnedOnly || pinned) &&
@@ -42,5 +44,6 @@ data class SourceListFilter(
                 NsfwFilter.HIDE -> !nsfw
                 NsfwFilter.ONLY -> nsfw
             } &&
-            (!hideUnstable || !unstable)
+            (!hideUnstable || !unstable) &&
+            (showHidden || !hidden)
 }

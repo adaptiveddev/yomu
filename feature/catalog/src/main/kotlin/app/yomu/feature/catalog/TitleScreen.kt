@@ -740,7 +740,7 @@ private fun FilterRow(label: String, checked: Boolean, summary: String? = null, 
 private fun TitleHeader(e: CatalogEntry, sourceName: String?) {
     val context = LocalContext.current
     Box(Modifier.fillMaxWidth()) {
-        if (e.coverUrl != null) {
+        if (e.coverUrl != null && !app.yomu.core.ui.components.LocalHideCovers.current) {
             AsyncImage(
                 model = e.coverUrl,
                 contentDescription = null,

@@ -489,6 +489,7 @@ private fun Webtoon(controller: MangaController, listener: MangaListener, hasPre
                             TapAction.PREV -> scope.launch { scrollBy(-size.height * 0.8f) }
                         }
                     },
+                    onDoubleTap = { zoom = if (zoom > 1.01f) 1f else 2f },
                     onLongPress = { pos -> listener.onLongPressAt(controller.page, stripCoords?.takeIf { it.isAttached }?.localToWindow(pos) ?: pos) },
                 )
             },

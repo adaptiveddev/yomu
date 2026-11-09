@@ -7,6 +7,9 @@ import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.automirrored.outlined.WrapText
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.BorderColor
+import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.Animation
@@ -59,6 +62,7 @@ import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Highlight
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.HideImage
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.ImportExport
@@ -130,6 +134,7 @@ internal fun settingIcon(title: Int): ImageVector? = when (title) {
     R.string.set_grid -> Icons.Outlined.GridView
     R.string.set_columns -> Icons.Outlined.ViewColumn
     R.string.set_show_continue -> Icons.Outlined.History
+    R.string.set_hide_covers -> Icons.Outlined.HideImage
     R.string.set_import_mode -> Icons.Outlined.FileCopy
     R.string.set_ask_delete -> Icons.Outlined.DeleteOutline
     R.string.set_add_folder -> Icons.Outlined.CreateNewFolder
@@ -185,6 +190,7 @@ internal fun settingIcon(title: Int): ImageVector? = when (title) {
     R.string.set_net_update_wifi -> Icons.Outlined.Update
     R.string.set_show_nsfw -> Icons.Outlined.Explicit
     R.string.set_incognito -> Icons.Outlined.VisibilityOff
+    R.string.set_hidden_sources -> Icons.Outlined.VisibilityOff
     R.string.set_extensions -> Icons.Outlined.Extension
     R.string.set_revoke_trust -> Icons.Outlined.RemoveModerator
     // Downloads and storage
@@ -234,6 +240,12 @@ internal fun settingIcon(title: Int): ImageVector? = when (title) {
     R.string.set_sync_on_exit -> Icons.AutoMirrored.Outlined.ExitToApp
     R.string.set_sync_interval -> Icons.Outlined.Schedule
     R.string.set_sync_catalog -> Icons.Outlined.Public
+    R.string.set_sync_progress -> Icons.Outlined.Bookmarks
+    R.string.set_sync_annotations -> Icons.Outlined.BorderColor
+    R.string.set_sync_bookmarks -> Icons.Outlined.BookmarkBorder
+    R.string.set_sync_words -> Icons.Outlined.Translate
+    R.string.set_sync_track_links -> Icons.Outlined.TrackChanges
+    R.string.set_sync_wifi_only -> Icons.Outlined.Wifi
     R.string.set_sync_deletions -> Icons.Outlined.DeleteSweep
     // Tracking, long-press menus (2.0.0)
     R.string.set_track_auto -> Icons.Outlined.TrackChanges

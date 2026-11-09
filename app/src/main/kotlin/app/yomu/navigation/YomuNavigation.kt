@@ -15,6 +15,14 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.Modifier
+import app.yomu.core.ui.components.IncognitoBanner
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.mutableStateOf
@@ -171,6 +179,30 @@ fun YomuNavigation(main: MainViewModel, reduceMotion: Boolean, navLabels: Boolea
     // The floating bar is drawn over the top-level screens; they leave this much room at the bottom of their lists.
     val navBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val barInset = if (adaptive == NavigationSuiteType.NavigationBar) FloatingNavBarDefaults.height(navLabels) + navBarsBottom else 0.dp
+    val incognito by main.incognito.collectAsStateWithLifecycle()
+    // Every screen but the reader, which keeps the whole screen for the text.
+    val showIncognito = incognito && entry?.destination?.hasRoute(ReaderRoute::class) != true
+    Column(Modifier.fillMaxSize()) {
+        if (showIncognito) IncognitoBanner(onTurnOff = { main.setIncognito(false) })
+        Box(Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(if (showIncognito) WindowInsets.statusBars else WindowInsets(0, 0, 0, 0))) {
+            Shell(adaptive, current, barHidden, items, shown, navLabels, tabsState, barInset, nav, reduceMotion)
+        }
+    }
+}
+
+@Composable
+private fun Shell(
+    adaptive: NavigationSuiteType,
+    current: TopLevel?,
+    barHidden: androidx.compose.runtime.MutableState<Boolean>,
+    items: List<app.yomu.core.ui.components.NavItem>,
+    shown: List<TopLevel>,
+    navLabels: Boolean,
+    tabsState: TabsState,
+    barInset: androidx.compose.ui.unit.Dp,
+    nav: NavHostController,
+    reduceMotion: Boolean,
+) {
     NavShell(
         type = adaptive,
         visible = current != null && !barHidden.value,

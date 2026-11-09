@@ -505,6 +505,7 @@ internal fun ColumnScope.LibrarySection(vm: SettingsViewModel) {
     val auto = stringResource(R.string.set_auto)
     IntSliderPref(vm, s.gridColumns, R.string.set_columns, 0..6, label = { if (it == 0) auto else it.toString() })
     SwitchPref(vm, s.showContinueReading, R.string.set_show_continue)
+    SwitchPref(vm, s.hideCovers, R.string.set_hide_covers, R.string.set_hide_covers_sum)
     ChoicePref(vm, s.importMode, R.string.set_import_mode, listOf(
         "COPY" to stringResource(R.string.set_import_copy),
         "LINK" to stringResource(R.string.set_import_link),
@@ -752,6 +753,25 @@ internal fun ColumnScope.CatalogSection(vm: SettingsViewModel, links: SettingsLi
     SwitchPref(vm, s.showNsfw, R.string.set_show_nsfw)
     SwitchPref(vm, s.incognito, R.string.set_incognito, R.string.set_incognito_sum)
     PreferenceItem(stringResource(R.string.set_extensions), stringResource(R.string.set_extensions_sum), onClick = links.onOpenExtensions, icon = settingIcon(R.string.set_extensions))
+    val hiddenSources by s.hiddenSources.state()
+    val hiddenExtensions by s.hiddenExtensions.state()
+    var unhide by remember { mutableStateOf(false) }
+    PreferenceItem(
+        stringResource(R.string.set_hidden_sources),
+        stringResource(R.string.set_hidden_sources_sum, hiddenExtensions.size, hiddenSources.size),
+        enabled = hiddenSources.isNotEmpty() || hiddenExtensions.isNotEmpty(),
+        onClick = { unhide = true },
+        icon = settingIcon(R.string.set_hidden_sources),
+    )
+    if (unhide) {
+        ConfirmDialog(
+            stringResource(R.string.set_hidden_sources),
+            stringResource(R.string.set_hidden_sources_text),
+            stringResource(R.string.set_hidden_sources_show),
+            onConfirm = { vm.set(s.hiddenSources, emptySet()); vm.set(s.hiddenExtensions, emptySet()) },
+            onDismiss = { unhide = false },
+        )
+    }
     PreferenceItem(stringResource(R.string.set_revoke_trust), stringResource(R.string.set_trusted_count, trusted.size), enabled = trusted.isNotEmpty(), onClick = { revoke = true }, icon = settingIcon(R.string.set_revoke_trust))
     if (revoke) {
         ConfirmDialog(stringResource(R.string.set_revoke_trust), stringResource(R.string.set_revoke_trust_text), stringResource(R.string.set_revoke), onConfirm = { vm.set(s.trustedExtensions, emptySet()) }, onDismiss = { revoke = false })

@@ -55,6 +55,7 @@ import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -225,14 +226,6 @@ fun CatalogScreen(
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         TopLevelBody(padding, Modifier.fillMaxSize()) { Column(Modifier.fillMaxSize()) {
-            if (incognito) {
-                Text(
-                    stringResource(R.string.catalog_incognito_banner),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.tertiaryContainer).padding(horizontal = Dimens.l, vertical = Dimens.xs),
-                )
-            }
             PrimaryTabRow(selectedTabIndex = tab) {
                 HomeTab.entries.forEachIndexed { i, t ->
                     YomuTab(
@@ -475,6 +468,15 @@ private fun SourcesTab(
             SheetAction(if (s.enabled) Icons.Outlined.Block else Icons.Outlined.CheckCircle, stringResource(if (s.enabled) R.string.source_disable else R.string.source_enable)) {
                 viewModel.setEnabled(s.id, !s.enabled); menuFor = null
             }
+            SheetAction(if (s.hidden) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff, stringResource(if (s.hidden) R.string.source_unhide else R.string.source_hide)) {
+                viewModel.setHidden(s.id, !s.hidden); menuFor = null
+            }
+            val pkg = s.extensionPkg
+            if (pkg != null && !s.hidden) {
+                SheetAction(Icons.Outlined.VisibilityOff, stringResource(R.string.source_hide_extension, s.extensionName ?: pkg)) {
+                    viewModel.setExtensionHidden(pkg, true); menuFor = null
+                }
+            }
             if (s.kind == SourceInfo.Kind.LOCAL) {
                 SheetAction(Icons.Filled.Folder, stringResource(R.string.catalog_local_folder)) { menuFor = null; onPickFolder() }
             }
@@ -509,6 +511,7 @@ private fun SourceRow(s: SourceInfo, health: SourceHealth?, onOpen: () -> Unit, 
         kind,
         if (s.isNsfw) stringResource(R.string.ext_nsfw) else null,
         if (!s.enabled) stringResource(R.string.source_disabled) else null,
+        if (s.hidden) stringResource(R.string.source_hidden) else null,
     )
     val warning = when {
         health?.unstable == true -> stringResource(R.string.source_unstable)
@@ -545,7 +548,7 @@ private fun SourceRow(s: SourceInfo, health: SourceHealth?, onOpen: () -> Unit, 
             }
         },
         modifier = modifier
-            .alpha(if (s.enabled) 1f else 0.55f)
+            .alpha(if (s.enabled && !s.hidden) 1f else 0.55f)
             .combinedClickable(onClick = onOpen, onLongClick = onMenu),
     )
 }
