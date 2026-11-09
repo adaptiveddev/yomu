@@ -33,7 +33,8 @@ data class AudioChapter(val title: String, val startMs: Long)
 
 /**
  * One playable track. [uri] is `file:`, `content:`, `http(s):` or `youtube:<videoId>` (resolved to a stream address
- * right before playback, since YouTube addresses expire after a few hours).
+ * right before playback, since YouTube addresses expire after a few hours). [file] is a downloaded copy of an online
+ * track for offline listening; it plays instead of [uri] while it exists.
  */
 @Serializable
 data class AudioTrack(
@@ -41,6 +42,7 @@ data class AudioTrack(
     val uri: String,
     val durationMs: Long = 0,
     val chapters: List<AudioChapter> = emptyList(),
+    val file: String? = null,
 )
 
 /** The `.yaudio` file of an audiobook that is not a plain file or folder: online streams, YouTube, podcasts. */

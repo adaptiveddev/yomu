@@ -25,4 +25,15 @@
     <string name="audio_speed_up">Faster</string>
     <string name="audio_skip_silence">Skip silence</string>
     <string name="audio_reconnecting">No connection, trying again…</string>
+    <string name="audio_offline">Offline listening</string>
+    <string name="audio_offline_hint">Save the tracks on this device to listen without the network.</string>
+    <string name="audio_offline_state">%1$d of %2$d tracks saved · %3$s</string>
+    <string name="audio_offline_complete">Everything is saved on this device · %1$s</string>
+    <string name="audio_offline_running">Downloading track %1$d of %2$d…</string>
+    <string name="audio_offline_waiting">Waiting for the network…</string>
+    <string name="audio_offline_failed">Download failed: %1$s</string>
+    <string name="audio_download">Download</string>
+    <string name="audio_download_rest">Download the rest</string>
+    <string name="audio_download_cancel">Stop</string>
+    <string name="audio_download_remove">Delete downloaded files</string>
 </resources>

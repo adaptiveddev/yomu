@@ -60,6 +60,8 @@ object Notifications {
     const val ID_TEST = 1010
     const val ID_APP_UPDATE_PROGRESS = 1011
     const val ID_APP_UPDATE = 1012
+    const val ID_AUDIO_DOWNLOAD = 1013
+    const val ID_AUDIO_DOWNLOAD_DONE = 1014
 
     /** Intent action of the notifications that open the download queue (handled by the app's main activity). */
     const val ACTION_OPEN_DOWNLOADS = "app.yomu.action.OPEN_DOWNLOADS"

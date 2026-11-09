@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,10 +62,18 @@ private fun ResultRow(r: YouTubeResult, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(r.title, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val kind = if (r.isPlaylist) stringResource(R.string.library_audio_playlist) else null
-            val meta = listOfNotNull(r.author, kind, r.detail).joinToString(" · ")
+            val size = if (r.isPlaylist) r.videoCount?.let { pluralStringResource(R.plurals.library_audio_videos, it, it) } else length(r.durationMs)
+            val meta = listOfNotNull(r.author, kind, size).joinToString(" · ")
             if (meta.isNotEmpty()) {
                 Text(meta, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
+}
+
+/** "1:02:03" or "4:05"; null when unknown. */
+private fun length(ms: Long): String? {
+    if (ms <= 0) return null
+    val t = ms / 1000
+    return if (t >= 3600) "%d:%02d:%02d".format(java.util.Locale.ROOT, t / 3600, t % 3600 / 60, t % 60) else "%d:%02d".format(java.util.Locale.ROOT, t / 60, t % 60)
 }

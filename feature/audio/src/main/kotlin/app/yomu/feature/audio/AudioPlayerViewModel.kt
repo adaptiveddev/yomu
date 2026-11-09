@@ -2,6 +2,10 @@ package app.yomu.feature.audio
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.yomu.core.datastore.AppSettings
+import app.yomu.data.audio.AudioDownloadProgress
+import app.yomu.data.audio.AudioDownloadState
+import app.yomu.data.audio.AudiobookDownloader
 import app.yomu.data.audio.AudiobookStore
 import app.yomu.domain.model.AudioNavEntry
 import app.yomu.domain.model.AudioOrigin
@@ -21,9 +25,11 @@ import kotlinx.coroutines.withContext
 
 class AudioPlayerViewModel(
     val bookId: Long,
-    books: BookRepository,
+    private val books: BookRepository,
     private val store: AudiobookStore,
     private val audio: AudioController,
+    private val downloader: AudiobookDownloader,
+    private val settings: AppSettings,
 ) : ViewModel() {
     val book: StateFlow<Book?> = books.observeBook(bookId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -36,6 +42,12 @@ class AudioPlayerViewModel(
 
     private val _loadError = MutableStateFlow<Throwable?>(null)
     val loadError: StateFlow<Throwable?> = _loadError.asStateFlow()
+
+    /** Offline copies of an online book; null for books whose files are already on the device. */
+    private val _offline = MutableStateFlow<AudioDownloadState?>(null)
+    val offline: StateFlow<AudioDownloadState?> = _offline.asStateFlow()
+
+    val download: StateFlow<AudioDownloadProgress?> = downloader.progress(bookId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Track lengths known before playback (playlists, M4B headers); 0 where unknown. */
     private var trackDurations: List<Long> = emptyList()
@@ -52,8 +64,18 @@ class AudioPlayerViewModel(
                 val tracks = store.tracks(b)
                 trackDurations = tracks.map { it.durationMs }
                 _chapters.value = AudioPositions.navigation(tracks)
+                refreshOffline()
                 audio.open(bookId, play = false)
             }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it else _loadError.value = it }
+        }
+        // Each finished track changes what is on the device.
+        viewModelScope.launch {
+            var lastTrack = -1
+            download.collect { p ->
+                if (p == null) return@collect
+                if (!p.running || p.track != lastTrack) refreshOffline()
+                lastTrack = p.track
+            }
         }
     }
 
@@ -63,6 +85,11 @@ class AudioPlayerViewModel(
             audio.refresh()
             delay(TICK_MS)
         }
+    }
+
+    private suspend fun refreshOffline() {
+        val b = withContext(Dispatchers.IO) { books.getBook(bookId) } ?: return
+        _offline.value = withContext(Dispatchers.IO) { downloader.state(b) }
     }
 
     fun playPause() = audio.togglePlay()
@@ -112,6 +139,16 @@ class AudioPlayerViewModel(
     fun toggleSkipSilence() { player.value?.let { audio.setSkipSilence(!it.skipSilence) } }
 
     fun sleep(minutes: Int) = audio.sleep(minutes)
+
+    fun startDownload() = viewModelScope.launch { downloader.start(bookId, settings.downloadWifiOnly.get()) }
+
+    fun cancelDownload() = downloader.cancel(bookId)
+
+    fun removeDownload() = viewModelScope.launch {
+        val b = withContext(Dispatchers.IO) { books.getBook(bookId) } ?: return@launch
+        downloader.remove(b)
+        refreshOffline()
+    }
 
     private companion object {
         const val TICK_MS = 500L

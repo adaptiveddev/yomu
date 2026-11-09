@@ -55,16 +55,23 @@ class AudiobookStore(
     // ---------------------------------------------------------------- tracks
 
     /**
-     * The tracks of [book] in listening order. The player screen and the service both ask when a book opens; a short
-     * cache (behind a lock, so the second caller waits instead of walking a SAF folder again) answers the second one.
+     * The tracks of [book] in listening order, with the chapter marks stored inside M4B/MP3 files. The player screen
+     * and the service both ask when a book opens; a short cache (behind a lock, so the second caller waits instead of
+     * walking a SAF folder again) answers the second one. Manifests are small and change when tracks are downloaded
+     * or deleted, so they are always read again.
      */
-    suspend fun tracks(book: Book): List<AudioTrack> = tracksLock.withLock {
+    suspend fun tracks(book: Book): List<AudioTrack> {
+        if (isManifest(book.uri)) return loadTracks(book)
+        return tracksLock.withLock { cachedTracks(book) }
+    }
+
+    private suspend fun cachedTracks(book: Book): List<AudioTrack> {
         val now = System.currentTimeMillis()
-        trackCache[book.uri]?.takeIf { now - it.first < TRACKS_TTL_MS }?.let { return@withLock it.second }
+        trackCache[book.uri]?.takeIf { now - it.first < TRACKS_TTL_MS }?.let { return it.second }
         val list = loadTracks(book)
         trackCache.entries.removeIf { now - it.value.first >= TRACKS_TTL_MS }
         trackCache[book.uri] = now to list
-        list
+        return list
     }
 
     private val tracksLock = Mutex()
@@ -105,6 +112,23 @@ class AudiobookStore(
         val text = Files.open(context, Uri.parse(book.uri)).use { it.readBytes().decodeToString() }
         return decode(text)
     }
+
+    /** Replaces the manifest of [book] (only manifests in app storage, which every added one is). */
+    internal fun writeManifest(book: Book, manifest: AudiobookManifest) {
+        val file = manifestFile(book) ?: throw IOException("Not a stored audiobook manifest: ${book.uri}")
+        val tmp = File(file.parentFile, file.name + ".tmp")
+        tmp.writeText(json.encodeToString(AudiobookManifest.serializer(), manifest))
+        if (!tmp.renameTo(file)) {
+            tmp.delete()
+            throw IOException("Cannot replace ${file.name}")
+        }
+    }
+
+    private fun manifestFile(book: Book): File? =
+        Uri.parse(book.uri).takeIf { it.scheme == "file" && isManifest(book.uri) }?.path?.let(::File)
+
+    /** Where the offline copies of an online audiobook's tracks are kept (deleted with the book). */
+    fun downloadDir(book: Book): File? = manifestFile(book)?.let { downloadDirOf(it) }
 
     /** Where the book came from, for the player's subtitle. */
     fun origin(book: Book): AudioOrigin = runCatching { manifest(book)?.origin }.getOrNull() ?: AudioOrigin.FILES
@@ -176,14 +200,15 @@ class AudiobookStore(
 
     /** "Listen online" of a catalog book: a feed or an audio file, named and pictured like the catalog title. */
     suspend fun addStream(url: String, title: String, author: String?, coverUrl: String?, description: String?): ImportOutcome = withContext(Dispatchers.IO) {
-        val m = YouTubeClient.parseUrl(url)?.let { youtube(it) } ?: resolve(url, title)
+        val ref = YouTubeClient.parseUrl(url)
+        val m = ref?.let { youtube(it) } ?: resolve(url, title)
         add(
             m.copy(
                 title = title,
                 authors = listOfNotNull(author).ifEmpty { m.authors },
                 description = description ?: m.description,
                 coverUrl = coverUrl ?: m.coverUrl,
-                origin = AudioOrigin.CATALOG,
+                origin = if (ref != null) AudioOrigin.YOUTUBE else AudioOrigin.CATALOG,
                 sourceUrl = url,
             ),
         )
@@ -197,7 +222,11 @@ class AudiobookStore(
     private suspend fun youtube(ref: YouTubeRef): AudiobookManifest = try {
         // Mixes ("RD…") are endless generated lists, not books.
         val list = ref.playlistId?.takeIf { !it.startsWith("RD") }
-        if (list != null) youtube.playlist(list) else youtube.video(ref.videoId ?: throw AppError.AudioLink(Reason.UNSUPPORTED))
+        when {
+            ref.channelUrl != null -> youtube.channel(ref.channelUrl)
+            list != null -> youtube.playlist(list)
+            else -> youtube.video(ref.videoId ?: throw AppError.AudioLink(Reason.UNSUPPORTED))
+        }
     } catch (e: YouTubeException) {
         throw AppError.AudioLink(if (e.reason == YouTubeException.Reason.NOT_FOUND) Reason.UNSUPPORTED else Reason.YOUTUBE_BLOCKED, e)
     }
@@ -317,6 +346,13 @@ class AudiobookStore(
         private val URL = Regex("""https?://[^\s<>"']+""")
 
         fun isManifest(uri: String) = uri.substringBefore('?').endsWith(".${AudiobookManifest.EXTENSION}", ignoreCase = true)
+
+        /** `…/x.yaudio` keeps its downloaded tracks in `…/x.files/`. */
+        fun downloadDirOf(manifest: File): File = File(manifest.parentFile, manifest.name.substringBeforeLast('.') + ".files")
+
+        /** The address to play [track] from: its downloaded copy while it exists, else the track itself. */
+        fun playableUri(track: AudioTrack): String =
+            track.file?.takeIf { it.startsWith("file://") && File(it.removePrefix("file://")).isFile } ?: track.uri
 
         fun decode(text: String): AudiobookManifest = json.decodeFromString(AudiobookManifest.serializer(), text)
 

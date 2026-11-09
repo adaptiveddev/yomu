@@ -25,8 +25,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.Forward30
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
@@ -35,9 +37,13 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,10 +72,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import app.yomu.core.common.Files
 import app.yomu.core.ui.components.CoverImage
 import app.yomu.core.ui.components.ErrorState
 import app.yomu.core.ui.components.SheetTitle
 import app.yomu.core.ui.components.YomuSheet
+import app.yomu.data.audio.AudioDownloadProgress
+import app.yomu.data.audio.AudioDownloadState
 import app.yomu.domain.model.AudioNavEntry
 import app.yomu.domain.model.AudioOrigin
 import app.yomu.domain.model.AudioPositions
@@ -89,6 +98,8 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
     val chapters by viewModel.chapters.collectAsStateWithLifecycle()
     val origin by viewModel.origin.collectAsStateWithLifecycle()
     val loadError by viewModel.loadError.collectAsStateWithLifecycle()
+    val offline by viewModel.offline.collectAsStateWithLifecycle()
+    val download by viewModel.download.collectAsStateWithLifecycle()
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
     val playing = player?.isPlaying == true
     // Paused, the position only moves on seeks, which are player events: no need to poll.
@@ -101,6 +112,16 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
                 title = {},
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(CoreR.string.back)) } },
                 actions = {
+                    if (offline != null) {
+                        IconButton(onClick = { sheet = "offline" }) {
+                            val d = download
+                            when {
+                                d?.running == true -> CircularProgressIndicator(progress = { d.fraction }, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                                offline?.complete == true -> Icon(Icons.Default.DownloadDone, stringResource(R.string.audio_offline))
+                                else -> Icon(Icons.Outlined.Download, stringResource(R.string.audio_offline))
+                            }
+                        }
+                    }
                     IconButton(onClick = { sheet = "chapters" }, enabled = chapters.isNotEmpty()) {
                         Icon(Icons.AutoMirrored.Filled.FormatListBulleted, stringResource(R.string.audio_chapters))
                     }
@@ -232,6 +253,49 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
             }
             SLEEP_MINUTES.forEach { m -> OptionRow(stringResource(R.string.audio_sleep_minutes, m), selected = false) { viewModel.sleep(m); sheet = null } }
         }
+        "offline" -> YomuSheet(onDismiss = { sheet = null }) {
+            SheetTitle(stringResource(R.string.audio_offline))
+            OfflinePanel(offline, download, viewModel::startDownload, viewModel::cancelDownload) { viewModel.removeDownload(); sheet = null }
+        }
+    }
+}
+
+@Composable
+private fun OfflinePanel(
+    state: AudioDownloadState?,
+    download: AudioDownloadProgress?,
+    onDownload: () -> Unit,
+    onCancel: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val active = download?.takeIf { it.running }
+        val running = active != null
+        val status = when {
+            active != null && active.total > 0 -> stringResource(R.string.audio_offline_running, active.track + 1, active.total)
+            running -> stringResource(R.string.audio_offline_waiting)
+            state == null -> ""
+            state.complete -> stringResource(R.string.audio_offline_complete, Files.humanSize(state.bytes))
+            state.downloaded > 0 -> stringResource(R.string.audio_offline_state, state.downloaded, state.total, Files.humanSize(state.bytes))
+            else -> stringResource(R.string.audio_offline_hint)
+        }
+        Text(status, style = MaterialTheme.typography.bodyMedium)
+        if (active != null) LinearProgressIndicator(progress = { active.fraction }, modifier = Modifier.fillMaxWidth())
+        download?.error?.takeIf { !running }?.let {
+            Text(stringResource(R.string.audio_offline_failed, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            when {
+                running -> OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.audio_download_cancel)) }
+                state?.complete != true -> Button(onClick = onDownload) {
+                    Text(stringResource(if ((state?.downloaded ?: 0) > 0) R.string.audio_download_rest else R.string.audio_download))
+                }
+            }
+            if (!running && (state?.downloaded ?: 0) > 0) {
+                TextButton(onClick = onRemove) { Text(stringResource(R.string.audio_download_remove)) }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
     }
 }
 

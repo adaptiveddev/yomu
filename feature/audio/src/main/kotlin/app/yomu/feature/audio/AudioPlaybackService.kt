@@ -235,8 +235,9 @@ class AudioPlaybackService : MediaSessionService() {
     private class Resolved(val url: String, val mimeType: String?, val expiresAt: Long)
 
     private suspend fun resolve(track: AudioTrack, fresh: Boolean): Resolved? {
+        if (AudiobookStore.playableUri(track) != track.uri) return null
         val id = AudiobookManifest.youtubeId(track.uri) ?: return null
-        val s = store.youtube.stream(id, fresh)
+        val s = store.youtube.stream(id, fresh = fresh)
         s.headers.takeIf { it.isNotEmpty() }?.let { streamHeaders["googlevideo.com"] = it; streamHeaders["youtube.com"] = it }
         return Resolved(s.url, if (s.isHls) MimeTypes.APPLICATION_M3U8 else s.mimeType, YouTubeClient.expiresAt(s.url))
     }
@@ -249,7 +250,7 @@ class AudioPlaybackService : MediaSessionService() {
 
     /** A YouTube track without an address yet, or whose address has expired or is about to. */
     private fun needsStream(i: Int): Boolean {
-        if (i !in tracks.indices || AudiobookManifest.youtubeId(tracks[i].uri) == null) return false
+        if (!isYouTube(i)) return false
         if (i !in resolved) return true
         val expires = expiresAt[i] ?: 0
         return expires > 0 && expires < System.currentTimeMillis() + EXPIRY_MARGIN_MS
@@ -268,7 +269,8 @@ class AudioPlaybackService : MediaSessionService() {
         return MediaItem.Builder()
             .setMediaId("${b.id}/$index")
             // Not yet resolved YouTube tracks keep their "youtube:" address until just before they play.
-            .setUri(stream?.url ?: t.uri)
+            // Downloaded copies play from the device.
+            .setUri(stream?.url ?: AudiobookStore.playableUri(t))
             .setMimeType(stream?.mimeType)
             .setMediaMetadata(metadata)
             .build()
@@ -313,7 +315,9 @@ class AudioPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun isYouTube(i: Int) = i in tracks.indices && AudiobookManifest.youtubeId(tracks[i].uri) != null
+    /** A YouTube track that streams (not one with a downloaded copy). */
+    private fun isYouTube(i: Int) =
+        i in tracks.indices && AudiobookManifest.youtubeId(tracks[i].uri) != null && AudiobookStore.playableUri(tracks[i]) == tracks[i].uri
 
     /**
      * Tries again after a network failure, waiting longer each time (2 s up to a minute), while the user still wants
