@@ -38,4 +38,10 @@ internal object PlayerMath {
     /** Minutes to set the sleep timer to when [extraMin] are added to what is left until [sleepAt]. */
     fun extendedSleepMinutes(sleepAt: Long, now: Long, extraMin: Int): Int =
         (((sleepAt - now).coerceAtLeast(0) + 59_999) / 60_000).toInt() + extraMin
+
+    /** Indices of [chapters] whose title contains every word of [query]; all of them for a blank query. */
+    fun search(chapters: List<AudioNavEntry>, query: String): List<Int> {
+        val words = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        return chapters.indices.filter { i -> words.all { chapters[i].title.lowercase().contains(it) } }
+    }
 }

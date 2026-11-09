@@ -54,4 +54,10 @@
     <string name="audio_sleep_custom_title">Таймер сна, минут</string>
     <string name="audio_minutes_label">Минуты</string>
     <string name="audio_start">Запустить</string>
+    <string name="audio_rewind">Перемотать назад</string>
+    <string name="audio_chapters_search">Найти главу</string>
+    <string name="audio_chapters_none">Подходящих глав нет</string>
+    <string name="audio_chapter_heard">Прослушано</string>
+    <string name="audio_bookmark_deleted">Закладка удалена</string>
+    <string name="audio_bookmark_added">Закладка на %1$s сохранена</string>
 </resources>

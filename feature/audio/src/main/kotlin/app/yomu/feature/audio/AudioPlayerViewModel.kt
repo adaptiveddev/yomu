@@ -115,9 +115,8 @@ class AudioPlayerViewModel(
 
     fun setSkipIntervals(backSec: Int, forwardSec: Int) = audio.setSkipIntervals(backSec, forwardSec)
 
-    fun addBookmark(note: String) {
-        val s = player.value ?: return
-        val mark = Bookmark(s.track, s.positionMs, note.trim(), System.currentTimeMillis())
+    /** Adds [mark] to the book's bookmarks; also how a deleted one is restored. */
+    fun addBookmark(mark: Bookmark) {
         audio.setBookmarks((audioSettings.value.bookmarks + mark).sortedWith(compareBy({ it.track }, { it.positionMs })))
     }
 

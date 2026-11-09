@@ -5,6 +5,7 @@
 - **Continue** on the library's "Continue reading" card opens the chapter to read next instead of the title page.
 - **YouTube in the catalog**: videos and playlists added from the YouTube source offer "Listen online" again (the title page showed "No downloadable files").
 - **Audiobook player**: a cover-tinted layout that also fits wide windows, a seek bar and times for the current chapter, "Chapter N of M · %", larger controls, bookmarks with notes, configurable skip intervals (also in the notification), "+5 min" and custom minutes for the sleep timer, and chapter durations in the chapter list.
+- **Audiobook player, easier to use**: speed and sleep-timer presets as chips instead of long lists, the time left in the book right in the speed sheet, a chapter search for long books, listened chapters checked and dimmed, a bookmark keeps the spot where it was asked for (not where playback is once the note is typed) and confirms with a snackbar, deleted bookmarks can be restored, and a rewind button in the "now playing" bar.
 - **Profile**: two sections (Overview and History) instead of five tabs; statistics and tracking open from the overview.
 - **Downloads**: a button with a progress ring and a counter in the Library top bar while something downloads, a summary with pause/resume/retry/cancel all, clear per-item states (waiting for network or Wi-Fi, retrying, failed with the reason), offline audiobooks in the list, and downloads that wait out network loss and VPN switches instead of failing.
 

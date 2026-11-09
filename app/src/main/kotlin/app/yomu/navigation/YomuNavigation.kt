@@ -206,6 +206,7 @@ fun YomuNavigation(main: MainViewModel, reduceMotion: Boolean, navLabels: Boolea
                 onOpen = { nav.navigate(ReaderRoute(bookId = np.bookId)) },
                 onToggle = audio::togglePlay,
                 onStop = audio::stop,
+                onRewind = audio::seekBack,
                 modifier = if (showIncognito) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
             )
         }
