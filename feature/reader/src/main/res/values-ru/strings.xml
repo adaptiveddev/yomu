@@ -299,4 +299,7 @@
     <string name="reader_chapter_unbookmarked">Закладка главы снята</string>
     <string name="reader_cover_set">Обложка изменена</string>
     <string name="reader_cover_books_only">Обложку можно сменить у книг из библиотеки</string>
+    <string name="reader_quick_display">Вид и яркость</string>
+    <string name="reader_keep_awake">Не гасить экран</string>
+    <string name="reader_brightness_auto">Авто</string>
 </resources>

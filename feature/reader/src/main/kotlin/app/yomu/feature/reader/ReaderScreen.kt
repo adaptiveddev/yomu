@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.MoreVert
@@ -144,6 +145,7 @@ import app.yomu.feature.translator.Speaker
 import app.yomu.feature.translator.TranslationSheet
 import app.yomu.feature.translator.TranslationViewModel
 import kotlinx.coroutines.delay
+import java.io.File
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -228,6 +230,7 @@ fun ReaderScreen(
     var searchSeed by rememberSaveable { mutableStateOf("") }
     var showFinished by rememberSaveable { mutableStateOf(false) }
     var seekDrag by remember { mutableStateOf<Float?>(null) }
+    var quickPanel by rememberSaveable { mutableStateOf(false) }
     var goToPage by rememberSaveable { mutableStateOf(false) }
     var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val snackbar = remember { SnackbarHostState() }
@@ -241,12 +244,13 @@ fun ReaderScreen(
     ReaderWindowEffects(common, chrome || sheet != ReaderSheet.NONE, lastInteraction)
 
     // Panels hide by themselves after a few seconds of inactivity: reading comes first.
-    LaunchedEffect(chrome, lastInteraction, sheet) {
-        if (chrome && sheet == ReaderSheet.NONE && common.autoHideMenuSeconds > 0) {
+    LaunchedEffect(chrome, lastInteraction, sheet, quickPanel) {
+        if (chrome && sheet == ReaderSheet.NONE && !quickPanel && common.autoHideMenuSeconds > 0) {
             delay(common.autoHideMenuSeconds * 1000L)
             viewModel.chromeVisible.value = false
         }
     }
+    LaunchedEffect(chrome) { if (!chrome) quickPanel = false }
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { viewModel.onPause() }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onResume() }
     // Manga have their own volume key switch (on by default) and may turn forward with volume up.
@@ -447,7 +451,15 @@ fun ReaderScreen(
 
         seekDrag?.let { v ->
             val preview = remember(v, position.bookPages) { viewModel.seekPreview(v) }
-            SeekPreviewCard(preview, v, Modifier.align(Alignment.Center))
+            val manga = (data as? ReaderContent.Manga)?.controller
+            // A short pause first: dragging across the book must not fetch every page on the way.
+            val thumbnail by produceState<File?>(null, manga, preview.page) {
+                if (manga != null) {
+                    delay(150)
+                    value = runCatching { manga.file(preview.page - 1) }.getOrNull()
+                }
+            }
+            SeekPreviewCard(preview, v, Modifier.align(Alignment.Center), thumbnail = thumbnail)
         }
 
         // ---------------------------------------------------------------- top bar
@@ -522,6 +534,13 @@ fun ReaderScreen(
                     Text(stringResource(R.string.reader_ocr_running), Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = MaterialTheme.typography.labelLarge)
                 }
             }
+            AnimatedVisibility(
+                visible = chrome && quickPanel && data != null && seekDrag == null,
+                enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it / 2 },
+                exit = fadeOut(tween(120)),
+            ) {
+                ReaderQuickPanel(common, textSettings.takeIf { data is ReaderContent.Text }, viewModel, onClose = { quickPanel = false })
+            }
             val jump = jumpBack
             AnimatedVisibility(
                 visible = chrome && data != null && jump != null && seekDrag == null,
@@ -554,6 +573,7 @@ fun ReaderScreen(
                     onToc = { sheet = ReaderSheet.TOC },
                     onSearch = { sheet = ReaderSheet.SEARCH },
                     onSettings = { sheet = ReaderSheet.SETTINGS },
+                    onQuick = { quickPanel = !quickPanel },
                     onTts = { if (!ttsActive) viewModel.startTts(); sheet = ReaderSheet.TTS },
                     onAutoScroll = { viewModel.toggleAutoScroll(); viewModel.chromeVisible.value = false },
                     onTranslate = {
@@ -737,6 +757,7 @@ private fun ReaderBottomBar(
     onToc: () -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
+    onQuick: () -> Unit,
     onTts: () -> Unit,
     onAutoScroll: () -> Unit,
     onTranslate: () -> Unit,
@@ -804,6 +825,7 @@ private fun ReaderBottomBar(
                 ChromeButton(Icons.AutoMirrored.Filled.FormatListBulleted, stringResource(R.string.reader_toc), onToc)
                 ChromeButton(Icons.Default.Search, stringResource(CoreR.string.search), onSearch)
                 ChromeButton(Icons.Default.TextFields, stringResource(R.string.reader_settings), onSettings)
+                ChromeButton(Icons.Default.BrightnessMedium, stringResource(R.string.reader_quick_display), onQuick)
                 if (ttsAvailable) ChromeButton(Icons.Default.Headphones, stringResource(R.string.reader_tts), onTts)
                 ChromeButton(if (autoScroll) Icons.Default.Pause else Icons.Default.SlowMotionVideo, stringResource(R.string.reader_autoscroll), onAutoScroll)
                 ChromeButton(Icons.Default.Translate, stringResource(R.string.reader_translate_page), onTranslate)

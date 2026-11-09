@@ -298,4 +298,7 @@
     <string name="reader_chapter_unbookmarked">Chapter bookmark removed</string>
     <string name="reader_cover_set">Cover changed</string>
     <string name="reader_cover_books_only">The cover can be changed for books in the library</string>
+    <string name="reader_quick_display">Display</string>
+    <string name="reader_keep_awake">Keep screen on</string>
+    <string name="reader_brightness_auto">Auto</string>
 </resources>

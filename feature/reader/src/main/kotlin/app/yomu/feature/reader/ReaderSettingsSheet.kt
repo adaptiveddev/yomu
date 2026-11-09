@@ -192,7 +192,7 @@ private fun TextSettings(s: TextReaderSettings, vm: ReaderViewModel) {
 
 /** Font size and theme: the two things changed most often, always at hand above the tabs. */
 @Composable
-private fun QuickTextBar(s: TextReaderSettings, vm: ReaderViewModel) {
+internal fun QuickTextBar(s: TextReaderSettings, vm: ReaderViewModel) {
     Row(Modifier.fillMaxWidth().padding(horizontal = Dimens.l, vertical = Dimens.xs), verticalAlignment = Alignment.CenterVertically) {
         val smaller = stringResource(R.string.rs_font_smaller)
         val larger = stringResource(R.string.rs_font_larger)

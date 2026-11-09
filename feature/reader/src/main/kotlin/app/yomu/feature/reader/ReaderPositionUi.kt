@@ -46,6 +46,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -62,6 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
+import java.io.File
 import java.util.Date
 import app.yomu.core.ui.R as CoreR
 
@@ -91,7 +95,7 @@ internal fun PageChip(page: Int, pages: Int, approximate: Boolean, onClick: () -
 
 /** Big card in the middle of the screen while the slider is dragged: where the reader will land. */
 @Composable
-internal fun SeekPreviewCard(preview: SeekPreview, value: Float, modifier: Modifier = Modifier) {
+internal fun SeekPreviewCard(preview: SeekPreview, value: Float, modifier: Modifier = Modifier, thumbnail: File? = null) {
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.inverseSurface,
@@ -100,6 +104,15 @@ internal fun SeekPreviewCard(preview: SeekPreview, value: Float, modifier: Modif
         modifier = modifier.widthIn(min = 180.dp, max = 320.dp).semantics { liveRegion = LiveRegionMode.Polite },
     ) {
         Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (thumbnail != null) {
+                AsyncImage(
+                    model = thumbnail,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(width = 150.dp, height = 210.dp).clip(MaterialTheme.shapes.small),
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             Text("${preview.page}", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Medium)
             Text(
                 stringResource(R.string.reader_of_pages, if (preview.approximate) "≈${preview.pages}" else "${preview.pages}"),
