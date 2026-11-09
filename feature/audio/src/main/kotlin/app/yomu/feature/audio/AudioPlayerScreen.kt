@@ -17,14 +17,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -33,12 +36,14 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -52,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,6 +75,7 @@ import java.util.Locale
 import app.yomu.core.ui.R as CoreR
 
 private val SPEEDS = listOf(0.75f, 1f, 1.1f, 1.25f, 1.5f, 1.75f, 2f, 2.5f, 3f)
+private const val SPEED_STEP = 0.05f
 private val SLEEP_MINUTES = listOf(5, 10, 15, 30, 45, 60, 90)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -133,6 +140,12 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
             }
             Spacer(Modifier.height(8.dp))
             SeekBar(s, viewModel::seekTo)
+            s?.let(viewModel::timeLeftMs)?.let { left ->
+                Text(
+                    stringResource(R.string.audio_book_left, duration(left)),
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             s?.error?.let {
                 Text(
                     stringResource(R.string.audio_play_error, it), color = MaterialTheme.colorScheme.error,
@@ -183,8 +196,31 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
         }
         "speed" -> YomuSheet(onDismiss = { sheet = null }) {
             SheetTitle(stringResource(R.string.audio_speed))
+            val current = player?.speed ?: 1f
+            Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { viewModel.setSpeed(current - SPEED_STEP) }, enabled = current > AudioSettings.MIN_SPEED + 0.001f) {
+                    Icon(Icons.Default.Remove, stringResource(R.string.audio_speed_down))
+                }
+                Text(speedLabel(current), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                IconButton(onClick = { viewModel.setSpeed(current + SPEED_STEP) }, enabled = current < AudioSettings.MAX_SPEED - 0.001f) {
+                    Icon(Icons.Default.Add, stringResource(R.string.audio_speed_up))
+                }
+            }
             SPEEDS.forEach { v ->
-                OptionRow(speedLabel(v), selected = player?.speed?.let { kotlin.math.abs(it - v) < 0.01f } == true) { viewModel.setSpeed(v); sheet = null }
+                OptionRow(speedLabel(v), selected = kotlin.math.abs(current - v) < 0.01f) { viewModel.setSpeed(v); sheet = null }
+            }
+            HorizontalDivider()
+            val skip = player?.skipSilence == true
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(value = skip, role = Role.Switch) { viewModel.setSkipSilence(it) }
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.audio_skip_silence))
+                    Text(stringResource(R.string.audio_skip_silence_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = skip, onCheckedChange = null)
             }
         }
         "sleep" -> YomuSheet(onDismiss = { sheet = null }) {
@@ -264,7 +300,19 @@ private fun sleepLabel(s: PlayerSnapshot?): String = when {
     else -> stringResource(R.string.audio_sleep)
 }
 
-private fun speedLabel(speed: Float): String = String.format(Locale.ROOT, if (speed * 100 % 10 == 0f) "%.1f×" else "%.2f×", speed)
+private fun speedLabel(speed: Float): String {
+    val rounded = Math.round(speed * 100) / 100f
+    return String.format(Locale.ROOT, if (Math.round(rounded * 100) % 10 == 0) "%.1f×" else "%.2f×", rounded)
+}
+
+/** "3 h 05 min" style length for the time left. */
+@Composable
+private fun duration(ms: Long): String {
+    val minutes = (ms + 59_999) / 60_000
+    val h = (minutes / 60).toInt()
+    val m = (minutes % 60).toInt()
+    return if (h > 0) stringResource(R.string.audio_hours_minutes, h, m) else stringResource(R.string.audio_sleep_minutes, m)
+}
 
 internal fun time(ms: Long): String {
     val total = (ms / 1000).coerceAtLeast(0)

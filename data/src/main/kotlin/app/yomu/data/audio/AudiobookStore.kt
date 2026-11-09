@@ -29,9 +29,11 @@ import okhttp3.Request
 import org.jsoup.Jsoup
 import timber.log.Timber
 import java.io.File
+import java.io.FileInputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
 
 /**
@@ -53,10 +55,32 @@ class AudiobookStore(
         val uri = Uri.parse(book.uri)
         manifest(book)?.let { return@withContext it.tracks }
         if (isFolder(uri)) {
-            return@withContext listFolder(uri).map { (path, track) -> AudioTrack(trackTitle(path), track.toString()) }
+            return@withContext listFolder(uri).map { (path, track) -> withEmbedded(AudioTrack(trackTitle(path), track.toString())) }
                 .ifEmpty { throw AppError.FileMissing(book.uri) }
         }
-        listOf(AudioTrack(book.title, book.uri))
+        listOf(withEmbedded(AudioTrack(book.title, book.uri)))
+    }
+
+    private val embedded = ConcurrentHashMap<String, EmbeddedChapters.Info>()
+
+    /** [track] with the chapters and length stored in its file (M4B chapter tracks, ID3 chapters), when it has them. */
+    private fun withEmbedded(track: AudioTrack): AudioTrack {
+        // Content addresses often hide the file name; only formats known to have no such chapters are skipped.
+        val ext = Uri.decode(track.uri).substringBefore('?').substringAfterLast('/').substringAfterLast('.', "").lowercase()
+        if (ext in AudioFiles.EXTENSIONS && ext !in CHAPTER_EXTENSIONS) return track
+        val info = embedded.getOrPut(track.uri) {
+            runCatching { readEmbedded(Uri.parse(track.uri)) }.onFailure { Timber.d(it, "No embedded chapters") }.getOrNull()
+                ?: EmbeddedChapters.Info(0, emptyList())
+        }
+        return track.copy(durationMs = info.durationMs.takeIf { it > 0 } ?: track.durationMs, chapters = info.chapters)
+    }
+
+    private fun readEmbedded(uri: Uri): EmbeddedChapters.Info? = when (uri.scheme) {
+        "file" -> FileInputStream(uri.path!!).use { EmbeddedChapters.read(it.channel) }
+        "content" -> context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+            FileInputStream(pfd.fileDescriptor).use { EmbeddedChapters.read(it.channel) }
+        }
+        else -> null
     }
 
     fun manifest(book: Book): AudiobookManifest? {
@@ -147,6 +171,11 @@ class AudiobookStore(
             ),
         )
     }
+
+    /** YouTube videos and playlists for words typed instead of a link. */
+    suspend fun searchYouTube(query: String): List<YouTubeResult> = youtube.search(query.trim())
+
+    suspend fun addYouTube(result: YouTubeResult): ImportOutcome = withContext(Dispatchers.IO) { add(youtube(result.ref)) }
 
     private suspend fun youtube(ref: YouTubeRef): AudiobookManifest = try {
         // Mixes ("RD…") are endless generated lists, not books.
@@ -266,6 +295,7 @@ class AudiobookStore(
         private const val MAX_PAGE = 4L * 1024 * 1024
         private const val MAX_ZIP_BYTES = 8L * 1024 * 1024 * 1024
         private val COVER_NAMES = setOf("cover", "folder", "front", "album")
+        private val CHAPTER_EXTENSIONS = setOf("m4b", "m4a", "mp4", "aac", "mp3")
         private val URL = Regex("""https?://[^\s<>"']+""")
 
         fun isManifest(uri: String) = uri.substringBefore('?').endsWith(".${AudiobookManifest.EXTENSION}", ignoreCase = true)

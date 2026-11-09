@@ -32,6 +32,7 @@ data class PlayerSnapshot(
     val speed: Float,
     val sleepAt: Long,
     val sleepEndOfChapter: Boolean,
+    val skipSilence: Boolean,
     val error: String?,
 )
 
@@ -93,6 +94,14 @@ class AudioController(private val context: Context) {
         )
     }
 
+    /** Shortens pauses in the recording (ExoPlayer's silence skipping); kept per book. */
+    fun setSkipSilence(enabled: Boolean) {
+        controller?.sendCustomCommand(
+            SessionCommand(AudioPlaybackService.CMD_SKIP_SILENCE, Bundle.EMPTY),
+            Bundle().apply { putBoolean(AudioPlaybackService.KEY_SKIP_SILENCE, enabled) },
+        )
+    }
+
     /** Ends playback; the position is saved by the service before the playlist is cleared. */
     fun stop() {
         val p = player() ?: return
@@ -134,6 +143,7 @@ class AudioController(private val context: Context) {
             speed = c.playbackParameters.speed,
             sleepAt = extras.getLong(AudioPlaybackService.KEY_SLEEP_AT, 0),
             sleepEndOfChapter = extras.getBoolean(AudioPlaybackService.KEY_SLEEP_CHAPTER, false),
+            skipSilence = extras.getBoolean(AudioPlaybackService.KEY_SKIP_SILENCE, false),
             error = extras.getString(AudioPlaybackService.KEY_ERROR) ?: c.playerError?.let { it.localizedMessage ?: it.errorCodeName },
         )
     }

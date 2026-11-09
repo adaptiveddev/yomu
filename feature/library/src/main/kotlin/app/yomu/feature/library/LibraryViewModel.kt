@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import app.yomu.data.audio.AudiobookStore
+import app.yomu.data.audio.YouTubeResult
 
 /** "Type" options of the library filter: groups of book formats and the online titles. */
 enum class FormatGroup(val formats: Set<BookFormat>) {
@@ -66,6 +67,9 @@ sealed interface ContinueItem {
         override val time: Long get() = entry.lastReadAt
     }
 }
+
+/** A YouTube search started from "Audiobook by link". */
+data class AudioSearch(val query: String, val loading: Boolean = true, val results: List<YouTubeResult> = emptyList(), val error: Throwable? = null)
 
 /**
  * The tab picker of the library: the [books] or the online title [online] it is for, and how many of them each tab
@@ -246,13 +250,48 @@ class LibraryViewModel(
         report(importer.import(uris, link))
     }
 
-    /** A YouTube video or playlist, a podcast feed or an audio link becomes an audiobook, opened right away. */
+    /** A YouTube video or playlist, a podcast feed or an audio link becomes an audiobook, opened right away; words search YouTube. */
     fun addAudioLink(text: String) = viewModelScope.launch(ScreenErrors) {
         if (text.isBlank()) return@launch
+        if (AudiobookStore.extractUrl(text) == null) {
+            searchYouTube(text.trim())
+            return@launch
+        }
         _events.send(LibraryEvent.Message(R.string.library_audio_link_adding))
         val outcome = runCatching { audiobooks.addLink(text) }
             .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
             .getOrElse { ImportOutcome.Failed(text, it) }
+        openOrReport(outcome)
+    }
+
+    private val _audioSearch = MutableStateFlow<AudioSearch?>(null)
+    val audioSearch: StateFlow<AudioSearch?> = _audioSearch
+    private var audioSearchJob: kotlinx.coroutines.Job? = null
+
+    fun searchYouTube(query: String) {
+        audioSearchJob?.cancel()
+        _audioSearch.value = AudioSearch(query)
+        audioSearchJob = viewModelScope.launch {
+            val result = runCatching { audiobooks.searchYouTube(query) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            _audioSearch.value = AudioSearch(query, loading = false, results = result.getOrDefault(emptyList()), error = result.exceptionOrNull())
+        }
+    }
+
+    fun closeAudioSearch() {
+        audioSearchJob?.cancel()
+        _audioSearch.value = null
+    }
+
+    fun addYouTubeResult(result: YouTubeResult) = viewModelScope.launch(ScreenErrors) {
+        closeAudioSearch()
+        _events.send(LibraryEvent.Message(R.string.library_audio_link_adding))
+        val outcome = runCatching { audiobooks.addYouTube(result) }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            .getOrElse { ImportOutcome.Failed(result.title, it) }
+        openOrReport(outcome)
+    }
+
+    private suspend fun openOrReport(outcome: ImportOutcome) {
         val id = (outcome as? ImportOutcome.Added)?.bookId ?: (outcome as? ImportOutcome.Duplicate)?.bookId
         val book = id?.let { books.getBook(it) }
         if (book != null) _events.send(LibraryEvent.OpenBook(book)) else report(listOf(outcome))

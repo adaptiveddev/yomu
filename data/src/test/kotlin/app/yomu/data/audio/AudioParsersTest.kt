@@ -110,4 +110,89 @@ class AudioParsersTest {
         assertEquals(BookFormat.UNKNOWN, FormatDetector.detect(bytes(0, 0, 0, 0x20, "ftypisom", 0, 1, 2, 3), "clip.mp4"))
         assertFalse(FormatDetector.isAudio(bytes(0xFF, 0xFB, 0x90, 0x64), "file.bin"))
     }
+
+    // Shapes below follow live InnerTube answers of 2026-11 (trimmed).
+
+    @Test
+    fun youtubeWatchPageGivesExactChaptersAndDetails() {
+        val page = Json.parseToJsonElement(
+            """
+            {"contents":{"twoColumnWatchNextResults":{"results":{"results":{"contents":[
+              {"videoPrimaryInfoRenderer":{"title":{"runs":[{"text":"The 12 Best Sherlock Holmes Adventures"}]}}},
+              {"videoSecondaryInfoRenderer":{"owner":{"videoOwnerRenderer":{"title":{"runs":[{"text":"Magpie Audio"}]}}},
+                "attributedDescription":{"content":"Timestamps\n0:00 The Speckled Band\n57:32 The Red-Headed League"}}}
+            ]}}}},
+            "playerOverlays":{"playerOverlayRenderer":{"decoratedPlayerBarRenderer":{"decoratedPlayerBarRenderer":{"playerBar":{"multiMarkersPlayerBarRenderer":{"markersMap":[{"value":{"chapters":[
+              {"chapterRenderer":{"title":{"simpleText":"The Speckled Band"},"timeRangeStartMillis":0}},
+              {"chapterRenderer":{"title":{"simpleText":"The Red-Headed League"},"timeRangeStartMillis":3452000}},
+              {"chapterRenderer":{"title":{"simpleText":"The Dancing Men"},"timeRangeStartMillis":6590000}}
+            ]}}]}}}}}},
+            "engagementPanels":[{"macroMarkersListItemRenderer":{"title":{"simpleText":"The Speckled Band"},"timeDescription":{"simpleText":"0:00"}}}]}
+            """,
+        )
+        val info = YouTubeClient.parseNext(page)
+        assertEquals("The 12 Best Sherlock Holmes Adventures", info.title)
+        assertEquals("Magpie Audio", info.author)
+        assertTrue(info.description!!.startsWith("Timestamps"))
+        assertEquals(listOf(0L, 3_452_000L, 6_590_000L), info.chapters.map { it.startMs })
+        assertEquals("The Dancing Men", info.chapters.last().title)
+
+        val listedOnly = Json.parseToJsonElement(
+            """{"x":[
+              {"macroMarkersListItemRenderer":{"title":{"runs":[{"text":"Intro"}]},"timeDescription":{"runs":[{"text":"0:00"}]}}},
+              {"macroMarkersListItemRenderer":{"title":{"simpleText":"Part 2"},"timeDescription":{"simpleText":"1:49:50"}}}
+            ]}""",
+        )
+        assertEquals(listOf(0L, 6_590_000L), YouTubeClient.parseNext(listedOnly).chapters.map { it.startMs })
+    }
+
+    @Test
+    fun youtubeSearchKeepsVideosAndPlaylists() {
+        val page = Json.parseToJsonElement(
+            """
+            {"contents":{"sectionListRenderer":{"contents":[{"itemSectionRenderer":{"contents":[
+              {"videoRenderer":{"videoId":"A4TU2h_rDlM","title":{"runs":[{"text":"Complete Sherlock Holmes"}]},
+                "longBylineText":{"runs":[{"text":"Gates of Imagination"}]},"lengthText":{"simpleText":"65:14:28"}}},
+              {"videoRenderer":{"videoId":"liveliveliv","title":{"runs":[{"text":"Live radio"}]}}},
+              {"lockupViewModel":{"contentId":"PLZrCyG_xOH1jC5siVt75wbGGvPRJleTRy","contentType":"LOCKUP_CONTENT_TYPE_PLAYLIST",
+                "contentImage":{"collectionThumbnailViewModel":{"primaryThumbnail":{"thumbnailViewModel":{"image":{"sources":[{"url":"https://i.ytimg.com/vi/9D0bGia4QrI/hq720.jpg"}]},
+                  "overlays":[{"thumbnailOverlayBadgeViewModel":{"thumbnailBadges":[{"thumbnailBadgeViewModel":{"text":"77 videos"}}]}}]}}}},
+                "metadata":{"lockupMetadataViewModel":{"title":{"content":"Sherlock Holmes - The Complete Canon"},
+                  "metadata":{"contentMetadataViewModel":{"metadataRows":[{"metadataParts":[{"text":{"content":"Magpie Audio"}},{"text":{"content":"Playlist"}}]}]}}}}}},
+              {"shortsLockupViewModel":{"entityId":"shorts"}},
+              {"videoRenderer":{"videoId":"A4TU2h_rDlM","title":{"runs":[{"text":"Duplicate"}]},"lengthText":{"simpleText":"1:00"}}}
+            ]}}]}}}
+            """,
+        )
+        val results = YouTubeClient.parseSearch(page)
+        assertEquals(listOf("A4TU2h_rDlM", "PLZrCyG_xOH1jC5siVt75wbGGvPRJleTRy"), results.map { it.id })
+        val video = results[0]
+        assertEquals(YouTubeResult("A4TU2h_rDlM", false, "Complete Sherlock Holmes", "Gates of Imagination", "65:14:28", YouTubeClient.thumbnail("A4TU2h_rDlM")), video)
+        assertEquals(YouTubeRef("A4TU2h_rDlM", null), video.ref)
+        val list = results[1]
+        assertTrue(list.isPlaylist)
+        assertEquals("Magpie Audio", list.author)
+        assertEquals("77 videos", list.detail)
+        assertEquals("https://i.ytimg.com/vi/9D0bGia4QrI/hq720.jpg", list.thumbnailUrl)
+        assertEquals(YouTubeRef(null, "PLZrCyG_xOH1jC5siVt75wbGGvPRJleTRy"), list.ref)
+    }
+
+    @Test
+    fun youtubePlaylistLockupLengthsComeFromBadges() {
+        val page = Json.parseToJsonElement(
+            """{"x":[{"lockupViewModel":{"contentId":"ddddddddddd","contentType":"LOCKUP_CONTENT_TYPE_VIDEO",
+              "contentImage":{"thumbnailViewModel":{"overlays":[{"thumbnailBottomOverlayViewModel":{"badges":[{"thumbnailBadgeViewModel":{"text":"50:43"}}]}}]}},
+              "metadata":{"lockupMetadataViewModel":{"title":{"content":"A Scandal in Bohemia"}}}}}]}""",
+        )
+        val track = YouTubeClient.parsePlaylistVideos(page).single()
+        assertEquals("A Scandal in Bohemia", track.title)
+        assertEquals(3_043_000L, track.durationMs)
+    }
+
+    @Test
+    fun youtubeStreamExpiry() {
+        assertEquals(1_794_300_000_000L, YouTubeClient.expiresAt("https://rr1---sn-x.googlevideo.com/videoplayback?expire=1794300000&id=1"))
+        assertEquals(1_794_300_000_000L, YouTubeClient.expiresAt("https://manifest.googlevideo.com/api/manifest/hls_variant/expire/1794300000/ei/abc/file/index.m3u8"))
+        assertEquals(0L, YouTubeClient.expiresAt("https://example.com/a.mp3"))
+    }
 }

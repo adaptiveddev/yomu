@@ -207,6 +207,7 @@ fun LibraryScreen(
     val tabPick by viewModel.tabPick.collectAsStateWithLifecycle()
     val incognito by viewModel.incognito.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    val audioSearch by viewModel.audioSearch.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
     val haptic = rememberHaptic()
@@ -510,6 +511,14 @@ fun LibraryScreen(
             label = stringResource(R.string.library_audio_link_hint),
             onConfirm = { viewModel.addAudioLink(it) },
             onDismiss = { showAudioLink = false },
+        )
+    }
+    audioSearch?.let { state ->
+        AudioSearchSheet(
+            state = state,
+            onPick = viewModel::addYouTubeResult,
+            onRetry = { viewModel.searchYouTube(state.query) },
+            onDismiss = viewModel::closeAudioSearch,
         )
     }
     if (showFilters) {

@@ -19,4 +19,10 @@
     <string name="audio_origin_catalog">Catalog</string>
     <string name="audio_origin_podcast">Podcast</string>
     <string name="audio_origin_link">Link</string>
+    <string name="audio_book_left">%1$s left in the book</string>
+    <string name="audio_hours_minutes">%1$d h %2$02d min</string>
+    <string name="audio_speed_down">Slower</string>
+    <string name="audio_speed_up">Faster</string>
+    <string name="audio_skip_silence">Skip silence</string>
+    <string name="audio_skip_silence_hint">Shortens long pauses in the recording</string>
 </resources>
