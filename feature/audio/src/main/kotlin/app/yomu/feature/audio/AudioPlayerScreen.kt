@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -82,7 +84,7 @@ import app.yomu.core.ui.R as CoreR
 private val SPEEDS = listOf(0.75f, 1f, 1.1f, 1.25f, 1.5f, 1.75f, 2f, 2.5f, 3f)
 private val SLEEP_MINUTES = listOf(5, 10, 15, 30, 45, 60, 90)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
     val book by viewModel.book.collectAsStateWithLifecycle()
@@ -179,7 +181,7 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
                 IconButton(onClick = viewModel::next, enabled = s != null) { Icon(Icons.Default.SkipNext, stringResource(R.string.audio_next)) }
             }
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), modifier = Modifier.fillMaxWidth()) {
                 AssistChip(
                     onClick = { sheet = "speed" },
                     label = { Text(speedLabel(s?.speed ?: 1f)) },
@@ -190,14 +192,14 @@ fun AudioPlayerScreen(viewModel: AudioPlayerViewModel, onBack: () -> Unit) {
                     label = { Text(sleepLabel(s)) },
                     leadingIcon = { Icon(Icons.Default.Bedtime, null) },
                 )
+                FilterChip(
+                    selected = s?.skipSilence == true,
+                    onClick = viewModel::toggleSkipSilence,
+                    enabled = s != null,
+                    label = { Text(stringResource(R.string.audio_skip_silence)) },
+                    leadingIcon = { Icon(Icons.Default.GraphicEq, null) },
+                )
             }
-            FilterChip(
-                selected = s?.skipSilence == true,
-                onClick = { viewModel.setSkipSilence(s?.skipSilence != true) },
-                enabled = s != null,
-                label = { Text(stringResource(R.string.audio_skip_silence)) },
-                leadingIcon = { Icon(Icons.Default.GraphicEq, null) },
-            )
             Spacer(Modifier.height(24.dp))
         }
     }

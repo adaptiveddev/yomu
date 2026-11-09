@@ -94,6 +94,7 @@ class AudioController(private val context: Context) {
         )
     }
 
+    /** Shortens pauses in speech; kept per book like the speed. */
     fun setSkipSilence(enabled: Boolean) {
         controller?.sendCustomCommand(
             SessionCommand(AudioPlaybackService.CMD_SKIP_SILENCE, Bundle.EMPTY),

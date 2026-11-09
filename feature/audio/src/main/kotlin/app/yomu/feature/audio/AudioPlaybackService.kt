@@ -170,7 +170,6 @@ class AudioPlaybackService : MediaSessionService() {
                     item(b, i, t, stream)
                 }
                 player.setMediaItems(items, start, position)
-                // Before the speed: its change event saves both settings of the book.
                 player.skipSilenceEnabled = skipSilenceOf(b)
                 player.setPlaybackParameters(PlaybackParameters(speedOf(b)))
                 player.prepare()
@@ -249,17 +248,16 @@ class AudioPlaybackService : MediaSessionService() {
         }
     }
 
-    private fun audioSettings(b: Book): JsonObject? {
-        val text = b.readerSettingsJson ?: return null
-        return runCatching { Json.parseToJsonElement(text).jsonObject["audio"]?.jsonObject }.getOrNull()
-    }
+    /** The book's own player settings (`{"audio": {"speed", "skipSilence"}}` in its reader settings). */
+    private fun audioSettings(b: Book): JsonObject? = runCatching {
+        Json.parseToJsonElement(b.readerSettingsJson ?: return null).jsonObject["audio"]?.jsonObject
+    }.getOrNull()
 
     private fun speedOf(b: Book): Float = audioSettings(b)?.get("speed")?.jsonPrimitive?.floatOrNull?.coerceIn(0.5f, 3f) ?: 1f
 
     private fun skipSilenceOf(b: Book): Boolean = audioSettings(b)?.get("skipSilence")?.jsonPrimitive?.booleanOrNull ?: false
 
-    /** Speed and silence skipping are kept per book. */
-    private fun saveSettings() {
+    private fun saveAudioSettings() {
         val b = book ?: return
         val json = buildJsonObject {
             put("audio", buildJsonObject {
@@ -267,14 +265,13 @@ class AudioPlaybackService : MediaSessionService() {
                 put("skipSilence", player.skipSilenceEnabled)
             })
         }.toString()
-        if (json == b.readerSettingsJson) return
         book = b.copy(readerSettingsJson = json)
         scope.launch(Dispatchers.IO) { books.saveReaderSettings(b.id, json) }
     }
 
     private fun setSkipSilence(enabled: Boolean) {
         player.skipSilenceEnabled = enabled
-        saveSettings()
+        saveAudioSettings()
         publish()
     }
 
@@ -324,7 +321,7 @@ class AudioPlaybackService : MediaSessionService() {
             }
         }
 
-        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) = saveSettings()
+        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) = saveAudioSettings()
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             if (!playWhenReady) {

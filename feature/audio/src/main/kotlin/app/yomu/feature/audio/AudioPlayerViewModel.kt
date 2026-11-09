@@ -118,7 +118,7 @@ class AudioPlayerViewModel(
 
     fun setSpeed(speed: Float) { audio.player()?.setPlaybackSpeed(speed) }
 
-    fun setSkipSilence(enabled: Boolean) = audio.setSkipSilence(enabled)
+    fun toggleSkipSilence() { player.value?.let { audio.setSkipSilence(!it.skipSilence) } }
 
     fun sleep(minutes: Int) = audio.sleep(minutes)
 

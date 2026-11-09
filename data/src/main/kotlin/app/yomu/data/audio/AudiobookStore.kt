@@ -35,6 +35,7 @@ import java.io.FileInputStream
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
 
 /**
@@ -56,24 +57,26 @@ class AudiobookStore(
         val uri = Uri.parse(book.uri)
         manifest(book)?.let { return@withContext it.tracks }
         if (isFolder(uri)) {
-            return@withContext listFolder(uri).map { (path, track) ->
-                // Only M4B parts commonly carry chapters; opening every MP3 of a large folder would be slow.
-                val marks = if (path.endsWith(".m4b", ignoreCase = true)) embeddedChapters(track) else emptyList()
-                AudioTrack(trackTitle(path), track.toString(), chapters = marks)
-            }.ifEmpty { throw AppError.FileMissing(book.uri) }
+            return@withContext listFolder(uri).map { (path, track) -> AudioTrack(trackTitle(path), track.toString(), chapters = chapters(track)) }
+                .ifEmpty { throw AppError.FileMissing(book.uri) }
         }
-        listOf(AudioTrack(book.title, book.uri, chapters = embeddedChapters(uri)))
+        listOf(AudioTrack(book.title, book.uri, chapters = chapters(uri)))
     }
 
-    private fun embeddedChapters(uri: Uri): List<AudioChapter> = runCatching {
-        if (uri.scheme == "file") {
-            FileInputStream(File(uri.path!!)).channel.use(EmbeddedChapters::read)
-        } else {
-            context.contentResolver.openFileDescriptor(uri, "r")?.let { pfd ->
-                ParcelFileDescriptor.AutoCloseInputStream(pfd).channel.use(EmbeddedChapters::read)
-            }.orEmpty()
-        }
-    }.onFailure { Timber.d(it, "No embedded chapters in $uri") }.getOrDefault(emptyList())
+    private val chapterCache = ConcurrentHashMap<String, List<AudioChapter>>()
+
+    /** Chapters embedded in a local audio file (M4B, MP3); remembered, since the player and its screen both ask. */
+    private fun chapters(uri: Uri): List<AudioChapter> = chapterCache.getOrPut(uri.toString()) {
+        runCatching {
+            when (uri.scheme) {
+                "file" -> FileInputStream(File(uri.path!!)).channel.use(EmbeddedChapters::read)
+                "content" -> context.contentResolver.openFileDescriptor(uri, "r")?.let { fd ->
+                    ParcelFileDescriptor.AutoCloseInputStream(fd).channel.use(EmbeddedChapters::read)
+                }.orEmpty()
+                else -> emptyList()
+            }
+        }.onFailure { Timber.d(it, "No embedded chapters in $uri") }.getOrDefault(emptyList())
+    }
 
     fun manifest(book: Book): AudiobookManifest? {
         if (!isManifest(book.uri)) return null
