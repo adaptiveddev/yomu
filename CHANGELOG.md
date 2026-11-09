@@ -23,6 +23,17 @@
   - Predictive back: the screen shrinks away with the gesture. Haptics for switches, stepped sliders and swipe thresholds. One-time hints for multi-select, edge swipes and list swipes.
   - Polish: a fade under the floating navigation bar, a new empty state, icon circles on profile tiles, the dictionary search in the same style as the other search fields, dimmed disabled switches, a label for the password visibility button.
   - Verified with unit and Robolectric screenshot tests only, not on a device.
+- **Navigation and gestures**:
+  - Settings search finds options by name and description (both languages) and shows where each one is; a result opens its section scrolled to the option and briefly highlights it.
+  - Fast scroll in the library grid and list (shown on long libraries): a side thumb with a bubble that follows the sort — first letter, author, month or progress.
+  - Predictive back between tabs: going back to the start tab previews it under the shrinking current tab.
+  - Swipes on library list rows (read/unread, remove with Undo — files are never deleted by a swipe) and on chapter rows (read/unread, delete the download with Undo or queue it).
+  - Haptics when multi-select starts, on bulk actions and when the reader moves to another chapter (the general Haptics switch turns them all off).
+  - Tablets (≥ 840 dp): Settings show the root list with search beside the open section; a source's titles open in a side pane next to its grid.
+  - Book and title pages take their background and accent colours from the cover, not just the header wash.
+  - The text and PDF readers show their real tap zones (and the edge-swipe strips) once on first open, followed by the selection and menu hints.
+  - Accessibility: merged TalkBack descriptions for book tiles, list rows and settings rows; toggle rows exposed as switches/checkboxes; 48 dp touch targets for small icon buttons; heights that grow with large system fonts on headers, chips and badges.
+  - Verified with unit, lint and Robolectric screenshot tests only, not on a device or with TalkBack.
 
 ## 2.0.6 — trackers and PDF reflow (stages 2–3)
 

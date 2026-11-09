@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import app.yomu.core.ui.R
@@ -242,6 +243,7 @@ fun PreferenceItem(title: String, summary: String? = null, icon: ImageVector? = 
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp)
             .then(if (onClick != null && enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .semantics(mergeDescendants = true) {}
             .padding(horizontal = Dimens.l, vertical = Dimens.m),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Dimens.l),

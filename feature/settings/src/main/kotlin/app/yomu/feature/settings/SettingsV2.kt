@@ -52,8 +52,6 @@ import app.yomu.core.common.Share
 import app.yomu.core.ui.R as CoreR
 import app.yomu.core.ui.components.ConfirmDialog
 import app.yomu.core.ui.components.PreferenceHeader
-import app.yomu.core.ui.components.PreferenceItem
-import app.yomu.core.ui.components.PreferenceSwitch
 import app.yomu.core.ui.components.TextInputDialog
 import app.yomu.core.ui.components.navBarBottomPadding
 import app.yomu.core.ui.theme.Dimens

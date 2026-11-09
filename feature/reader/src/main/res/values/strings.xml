@@ -313,4 +313,12 @@
     <string name="rs_brightness_pill">Brightness</string>
     <string name="rs_warm_pill">Warm filter</string>
     <string name="hint_reader_edges">Slide up or down along the left edge to change brightness, along the right edge for the warm filter.</string>
+    <string name="tapzones_prev">Previous page</string>
+    <string name="tapzones_next">Next page</string>
+    <string name="tapzones_menu">Menu</string>
+    <string name="tapzones_edge_brightness">Brightness</string>
+    <string name="tapzones_edge_warm">Warm filter</string>
+    <string name="tapzones_title">Tap zones. Tap anywhere to continue.</string>
+    <string name="reader_autoscroll_slower">Slower</string>
+    <string name="reader_autoscroll_faster">Faster</string>
 </resources>

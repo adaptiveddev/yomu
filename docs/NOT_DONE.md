@@ -33,7 +33,7 @@ Current state as of version 2.0.6 (what changed — [CHANGELOG.md](../CHANGELOG.
 3. **Trackers with real accounts**: MangaUpdates (sign-in, search, binding, chapter/rating sync) and Kitsu (including the privacy flag and dates) — implemented per the services' APIs, verified only on mock servers.
 4. Real files: large PDFs (500+ pages), multi-GB CBZ, 20 MB EPUBs, "broken" files, DRM; different OPDS servers. PDF reflow on real two-column layouts.
 5. Plan targets: cold start < 2 s, a 1000+ book library, memory on large files.
-6. Accessibility: TalkBack, large system fonts, contrast.
+6. Accessibility: TalkBack, large system fonts, contrast. The code pass is done (content descriptions, merged rows, 48 dp targets, text-height fixes); a real TalkBack and fontScale 2.0 run on a device is still pending.
 7. `lint` warnings (0 errors, 64 warnings — style and false positives) and `detekt` (informational).
 
 ### Not implemented from the plan

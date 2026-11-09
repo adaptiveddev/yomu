@@ -42,8 +42,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.yomu.core.ui.components.PreferenceHeader
-import app.yomu.core.ui.components.PreferenceItem
-import app.yomu.core.ui.components.PreferenceSwitch
 import app.yomu.core.ui.theme.Dimens
 import app.yomu.data.work.NotificationLog
 import app.yomu.data.work.NotifyKind

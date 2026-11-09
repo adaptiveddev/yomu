@@ -92,10 +92,7 @@ import app.yomu.core.datastore.AppSettings.Companion.defaultSelectionActions
 import app.yomu.core.ui.components.navBarBottomPadding
 import app.yomu.core.ui.components.ConfirmDialog
 import app.yomu.core.ui.components.EmptyState
-import app.yomu.core.ui.components.PreferenceChoice
 import app.yomu.core.ui.components.PreferenceHeader
-import app.yomu.core.ui.components.PreferenceItem
-import app.yomu.core.ui.components.PreferenceSwitch
 import app.yomu.core.ui.theme.Dimens
 import app.yomu.domain.model.CustomAction
 import app.yomu.domain.model.SelectionAction
@@ -117,7 +114,7 @@ import app.yomu.core.ui.R as CoreR
 
 /** Slider that keeps its value locally while dragging and commits it when the drag ends. */
 @Composable
-internal fun SliderSetting(
+internal fun SliderSettingRow(
     title: String,
     value: Float,
     range: ClosedFloatingPointRange<Float>,

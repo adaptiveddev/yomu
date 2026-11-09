@@ -57,7 +57,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.yomu.core.ui.components.LauncherIconImage
 import app.yomu.core.ui.components.LocalLauncherIcons
 import app.yomu.core.ui.components.PreferenceHeader
-import app.yomu.core.ui.components.PreferenceItem
 import app.yomu.core.ui.components.errorMessage
 import app.yomu.core.ui.theme.Dimens
 import kotlin.math.roundToInt

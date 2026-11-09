@@ -120,6 +120,21 @@ import app.yomu.core.ui.components.ErrorState
 import app.yomu.core.ui.components.SheetTitle
 import app.yomu.core.ui.components.SkeletonList
 import app.yomu.core.ui.components.TextInputDialog
+import app.yomu.core.ui.components.CoverTheme
+import app.yomu.core.ui.components.SwipeAction
+import app.yomu.core.ui.components.SwipeActionsBox
+import app.yomu.core.ui.components.rememberCoverColor
+import app.yomu.core.ui.components.rememberHaptic
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.ScaffoldDefaults
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import app.yomu.core.ui.components.YomuFab
 import app.yomu.core.ui.components.YomuSheet
 import app.yomu.core.ui.theme.Dimens
@@ -159,6 +174,7 @@ import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
@@ -173,8 +189,10 @@ import app.yomu.core.ui.components.animateMotionFloat
 import app.yomu.core.ui.components.motionItem
 import app.yomu.core.ui.components.motionSpec
 
-/** Title page of a manga, web novel or catalog book: details, chapters, downloads. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Title page of a manga, web novel or catalog book: details, chapters, downloads.
+ * [inPane]: shown beside a list on a wide window; the back arrow becomes "close" and the side next to the list takes no insets.
+ */
 @Composable
 fun TitleScreen(
     viewModel: TitleViewModel,
@@ -183,7 +201,26 @@ fun TitleScreen(
     onMigrate: (entryId: Long, title: String) -> Unit,
     onOpenWebView: (String) -> Unit,
     onOpenDownloads: () -> Unit,
+    inPane: Boolean = false,
     onOpenBook: (Long) -> Unit = {},
+) {
+    val cover by viewModel.entry.collectAsStateWithLifecycle()
+    CoverTheme(rememberCoverColor(cover?.coverUrl)) {
+        TitleContent(viewModel, onBack, onReadChapter, onMigrate, onOpenWebView, onOpenDownloads, inPane, onOpenBook)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TitleContent(
+    viewModel: TitleViewModel,
+    onBack: () -> Unit,
+    onReadChapter: (Long) -> Unit,
+    onMigrate: (entryId: Long, title: String) -> Unit,
+    onOpenWebView: (String) -> Unit,
+    onOpenDownloads: () -> Unit,
+    inPane: Boolean,
+    onOpenBook: (Long) -> Unit,
 ) {
     val context = LocalContext.current
     val entry by viewModel.entry.collectAsStateWithLifecycle()
@@ -203,6 +240,10 @@ fun TitleScreen(
     val stats by viewModel.chapterStats.collectAsStateWithLifecycle()
     val warnMobile by viewModel.warnMobileReading.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val haptic = rememberHaptic()
+    val scope = rememberCoroutineScope()
+    val barInsets = if (inPane) WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End) else TopAppBarDefaults.windowInsets
+    val scaffoldInsets = if (inPane) WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.End) else ScaffoldDefaults.contentWindowInsets
     val listState = rememberLazyListState()
     val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
     var mobileAsk by remember { mutableStateOf<Long?>(null) }
@@ -223,15 +264,22 @@ fun TitleScreen(
     val e = entry
     val isBook = e?.type == ContentType.BOOK
     val selecting = selection.isNotEmpty()
+    var wasSelecting by rememberSaveable { mutableStateOf(selecting) }
+    LaunchedEffect(selecting) {
+        if (selecting && !wasSelecting) haptic.perform()
+        wasSelecting = selecting
+    }
     // "Ask before reading online on mobile data": chapters that are not downloaded would be loaded over it.
     val read: (ChapterInfo) -> Unit = { ch ->
         if (warnMobile && !ch.downloaded && TrafficMeter.isMetered()) mobileAsk = ch.id else onReadChapter(ch.id)
     }
 
     Scaffold(
+        contentWindowInsets = scaffoldInsets,
         topBar = {
             if (selecting) {
                 TopAppBar(
+                    windowInsets = barInsets,
                     title = { Text(stringResource(R.string.selected_count, selection.size)) },
                     navigationIcon = { IconButton(onClick = viewModel::clearSelection) { Icon(Icons.Filled.Close, stringResource(CoreR.string.close)) } },
                     actions = {
@@ -257,11 +305,18 @@ fun TitleScreen(
                 )
             } else {
                 TopAppBar(
+                    windowInsets = barInsets,
                     title = { Text(e?.title.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(CoreR.string.back)) } },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            if (inPane) Icon(Icons.Filled.Close, stringResource(CoreR.string.close))
+                            else Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(CoreR.string.back))
+                        }
+                    },
                     actions = {
                         if (e != null) {
                             IconButton(onClick = {
+                                haptic.toggle(!e.favorite)
                                 if (e.favorite) viewModel.setFavorite(false) else if (tabs.isNotEmpty()) pickTabs = true else viewModel.setFavorite(true)
                             }) {
                                 PopIcon(
@@ -282,7 +337,7 @@ fun TitleScreen(
                                         DropdownMenuItem(
                                             text = { Text(pluralStringResource(R.plurals.download_next, n, n)) },
                                             leadingIcon = { Icon(if (n == 1) Icons.Filled.Download else Icons.Outlined.FastForward, null) },
-                                            onClick = { showDownloadMenu = false; viewModel.downloadNext(n) },
+                                            onClick = { showDownloadMenu = false; haptic.confirm(); viewModel.downloadNext(n) },
                                         )
                                     }
                                     DropdownMenuItem(
@@ -293,18 +348,18 @@ fun TitleScreen(
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.download_unread)) },
                                         leadingIcon = { Icon(Icons.Filled.RemoveDone, null) },
-                                        onClick = { showDownloadMenu = false; viewModel.downloadUnread() },
+                                        onClick = { showDownloadMenu = false; haptic.confirm(); viewModel.downloadUnread() },
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.download_all)) },
                                         leadingIcon = { Icon(Icons.Outlined.CloudDownload, null) },
-                                        onClick = { showDownloadMenu = false; viewModel.downloadAll() },
+                                        onClick = { showDownloadMenu = false; haptic.confirm(); viewModel.downloadAll() },
                                     )
                                     HorizontalDivider()
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.download_delete_read)) },
                                         leadingIcon = { Icon(Icons.Filled.DeleteSweep, null) },
-                                        onClick = { showDownloadMenu = false; viewModel.deleteReadDownloads() },
+                                        onClick = { showDownloadMenu = false; haptic.confirm(); viewModel.deleteReadDownloads() },
                                     )
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.download_delete_all)) },
@@ -365,21 +420,21 @@ fun TitleScreen(
                 val selected = chapters.orEmpty().filter { it.id in selection }
                 BottomAppBar {
                     val allRead = selected.all { it.read }
-                    IconButton(onClick = { viewModel.setRead(selection, !allRead) }) {
+                    IconButton(onClick = { haptic.confirm(); viewModel.setRead(selection, !allRead) }) {
                         Icon(if (allRead) Icons.Filled.RemoveDone else Icons.Filled.DoneAll, stringResource(if (allRead) R.string.mark_unread else R.string.mark_read))
                     }
                     val allBookmarked = selected.all { it.bookmarked }
-                    IconButton(onClick = { viewModel.setBookmarked(selection, !allBookmarked) }) {
+                    IconButton(onClick = { haptic.confirm(); viewModel.setBookmarked(selection, !allBookmarked) }) {
                         Icon(if (allBookmarked) Icons.Filled.BookmarkBorder else Icons.Filled.Bookmark, stringResource(if (allBookmarked) R.string.unbookmark else R.string.bookmark))
                     }
-                    IconButton(onClick = { viewModel.download(selection) }) { Icon(Icons.Filled.Download, stringResource(R.string.download)) }
+                    IconButton(onClick = { haptic.confirm(); viewModel.download(selection) }) { Icon(Icons.Filled.Download, stringResource(R.string.download)) }
                     if (selected.any { it.downloaded }) {
-                        IconButton(onClick = { viewModel.deleteDownloads(selection.filter { id -> selected.any { it.id == id && it.downloaded } }) }) {
+                        IconButton(onClick = { haptic.confirm(); viewModel.deleteDownloads(selection.filter { id -> selected.any { it.id == id && it.downloaded } }) }) {
                             Icon(Icons.Filled.Delete, stringResource(R.string.delete_download))
                         }
                     }
                     if (selected.size == 1) {
-                        TextButton(onClick = { viewModel.markPreviousRead(selected.first()); viewModel.clearSelection() }) {
+                        TextButton(onClick = { haptic.confirm(); viewModel.markPreviousRead(selected.first()); viewModel.clearSelection() }) {
                             Text(stringResource(R.string.mark_previous_read))
                         }
                     }
@@ -414,6 +469,7 @@ fun TitleScreen(
                         horizontalArrangement = Arrangement.spacedBy(Dimens.s),
                     ) {
                         FilledTonalButton(onClick = {
+                            haptic.toggle(!e.favorite)
                             if (e.favorite) viewModel.setFavorite(false) else if (tabs.isNotEmpty()) pickTabs = true else viewModel.setFavorite(true)
                         }) {
                             PopIcon(e.favorite, Icons.Filled.Favorite, Icons.Filled.FavoriteBorder, null, Modifier.size(18.dp))
@@ -508,6 +564,34 @@ fun TitleScreen(
                             Text(stringResource(R.string.chapters_empty), modifier = Modifier.padding(Dimens.l), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         else -> items(list, key = { it.id }) { ch ->
+                            val markLabel = stringResource(if (ch.read) R.string.mark_unread else R.string.mark_read)
+                            val deleteLabel = stringResource(R.string.delete_download)
+                            val deletedText = stringResource(R.string.title_downloads_deleted)
+                            val undoLabel = stringResource(CoreR.string.undo)
+                            val scheme = MaterialTheme.colorScheme
+                            SwipeActionsBox(
+                                modifier = motionItem(),
+                                enabled = !selecting,
+                                start = SwipeAction.neutral(if (ch.read) Icons.Filled.RemoveDone else Icons.Filled.DoneAll, markLabel) {
+                                    haptic.confirm()
+                                    viewModel.setRead(listOf(ch.id), !ch.read)
+                                },
+                                end = when {
+                                    ch.downloaded -> SwipeAction(Icons.Filled.Delete, deleteLabel, scheme.errorContainer, scheme.onErrorContainer) {
+                                        // Files go only once the snackbar closes without "Undo".
+                                        haptic.confirm()
+                                        scope.launch {
+                                            val r = snackbar.showSnackbar(deletedText, undoLabel, duration = SnackbarDuration.Long)
+                                            if (r != SnackbarResult.ActionPerformed) viewModel.deleteDownloads(listOf(ch.id), notify = false)
+                                        }
+                                    }
+                                    pending == null -> SwipeAction.neutral(Icons.Filled.Download, stringResource(R.string.download)) {
+                                        haptic.confirm()
+                                        viewModel.download(listOf(ch.id))
+                                    }
+                                    else -> null
+                                },
+                            ) {
                             ChapterRow(
                                 chapter = ch,
                                 number = stats.positions[ch.id],
@@ -518,8 +602,8 @@ fun TitleScreen(
                                 onLongClick = { viewModel.toggleSelect(ch.id) },
                                 onDownload = { viewModel.download(listOf(ch.id)) },
                                 onDelete = { viewModel.deleteDownloads(listOf(ch.id)) },
-                                modifier = motionItem(),
                             )
+                            }
                         }
                     }
                 }
@@ -578,7 +662,7 @@ fun TitleScreen(
             title = stringResource(R.string.download_delete_all),
             text = stringResource(R.string.download_delete_all_confirm),
             confirmLabel = stringResource(CoreR.string.delete),
-            onConfirm = viewModel::deleteAllDownloads,
+            onConfirm = { haptic.confirm(); viewModel.deleteAllDownloads() },
             onDismiss = { confirmDeleteAll = false },
         )
     }
@@ -901,11 +985,11 @@ private fun ChapterRow(
             MotionContent(state, label = "chapter-download") { st ->
                 when (st) {
                     RowDownload.FAILED -> IconButton(onClick = onDownload) { Icon(Icons.Filled.ErrorOutline, stringResource(CoreR.string.retry), tint = MaterialTheme.colorScheme.error) }
-                    RowDownload.RUNNING -> Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                    RowDownload.RUNNING -> Box(Modifier.size(Dimens.touch), contentAlignment = Alignment.Center) {
                         val progress by animateMotionFloat(pending?.progress ?: 0f, label = "chapter-progress")
                         CircularProgressIndicator(progress = { progress }, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     }
-                    RowDownload.QUEUED -> Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Downloading, stringResource(R.string.download_queued)) }
+                    RowDownload.QUEUED -> Box(Modifier.size(Dimens.touch), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Downloading, stringResource(R.string.download_queued)) }
                     RowDownload.DONE -> IconButton(onClick = onDelete) { Icon(Icons.Filled.DownloadDone, stringResource(R.string.delete_download), tint = MaterialTheme.colorScheme.primary) }
                     RowDownload.NONE -> IconButton(onClick = onDownload) { Icon(Icons.Filled.Download, stringResource(R.string.download)) }
                 }
@@ -938,7 +1022,7 @@ private fun ChapterNumber(number: Int?, selected: Boolean, fresh: Boolean, width
         else -> scheme.onSurfaceVariant
     }
     Box(
-        Modifier.widthIn(min = width).height(32.dp).clip(MaterialTheme.shapes.small).background(background).padding(horizontal = 6.dp),
+        Modifier.widthIn(min = width).heightIn(min = 32.dp).clip(MaterialTheme.shapes.small).background(background).padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         MotionContent(selected, label = "number") { sel ->

@@ -73,8 +73,23 @@ private class ZoneGrid(val cols: Int, val rows: Int, layout: TapZoneLayout, inve
 
 /** Full screen hint over the pages: which part of the screen goes back, forward or opens the menu. */
 @Composable
-internal fun TapZonesOverlay(layout: TapZoneLayout, inverted: Boolean, rtl: Boolean, modifier: Modifier = Modifier) {
-    val grid = remember(layout, inverted, rtl) { ZoneGrid(40, 60, layout, inverted, rtl) }
+fun TapZonesOverlay(
+    layout: TapZoneLayout,
+    inverted: Boolean,
+    rtl: Boolean,
+    modifier: Modifier = Modifier,
+    sideFraction: Float = 0.4f,
+    label: @Composable (TapAction) -> String = {
+        stringResource(
+            when (it) {
+                TapAction.PREV -> R.string.manga_tap_prev
+                TapAction.NEXT -> R.string.manga_tap_next
+                TapAction.MENU -> R.string.manga_tap_menu
+            },
+        )
+    },
+) {
+    val grid = remember(layout, inverted, rtl, sideFraction) { ZoneGrid(40, 60, layout, inverted, rtl, sideFraction) }
     val labels = remember(grid) { grid.labels() }
     Box(modifier.fillMaxSize()) {
         Canvas(Modifier.fillMaxSize()) {
@@ -98,13 +113,7 @@ internal fun TapZonesOverlay(layout: TapZoneLayout, inverted: Boolean, rtl: Bool
         }
         labels.forEach { (action, fx, fy) ->
             Text(
-                stringResource(
-                    when (action) {
-                        TapAction.PREV -> R.string.manga_tap_prev
-                        TapAction.NEXT -> R.string.manga_tap_next
-                        TapAction.MENU -> R.string.manga_tap_menu
-                    },
-                ),
+                label(action),
                 color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.centerAt(fx, fy)

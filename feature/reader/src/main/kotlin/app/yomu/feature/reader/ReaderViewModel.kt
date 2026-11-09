@@ -255,6 +255,7 @@ class ReaderViewModel(
     // ------------------------------------------------------------------ online chapters
     private var chapters: List<ChapterInfo> = emptyList()
     private val _chapterId = MutableStateFlow(args.chapterId)
+    val chapterId: StateFlow<Long> = _chapterId
     val hasPrevChapter = MutableStateFlow(false)
     val hasNextChapter = MutableStateFlow(false)
     private var onlineType: ContentType = ContentType.MANGA

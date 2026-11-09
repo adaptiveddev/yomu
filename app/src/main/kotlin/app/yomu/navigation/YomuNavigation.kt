@@ -273,6 +273,8 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
             onOpenStats = { nav.navigate(StatsRoute) },
         )
         screen<HomeRoute> {
+            val wide = LocalConfiguration.current.screenWidthDp >= TWO_PANE_MIN_WIDTH_DP
+            var settingsPane by rememberSaveable { mutableStateOf(SettingsSection.APPEARANCE.name) }
             TabsHost(tabs, reduceMotion) { tab ->
                 CompositionLocalProvider(LocalNavBarInset provides LocalTabBarInset.current) {
                     when (tab) {
@@ -285,7 +287,14 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
                             onBookDetails = { nav.navigate(BookDetailsRoute(it)) },
                             onReadChapter = { nav.navigate(ReaderRoute(chapterId = it)) },
                             onOpenTitle = { nav.navigate(TitleRoute(it)) },
-                            onOpenSettings = { section -> nav.navigate(SettingsSectionRoute(section.name)) },
+                            onOpenSettings = { section ->
+                                if (wide) {
+                                    settingsPane = section.name
+                                    tabs.select(TopLevel.SETTINGS)
+                                } else {
+                                    nav.navigate(SettingsSectionRoute(section.name))
+                                }
+                            },
                         )
                         TopLevel.CATALOG -> CatalogScreen(
                             viewModel = koinViewModel(),
@@ -303,7 +312,15 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
                             onStartReview = { nav.navigate(ReviewRoute) },
                             onOpenBook = { id, locator, reference -> nav.navigate(ReaderRoute(bookId = id, locator = locator?.toJson(), positionReference = reference)) },
                         )
-                        TopLevel.SETTINGS -> SettingsScreen(viewModel = koinViewModel(), links = settingsLinks)
+                        TopLevel.SETTINGS -> if (wide) {
+                            SettingsTwoPane(
+                                selected = SettingsSection.entries.firstOrNull { it.name == settingsPane } ?: SettingsSection.APPEARANCE,
+                                onSelect = { settingsPane = it.name },
+                                links = settingsLinks,
+                            )
+                        } else {
+                            SettingsScreen(viewModel = koinViewModel(), links = settingsLinks)
+                        }
                     }
                 }
             }
@@ -394,17 +411,42 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
         // ---------------------------------------------------------------- catalog
         screen<SourceRoute> { entry ->
             val r = entry.toRoute<SourceRoute>()
-            SourceBrowseScreen(
-                viewModel = koinViewModel<SourceBrowseViewModel> { parametersOf(BrowseArgs(r.sourceId, r.query, r.navUrl, r.navTitle, r.tab)) },
-                onBack = back,
-                onOpenTitle = { nav.navigate(TitleRoute(it)) },
-                onOpenNavigation = { sourceId, url, title -> nav.navigate(SourceRoute(sourceId, navUrl = url, navTitle = title)) },
-                onOpenWebView = { nav.navigate(WebViewRoute(it)) },
-                // Another language of the source takes the place of this one: Back still leads to the catalog.
-                onSwitchSource = { sourceId, query, tab ->
-                    nav.navigate(SourceRoute(sourceId, query = query, tab = tab)) { popUpTo<SourceRoute> { inclusive = true } }
-                },
-            )
+            // Wide windows keep the grid and show the tapped title in a pane beside it.
+            val twoPane = LocalConfiguration.current.screenWidthDp >= 840
+            var paneTitle by rememberSaveable { mutableStateOf<Long?>(null) }
+            val pane = paneTitle
+            Row(Modifier.fillMaxSize()) {
+                Box(Modifier.weight(1f).fillMaxSize()) {
+                    SourceBrowseScreen(
+                        viewModel = koinViewModel<SourceBrowseViewModel> { parametersOf(BrowseArgs(r.sourceId, r.query, r.navUrl, r.navTitle, r.tab)) },
+                        onBack = back,
+                        onOpenTitle = { if (twoPane) paneTitle = it else nav.navigate(TitleRoute(it)) },
+                        onOpenNavigation = { sourceId, url, title -> nav.navigate(SourceRoute(sourceId, navUrl = url, navTitle = title)) },
+                        onOpenWebView = { nav.navigate(WebViewRoute(it)) },
+                        // Another language of the source takes the place of this one: Back still leads to the catalog.
+                        onSwitchSource = { sourceId, query, tab ->
+                            nav.navigate(SourceRoute(sourceId, query = query, tab = tab)) { popUpTo<SourceRoute> { inclusive = true } }
+                        },
+                    )
+                }
+                if (twoPane && pane != null) {
+                    VerticalDivider()
+                    key(pane) {
+                        Box(Modifier.width(440.dp).fillMaxSize()) {
+                            TitleScreen(
+                                viewModel = koinViewModel(key = "pane-$pane") { parametersOf(pane) },
+                                onBack = { paneTitle = null },
+                                onReadChapter = { nav.navigate(ReaderRoute(chapterId = it)) },
+                                onMigrate = { id, title -> nav.navigate(GlobalSearchRoute(query = title, migrateFrom = id)) },
+                                onOpenWebView = { nav.navigate(WebViewRoute(it)) },
+                                onOpenDownloads = { nav.navigate(DownloadsRoute) },
+                                inPane = true,
+                                onOpenBook = { nav.navigate(ReaderRoute(bookId = it)) },
+                            )
+                        }
+                    }
+                }
+            }
         }
         screen<GlobalSearchRoute> { entry ->
             val r = entry.toRoute<GlobalSearchRoute>()

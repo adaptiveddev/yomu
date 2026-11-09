@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -369,7 +370,7 @@ private fun SplitDialog(viewModel: EditorViewModel, chapter: EditorChapter, onDi
                 LazyColumn(Modifier.heightIn(max = 380.dp)) {
                     items(list, key = { it.index }) { b ->
                         Row(
-                            Modifier.fillMaxWidth().clickable { checked = if (b.index in checked) checked - b.index else checked + b.index },
+                            Modifier.fillMaxWidth().toggleable(value = b.index in checked, role = Role.Checkbox) { checked = if (b.index in checked) checked - b.index else checked + b.index },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Checkbox(checked = b.index in checked, onCheckedChange = null, modifier = Modifier.padding(8.dp))
@@ -887,9 +888,9 @@ private fun TranslateDialog(viewModel: EditorViewModel, s: EpubState, preselecte
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(target, { target = it }, label = { Text(stringResource(R.string.editor_translate_target)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.toggleable(value = bilingual, role = Role.Switch) { bilingual = it }, verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.editor_translate_bilingual), modifier = Modifier.weight(1f))
-                    Switch(bilingual, { bilingual = it })
+                    Switch(bilingual, null)
                 }
                 TranslateModeRow(
                     selected = !inDraft,

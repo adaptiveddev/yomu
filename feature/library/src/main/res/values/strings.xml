@@ -178,4 +178,6 @@
     <string name="library_no_scan_folders">No scan folders yet: add one from the import menu</string>
     <string name="library_up_to_date">Library is up to date</string>
     <string name="hint_library_select">Long-press a book to select several at once. Pull down to rescan your folders.</string>
+    <string name="library_remove_book">Remove from library</string>
+    <string name="library_fast_scroll">Fast scroll</string>
 </resources>

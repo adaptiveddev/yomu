@@ -8,6 +8,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -473,8 +475,8 @@ private fun CropDialog(viewModel: EditorViewModel, s: MangaState, selection: Set
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                    Checkbox(checked = autoEach, onCheckedChange = { autoEach = it })
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp).toggleable(value = autoEach, role = Role.Checkbox) { autoEach = it }) {
+                    Checkbox(checked = autoEach, onCheckedChange = null, modifier = Modifier.padding(12.dp))
                     Text(stringResource(R.string.editor_auto_crop_each), style = MaterialTheme.typography.bodyMedium)
                 }
                 if (!autoEach) {
@@ -540,9 +542,9 @@ private fun AdjustDialog(viewModel: EditorViewModel, s: MangaState, selection: S
                 AdjustSlider(stringResource(R.string.editor_contrast), a.contrast, 0.5f..2f, "%.0f%%".format(a.contrast * 100)) { a = a.copy(contrast = it) }
                 AdjustSlider(stringResource(R.string.editor_black_point), a.blackPoint, 0f..0.45f, "%.0f%%".format(a.blackPoint * 100)) { a = a.copy(blackPoint = it) }
                 AdjustSlider(stringResource(R.string.editor_white_point), a.whitePoint, 0.55f..1f, "%.0f%%".format(a.whitePoint * 100)) { a = a.copy(whitePoint = it) }
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().toggleable(value = a.grayscale, role = Role.Switch) { a = a.copy(grayscale = it) }) {
                     Text(stringResource(R.string.editor_grayscale), Modifier.weight(1f))
-                    Switch(checked = a.grayscale, onCheckedChange = { a = a.copy(grayscale = it) })
+                    Switch(checked = a.grayscale, onCheckedChange = null)
                 }
                 TextButton(onClick = { a = Adjust() }, enabled = !a.isIdentity) { Text(stringResource(R.string.editor_reset)) }
             }
@@ -645,12 +647,12 @@ private fun ComicInfoDialog(info: ComicInfo, onSave: (ComicInfo) -> Unit, onDism
                     )
                 }
                 OutlinedTextField(summary, { summary = it }, label = { Text(stringResource(R.string.editor_meta_description)) }, minLines = 3, modifier = Modifier.fillMaxWidth())
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().toggleable(value = manga, role = Role.Switch) { manga = it }) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.editor_rtl))
                         Text(stringResource(R.string.editor_rtl_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Switch(checked = manga, onCheckedChange = { manga = it })
+                    Switch(checked = manga, onCheckedChange = null)
                 }
             }
         },
