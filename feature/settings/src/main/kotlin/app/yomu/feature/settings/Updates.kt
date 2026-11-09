@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -147,12 +149,19 @@ object UpdateChecker {
     private const val TIMEOUT_MS = 10_000
 }
 
+/** Runs the APK download outside the screens' lifetime: it goes on when the app is left or its process is restarted. */
+interface UpdateBackground {
+    fun start(release: ReleaseInfo)
+    fun cancel()
+}
+
 /**
  * Updates of the app from GitHub Releases. Checking is one anonymous request: when the user taps "Check for updates",
  * or once a day at start if they turned that on (off by default, the app goes online only when asked). The APK built
  * for this device is downloaded into the cache, its SHA-256 is compared with SHA256SUMS.txt of the release, and the
  * system installer takes over; Android itself only accepts an update signed with the same key.
- * One instance for the app, so a download goes on when the user leaves the settings.
+ * One instance for the app. With a [background] runner (the app's, see [UpdateDownloadWorker]) the download survives
+ * leaving the app; without one (tests) it runs in this object's scope.
  */
 class AppUpdates(
     private val context: Context,
@@ -164,6 +173,7 @@ class AppUpdates(
         context.startActivity(UpdateDownloader.installIntent(context, file))
     },
     private val now: () -> Long = System::currentTimeMillis,
+    private val background: UpdateBackground? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var job: Job? = null
@@ -224,25 +234,85 @@ class AppUpdates(
         _dialog.value = null
         if (release.apkUrl == null || _state.value is UpdateState.Downloading) return
         _state.value = UpdateState.Downloading(release, null)
+        val bg = background
+        if (bg != null) {
+            savePending(release)
+            bg.start(release)
+            return
+        }
         job = scope.launch {
-            val result = try {
-                val file = downloader(release, UpdateDownloader.dir(context)) { p -> _state.value = UpdateState.Downloading(release, p) }
-                UpdateState.ReadyToInstall(release, file)
-            } catch (e: CancellationException) {
-                _state.value = UpdateState.Available(release)
-                throw e
-            } catch (e: Exception) {
-                Timber.w(e, "Update download failed")
-                UpdateState.Failed(e, release)
-            }
-            _state.value = result
+            val result = runDownload(release)
             if (result is UpdateState.ReadyToInstall) ContextCompat.getMainExecutor(context).execute { install(result.file) }
         }
     }
 
-    fun cancelDownload() {
-        if (_state.value is UpdateState.Downloading) job?.cancel()
+    /** One download attempt of [release]; the state follows it. [onProgress] also gets every progress step. */
+    suspend fun runDownload(release: ReleaseInfo, onProgress: (Float?) -> Unit = {}): UpdateState {
+        _state.value = UpdateState.Downloading(release, (_state.value as? UpdateState.Downloading)?.progress)
+        val result = try {
+            val file = downloader(release, UpdateDownloader.dir(context)) { p ->
+                _state.value = UpdateState.Downloading(release, p)
+                onProgress(p)
+            }
+            UpdateState.ReadyToInstall(release, file)
+        } catch (e: CancellationException) {
+            _state.value = UpdateState.Available(release)
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "Update download failed")
+            UpdateState.Failed(e, release)
+        }
+        _state.value = result
+        return result
     }
+
+    /** Between two attempts of a background download (waiting for the network): still "downloading" for the user. */
+    fun waitingToRetry(release: ReleaseInfo) {
+        _state.value = UpdateState.Downloading(release, null)
+    }
+
+    fun cancelDownload() {
+        val s = _state.value as? UpdateState.Downloading ?: return
+        val bg = background
+        if (bg != null) {
+            bg.cancel()
+            clearPending()
+            _state.value = UpdateState.Available(s.release)
+        } else {
+            job?.cancel()
+        }
+    }
+
+    /** The release a background download works on; kept on disk so a restarted process resumes the same one. */
+    fun pendingRelease(): ReleaseInfo? = runCatching {
+        val o = Json.parseToJsonElement(pendingFile().takeIf { it.isFile }?.readText() ?: return null).jsonObject
+        ReleaseInfo(
+            version = o["version"]!!.jsonPrimitive.content,
+            pageUrl = o["pageUrl"]!!.jsonPrimitive.content,
+            apkUrl = o["apkUrl"]?.jsonPrimitive?.contentOrNull,
+            apkSize = o["apkSize"]?.jsonPrimitive?.longOrNull ?: 0,
+            checksumsUrl = o["checksumsUrl"]?.jsonPrimitive?.contentOrNull,
+            notes = o["notes"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        )
+    }.getOrNull()
+
+    fun clearPending() {
+        pendingFile().delete()
+    }
+
+    private fun savePending(release: ReleaseInfo) {
+        val o = buildJsonObject {
+            put("version", release.version)
+            put("pageUrl", release.pageUrl)
+            put("apkUrl", release.apkUrl)
+            put("apkSize", release.apkSize)
+            put("checksumsUrl", release.checksumsUrl)
+            put("notes", release.notes)
+        }
+        runCatching { pendingFile().writeText(o.toString()) }.onFailure { Timber.w(it, "Could not save the pending update") }
+    }
+
+    private fun pendingFile() = File(context.noBackupFilesDir, "update-pending.json")
 
     /** Opens the system installer; Android asks once to allow installing apps from Yomu. */
     fun install(file: File) {

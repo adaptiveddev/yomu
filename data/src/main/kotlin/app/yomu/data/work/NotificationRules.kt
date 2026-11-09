@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
 /** What a notification is about; each kind can be switched off in Settings → Notifications. */
-enum class NotifyKind { NEW_CHAPTERS, DOWNLOADS, SYNC, BACKUP, TASKS, REMINDERS }
+enum class NotifyKind { NEW_CHAPTERS, DOWNLOADS, SYNC, BACKUP, TASKS, REMINDERS, APP_UPDATE }
 
 /**
  * The user's notification settings. [quietFrom]..[quietTo] are hours (0–23); the range may cross midnight.

@@ -578,6 +578,12 @@
     <string name="set_notify_tasks_sum">Book translation and other long tasks</string>
     <string name="set_notify_reminders">Review reminders</string>
     <string name="set_notify_reminders_sum">The daily reminder to review words (its time is in Translation and dictionary)</string>
+    <string name="set_notify_app_update">App updates</string>
+    <string name="set_notify_app_update_sum">A downloaded update of Yomu is ready to install, or its download failed</string>
+    <string name="notif_update_downloading">Downloading Yomu %1$s</string>
+    <string name="notif_update_ready">Yomu %1$s is ready to install</string>
+    <string name="notif_update_ready_text">Tap to install the update</string>
+    <string name="notif_update_failed">Yomu %1$s could not be downloaded</string>
     <string name="set_notify_quiet">Quiet hours</string>
     <string name="set_notify_quiet_on">Quiet hours</string>
     <string name="set_notify_quiet_sum">Notifications arrive without sound or vibration at night</string>

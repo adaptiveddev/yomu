@@ -46,6 +46,7 @@ object Notifications {
     const val BACKUP = "backup"
     const val REMINDERS = "reminders"
     const val TASKS = "tasks"
+    const val APP_UPDATE = "app_update"
 
     const val ID_DOWNLOAD = 1001
     const val ID_UPDATES = 1002
@@ -57,6 +58,8 @@ object Notifications {
     const val ID_DOWNLOAD_DONE = 1008
     const val ID_SYNC = 1009
     const val ID_TEST = 1010
+    const val ID_APP_UPDATE_PROGRESS = 1011
+    const val ID_APP_UPDATE = 1012
 
     /** Intent action of the notifications that open the download queue (handled by the app's main activity). */
     const val ACTION_OPEN_DOWNLOADS = "app.yomu.action.OPEN_DOWNLOADS"
@@ -68,9 +71,9 @@ object Notifications {
         val nm = context.getSystemService(NotificationManager::class.java)
         listOf(
             DOWNLOADS to R.string.channel_downloads, UPDATES to R.string.channel_updates, BACKUP to R.string.channel_backup,
-            REMINDERS to R.string.channel_reminders, TASKS to R.string.channel_tasks,
+            REMINDERS to R.string.channel_reminders, TASKS to R.string.channel_tasks, APP_UPDATE to R.string.channel_app_update,
         ).forEach { (id, name) ->
-            val importance = if (id == UPDATES || id == REMINDERS) NotificationManager.IMPORTANCE_DEFAULT else NotificationManager.IMPORTANCE_LOW
+            val importance = if (id == UPDATES || id == REMINDERS || id == APP_UPDATE) NotificationManager.IMPORTANCE_DEFAULT else NotificationManager.IMPORTANCE_LOW
             nm.createNotificationChannel(NotificationChannel(id, context.getString(name), importance))
         }
     }
@@ -117,12 +120,17 @@ object Notifications {
         }
     }
 
+    fun cancel(context: Context, id: Int) {
+        runCatching { NotificationManagerCompat.from(context).cancel(id) }
+    }
+
     /** The kind of a notification posted on [channel] when the caller does not say. */
     private fun kindOf(channel: String?): NotifyKind = when (channel) {
         DOWNLOADS -> NotifyKind.DOWNLOADS
         UPDATES -> NotifyKind.NEW_CHAPTERS
         BACKUP -> NotifyKind.BACKUP
         REMINDERS -> NotifyKind.REMINDERS
+        APP_UPDATE -> NotifyKind.APP_UPDATE
         else -> NotifyKind.TASKS
     }
 

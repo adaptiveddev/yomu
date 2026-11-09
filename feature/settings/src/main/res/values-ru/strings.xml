@@ -582,6 +582,12 @@
     <string name="set_notify_tasks_sum">Перевод книги и другие долгие задачи</string>
     <string name="set_notify_reminders">Напоминаниях о повторении</string>
     <string name="set_notify_reminders_sum">Ежедневное напоминание повторить слова (время — в разделе «Перевод и словарь»)</string>
+    <string name="set_notify_app_update">Обновлениях приложения</string>
+    <string name="set_notify_app_update_sum">Скачанное обновление Yomu готово к установке или его не удалось скачать</string>
+    <string name="notif_update_downloading">Скачивается Yomu %1$s</string>
+    <string name="notif_update_ready">Yomu %1$s готова к установке</string>
+    <string name="notif_update_ready_text">Нажмите, чтобы установить обновление</string>
+    <string name="notif_update_failed">Не удалось скачать Yomu %1$s</string>
     <string name="set_notify_quiet">Тихие часы</string>
     <string name="set_notify_quiet_on">Тихие часы</string>
     <string name="set_notify_quiet_sum">Ночью уведомления приходят без звука и вибрации</string>

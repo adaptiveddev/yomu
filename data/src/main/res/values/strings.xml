@@ -5,6 +5,7 @@
     <string name="channel_backup">Backup and sync</string>
     <string name="channel_reminders">Vocabulary reminders</string>
     <string name="channel_tasks">Background tasks</string>
+    <string name="channel_app_update">App updates</string>
     <string name="notif_downloading">Downloading</string>
     <string name="notif_checking_updates">Checking for new chapters</string>
     <string name="notif_new_chapters">New chapters</string>
