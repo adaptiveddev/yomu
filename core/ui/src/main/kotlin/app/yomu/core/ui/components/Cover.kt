@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -117,6 +118,10 @@ fun BookGridItem(
         modifier
             .clip(MaterialTheme.shapes.small)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .semantics(mergeDescendants = true) {
+                contentDescription = listOfNotNull(title, subtitle?.takeIf { it.isNotBlank() }, badge).joinToString(", ")
+                this.selected = selected
+            }
             .padding(Dimens.xs),
     ) {
         Box {
@@ -180,7 +185,10 @@ fun BookListItem(
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .heightIn(min = Dimens.touch)
             .padding(horizontal = Dimens.l, vertical = Dimens.s)
-            .semantics { contentDescription = title },
+            .semantics(mergeDescendants = true) {
+                contentDescription = listOfNotNull(title, subtitle?.takeIf { it.isNotBlank() }, meta?.takeIf { it.isNotBlank() }).joinToString(", ")
+                this.selected = selected
+            },
         horizontalArrangement = Arrangement.spacedBy(Dimens.m),
         verticalAlignment = Alignment.CenterVertically,
     ) {

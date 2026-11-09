@@ -2,7 +2,9 @@ package app.yomu.navigation
 
 import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.OnBackPressedDispatcherOwner
+import androidx.activity.BackEventCompat
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -17,6 +19,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,7 +32,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -92,6 +100,10 @@ private const val SWITCH_MS = 280
 private const val OUT_PART = 0.35f
 private const val IN_DELAY = 0.15f
 private const val IN_SCALE = 0.965f
+private const val BACK_SETTLE_MS = 160
+private const val BACK_SHIFT = 24
+private const val BACK_PEEK_SCALE = 0.94f
+private const val BACK_CARD_SHRINK = 0.1f
 
 /**
  * The top-level tabs inside one destination (1.9.0).
@@ -120,13 +132,23 @@ fun TabsHost(state: TabsState, reduceMotion: Boolean, modifier: Modifier = Modif
     var onTop by remember { mutableStateOf(selected) }
     var leaving by remember { mutableStateOf<TopLevel?>(null) }
     val progress = remember { Animatable(1f) }
+    // Predictive back: the start tab shows under the current one while the gesture is on; [back] is its progress.
+    var peek by remember { mutableStateOf<TopLevel?>(null) }
+    val back = remember { Animatable(0f) }
+    var backDirection by remember { mutableFloatStateOf(1f) }
+    var backCommitted by remember { mutableStateOf(false) }
+    val shift = with(LocalDensity.current) { BACK_SHIFT.dp.toPx() }
     LaunchedEffect(selected) {
         if (selected == onTop) return@LaunchedEffect
         val from = onTop
         // A text field of the old tab must not keep the keyboard while its tab is gone.
         focus.clearFocus(force = true)
         onTop = selected
-        if (reduceMotion) {
+        // The gesture already played the exit of the old tab.
+        if (reduceMotion || backCommitted) {
+            backCommitted = false
+            peek = null
+            back.snapTo(0f)
             leaving = null
             progress.snapTo(1f)
             return@LaunchedEffect
@@ -152,7 +174,7 @@ fun TabsHost(state: TabsState, reduceMotion: Boolean, modifier: Modifier = Modif
             for (tab in state.composed) {
                 key(tab) {
                     val active = tab == selected
-                    val shown = tab == onTop || tab == leaving
+                    val shown = tab == onTop || tab == leaving || tab == peek
                     TabSlot(
                         tab = tab,
                         active = active,
@@ -165,7 +187,30 @@ fun TabsHost(state: TabsState, reduceMotion: Boolean, modifier: Modifier = Modif
                             // The tab on top takes every touch in its bounds, so none reaches the one fading out below.
                             .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } },
                     ) {
-                        BackHandler(enabled = tab != state.start) { state.select(state.start) }
+                        val toStart = tab != state.start
+                        if (reduceMotion) {
+                            BackHandler(enabled = toStart) { state.select(state.start) }
+                        } else {
+                            PredictiveBackHandler(enabled = toStart) { events ->
+                                state.prepare(state.start)
+                                peek = state.start
+                                try {
+                                    events.collect { e ->
+                                        backDirection = if (e.swipeEdge == BackEventCompat.EDGE_RIGHT) -1f else 1f
+                                        back.snapTo(e.progress)
+                                    }
+                                } catch (c: CancellationException) {
+                                    withContext(NonCancellable) {
+                                        back.animateTo(0f, tween(BACK_SETTLE_MS))
+                                        peek = null
+                                    }
+                                    throw c
+                                }
+                                back.animateTo(1f, tween(BACK_SETTLE_MS))
+                                backCommitted = true
+                                state.select(state.start)
+                            }
+                        }
                         saveable.SaveableStateProvider(tab.name) { content(tab) }
                     }
                 }
@@ -173,7 +218,7 @@ fun TabsHost(state: TabsState, reduceMotion: Boolean, modifier: Modifier = Modif
         },
     ) { measurables, constraints ->
         val top = onTop
-        val below = leaving
+        val below = leaving ?: peek
         var topPlaceable: Placeable? = null
         var belowPlaceable: Placeable? = null
         for (m in measurables) {
@@ -185,8 +230,26 @@ fun TabsHost(state: TabsState, reduceMotion: Boolean, modifier: Modifier = Modif
             if (tab == top) topPlaceable = p else if (tab == below) belowPlaceable = p
         }
         layout(constraints.maxWidth, constraints.maxHeight) {
-            belowPlaceable?.placeWithLayer(0, 0) { alpha = (1f - progress.value / OUT_PART).coerceIn(0f, 1f) }
+            val peeking = peek != null && leaving == null
+            belowPlaceable?.placeWithLayer(0, 0) {
+                if (peeking) {
+                    val s = BACK_PEEK_SCALE + (1f - BACK_PEEK_SCALE) * back.value
+                    scaleX = s
+                    scaleY = s
+                } else {
+                    alpha = (1f - progress.value / OUT_PART).coerceIn(0f, 1f)
+                }
+            }
             topPlaceable?.placeWithLayer(0, 0) {
+                if (peeking) {
+                    // Shrinks like a card toward the swiped edge and fades out as the gesture goes on.
+                    val s = 1f - BACK_CARD_SHRINK * back.value
+                    scaleX = s
+                    scaleY = s
+                    translationX = backDirection * shift * back.value
+                    alpha = 1f - back.value
+                    return@placeWithLayer
+                }
                 val t = FastOutSlowInEasing.transform(((progress.value - IN_DELAY) / (1f - IN_DELAY)).coerceIn(0f, 1f))
                 alpha = t
                 val s = IN_SCALE + (1f - IN_SCALE) * t

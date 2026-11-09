@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,6 +29,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.BookmarkBorder
@@ -79,10 +82,11 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Alignment
@@ -124,6 +128,7 @@ import app.yomu.domain.model.HighlightColor
 import app.yomu.domain.model.HighlightStyle
 import app.yomu.domain.model.Locator
 import app.yomu.domain.model.MangaDirection
+import app.yomu.domain.model.TapZoneLayout
 import app.yomu.domain.model.SelectionAction
 import app.yomu.domain.model.WebSearchEngine
 import app.yomu.feature.annotations.NoteDialog
@@ -233,6 +238,7 @@ fun ReaderScreen(
     var showFinished by rememberSaveable { mutableStateOf(false) }
     var seekDrag by remember { mutableStateOf<Float?>(null) }
     var quickPanel by rememberSaveable { mutableStateOf(false) }
+    var tapZonesDone by rememberSaveable { mutableStateOf(false) }
     var goToPage by rememberSaveable { mutableStateOf(false) }
     var lastInteraction by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val snackbar = remember { SnackbarHostState() }
@@ -242,6 +248,25 @@ fun ReaderScreen(
     val data = (content as? UiState.Data)?.value
     val bookLang = viewModel.book?.language
     val author = viewModel.book?.authors?.joinToString()
+
+    // One haptic tick per chapter turn, whether by page turn, buttons or TTS. Skips the initial open.
+    val chapterId by viewModel.chapterId.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) {
+        var lastChapter = -1
+        var lastId = -1L
+        var baselineAt = 0L
+        snapshotFlow { Triple(content is UiState.Data, position.chapter, chapterId) }.collect { (ready, ch, id) ->
+            if (!ready) { lastChapter = -1; baselineAt = 0L; return@collect }
+            val now = System.currentTimeMillis()
+            if (baselineAt == 0L) baselineAt = now
+            val settled = now - baselineAt > 1_500
+            val turned = if (lastId != -1L) id != lastId else lastChapter != -1 && settled && kotlin.math.abs(ch - lastChapter) == 1
+            if (turned) haptic.tick()
+            if (lastId == -1L || id != lastId) baselineAt = now
+            lastChapter = ch
+            lastId = id
+        }
+    }
 
     val appDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     LaunchedEffect(appDark) { viewModel.setAppDark(appDark) }
@@ -457,13 +482,26 @@ fun ReaderScreen(
                 "manga_gestures", stringResource(R.string.hint_manga_gestures),
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = Dimens.xl).widthIn(max = 420.dp),
             )
-        } else if (data != null && !chrome) {
-            OneTimeHint("reader_gestures", stringResource(R.string.hint_reader_gestures), Modifier.align(Alignment.Center).widthIn(max = 420.dp))
-            if (common.edgeGestures && (data is ReaderContent.Text || data is ReaderContent.Pdf)) {
-                OneTimeHint(
-                    "reader_edge_gestures", stringResource(R.string.hint_reader_edges),
-                    Modifier.align(Alignment.Center).widthIn(max = 420.dp), after = "reader_gestures",
+        } else if (data != null && !chrome && sheet == ReaderSheet.NONE) {
+            // Order: tap-zone diagram, then selection/menu text hint, then edge gestures.
+            if (!tapZonesDone) {
+                ReaderTapZonesHint(
+                    layout = if (data is ReaderContent.Text && common.tapToTurn) common.textTapZones else TapZoneLayout.DISABLED,
+                    rtl = textSettings.rtl || (data as? ReaderContent.Text)?.controller?.document?.rtl == true,
+                    edgeGestures = common.edgeGestures,
+                    onDone = { tapZonesDone = true },
                 )
+            } else {
+                OneTimeHint(
+                    "reader_gestures", stringResource(R.string.hint_reader_gestures), Modifier.align(Alignment.Center).widthIn(max = 420.dp),
+                    after = "reader_tap_zones",
+                )
+                if (common.edgeGestures && (data is ReaderContent.Text || data is ReaderContent.Pdf)) {
+                    OneTimeHint(
+                        "reader_edge_gestures", stringResource(R.string.hint_reader_edges),
+                        Modifier.align(Alignment.Center).widthIn(max = 420.dp), after = "reader_gestures",
+                    )
+                }
             }
         }
 
@@ -559,10 +597,10 @@ fun ReaderScreen(
                 MiniPill(Modifier.align(Alignment.CenterHorizontally)) {
                     Text(stringResource(R.string.reader_autoscroll_speed, common.autoScrollSpeed), Modifier.padding(horizontal = 12.dp), style = MaterialTheme.typography.labelLarge)
                     IconButton(onClick = { viewModel.updateCommon { it.copy(autoScrollSpeed = (it.autoScrollSpeed - 5).coerceAtLeast(5)) } }) {
-                        Text("−", style = MaterialTheme.typography.titleLarge)
+                        Icon(Icons.Default.Remove, stringResource(R.string.reader_autoscroll_slower))
                     }
                     IconButton(onClick = { viewModel.updateCommon { it.copy(autoScrollSpeed = (it.autoScrollSpeed + 5).coerceAtMost(200)) } }) {
-                        Text("+", style = MaterialTheme.typography.titleLarge)
+                        Icon(Icons.Default.Add, stringResource(R.string.reader_autoscroll_faster))
                     }
                     IconButton(onClick = viewModel::stopAutoScroll) { Icon(Icons.Default.Stop, stringResource(R.string.reader_autoscroll_stop)) }
                 }
@@ -754,7 +792,7 @@ private fun ReaderTopBar(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.statusBarsPadding().height(64.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.statusBarsPadding().heightIn(min = 64.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(CoreR.string.back)) }
             Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)

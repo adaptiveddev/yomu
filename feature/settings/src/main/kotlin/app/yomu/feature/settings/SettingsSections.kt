@@ -89,10 +89,7 @@ import app.yomu.core.ui.components.rememberHaptic
 import app.yomu.core.common.Files
 import app.yomu.core.datastore.Pref
 import app.yomu.core.ui.components.ConfirmDialog
-import app.yomu.core.ui.components.PreferenceChoice
 import app.yomu.core.ui.components.PreferenceHeader
-import app.yomu.core.ui.components.PreferenceItem
-import app.yomu.core.ui.components.PreferenceSwitch
 import app.yomu.core.ui.components.TextInputDialog
 import app.yomu.core.ui.theme.Accent
 import app.yomu.core.ui.theme.Dimens

@@ -1107,10 +1107,11 @@ class TitleViewModel(
         enqueue(ChapterOrder.slots(reading).filter { slot -> slot.none { it.downloaded } }.map { ChapterOrder.pick(it, scanlator).id })
     }
 
-    fun deleteDownloads(ids: Collection<Long>) = viewModelScope.launch(ScreenErrors) {
+    /** [notify] false: the caller already told the user (the swipe's own "Undo" snackbar). */
+    fun deleteDownloads(ids: Collection<Long>, notify: Boolean = true) = viewModelScope.launch(ScreenErrors) {
         downloads.deleteChapterFiles(ids)
         clearSelection()
-        _events.send(CatalogEvent.Message(R.string.title_downloads_deleted))
+        if (notify) _events.send(CatalogEvent.Message(R.string.title_downloads_deleted))
     }
 
     /** Deletes downloaded files of read chapters of this title. */

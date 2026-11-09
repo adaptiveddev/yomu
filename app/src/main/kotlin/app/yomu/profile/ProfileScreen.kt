@@ -648,7 +648,7 @@ private fun AvatarChoice(text: String, selected: Boolean, onClick: () -> Unit) {
     val border = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
     Box(
         Modifier
-            .size(44.dp)
+            .size(Dimens.touch)
             .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape)
             .border(if (selected) 2.dp else 1.dp, border, CircleShape)
             .clickable(role = Role.RadioButton, onClick = onClick),

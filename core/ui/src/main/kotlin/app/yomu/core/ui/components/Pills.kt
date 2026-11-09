@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -30,6 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
@@ -120,6 +122,7 @@ fun PillTabRow(
         if (onAdd != null) {
             Box(
                 Modifier
+                    .minimumInteractiveComponentSize()
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
@@ -153,7 +156,7 @@ fun ToolbarPill(icon: ImageVector, label: String, onClick: () -> Unit, modifier:
             Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (active) {
                 Box(
-                    Modifier.size(20.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                    Modifier.defaultMinSize(20.dp, 20.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(badge.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary)
@@ -171,7 +174,7 @@ fun CircleIconButton(icon: ImageVector, contentDescription: String, onClick: () 
         shape = CircleShape,
         color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = if (highlighted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.size(Dimens.touch - 4.dp).semantics { this.contentDescription = contentDescription },
+        modifier = modifier.minimumInteractiveComponentSize().size(Dimens.touch - 4.dp).semantics { this.contentDescription = contentDescription },
     ) {
         Box(contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(22.dp)) }
     }
@@ -185,7 +188,7 @@ fun RemovableChip(label: String, onRemove: () -> Unit, removeLabel: String = str
         shape = CircleShape,
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        modifier = Modifier.height(32.dp).semantics { contentDescription = "$label, $removeLabel" },
+        modifier = Modifier.heightIn(min = 32.dp).semantics { contentDescription = "$label, $removeLabel" },
     ) {
         Row(Modifier.padding(start = Dimens.m, end = Dimens.s), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.xs)) {
             Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
