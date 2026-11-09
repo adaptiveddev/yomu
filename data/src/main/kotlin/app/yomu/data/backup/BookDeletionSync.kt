@@ -143,7 +143,7 @@ internal class BookDeletionSync(
         val links = readLinks()
         val entries = index.books.associateBy { it.bookHash }
         val baselines = LinkedHashMap<String, BookBaseline>(base?.baselines.orEmpty())
-        val local = db.books().all().filter { it.format != "FOLDER" && it.fileHash != null }
+        val local = db.books().all().filter { it.format != "FOLDER" && it.fileHash != null && !isAudioCollection(it.fileHash) }
         val known = entries.keys + baselines.keys
         for (book in local) {
             val id = book.fileHash!!

@@ -39,7 +39,7 @@
     <string name="library_delete_files_text">The selected books and their files will be deleted from the device. This cannot be undone.</string>
     <string name="library_import">Import</string>
     <string name="library_import_files">Files (EPUB, PDF, CBZ, CBR, FB2, MOBI, TXT…)</string>
-    <string name="library_import_folder_book">Folder with images as a comic</string>
+    <string name="library_import_folder_book">Folder as one book (comic images or audiobook tracks)</string>
     <string name="library_add_scan_folder">Watch a folder (auto import)</string>
     <string name="library_find_online">Find books online</string>
     <string name="library_all">All</string>
@@ -123,6 +123,12 @@
     <string name="library_status">Status</string>
     <string name="library_view">View</string>
     <string name="format_online">Online</string>
+    <string name="format_audio">Audiobooks</string>
+    <string name="details_listen">Listen</string>
+    <string name="details_continue_listening">Continue listening</string>
+    <string name="library_audio_link">Audiobook by link</string>
+    <string name="library_audio_link_hint">YouTube video or playlist, podcast feed, audio file</string>
+    <string name="library_audio_link_adding">Adding the audiobook…</string>
     <string name="library_no_books_title">No books from your device yet</string>
     <string name="library_no_books_text">Import EPUB, PDF, FB2, CBZ and other files — they will appear here next to your online titles.</string>
     <string name="library_tab_empty_title">This tab is empty</string>

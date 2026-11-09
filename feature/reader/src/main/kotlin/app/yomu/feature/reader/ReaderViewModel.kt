@@ -393,6 +393,8 @@ class ReaderViewModel(
         }
         if (b.status == ReadingStatus.NEW) books.setStatus(listOf(id), ReadingStatus.READING)
         when (b.engine) {
+            // Navigation opens audiobooks in the player; the reader never gets one.
+            EngineType.AUDIO -> throw AppError.UnsupportedFormat(b.format.name)
             EngineType.TEXT -> {
                 val uri = BookFiles.readingUri(context, b)
                 val doc = withContext(Dispatchers.IO) { EpubTextDocument.open(Containers.open(context, uri, BookFormat.EPUB)) }

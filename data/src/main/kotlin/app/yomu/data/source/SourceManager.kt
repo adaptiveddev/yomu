@@ -19,6 +19,7 @@ import app.yomu.sources.opds.GutenbergSource
 import app.yomu.sources.opds.InternetArchiveSource
 import app.yomu.sources.opds.OpdsSource
 import app.yomu.sources.opds.OpenLibrarySource
+import app.yomu.sources.opds.LibriVoxSource
 import app.yomu.sources.opds.WikisourceSource
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -90,6 +91,7 @@ class SourceManager(
         add(GutenbergSource())
         add(InternetArchiveSource())
         add(OpenLibrarySource())
+        add(LibriVoxSource())
         listOf("en", "ru", "de", "fr").forEach { add(WikisourceSource(it)) }
         // Online novels (2.0.0): Mihon extensions are manga only.
         add(RanobeLibSource())

@@ -2,7 +2,12 @@ package app.yomu.domain.model
 
 import kotlinx.serialization.Serializable
 
-enum class BookFormat(val isText: Boolean = false, val isComic: Boolean = false, val extensions: List<String> = emptyList()) {
+enum class BookFormat(
+    val isText: Boolean = false,
+    val isComic: Boolean = false,
+    val extensions: List<String> = emptyList(),
+    val isAudio: Boolean = false,
+) {
     EPUB(isText = true, extensions = listOf("epub")),
     PDF(extensions = listOf("pdf")),
     CBZ(isComic = true, extensions = listOf("cbz", "zip")),
@@ -14,13 +19,19 @@ enum class BookFormat(val isText: Boolean = false, val isComic: Boolean = false,
     HTML(isText = true, extensions = listOf("html", "htm", "xhtml")),
     DOCX(isText = true, extensions = listOf("docx")),
     MOBI(isText = true, extensions = listOf("mobi", "azw3", "azw", "prc")),
+
+    /**
+     * An audiobook: one audio file, a folder of audio files, or an [AudiobookManifest] (`.yaudio`) listing local or
+     * online tracks (catalog streams, YouTube, podcasts).
+     */
+    AUDIO(isAudio = true, extensions = AudioFiles.EXTENSIONS + AudiobookManifest.EXTENSION),
     UNKNOWN,
 }
 
 enum class ReadingStatus { NEW, READING, FINISHED }
 
 /** Which engine renders the book. EPUB/PDF can be flagged as manga (image based) by the user or by detection. */
-enum class EngineType { TEXT, PDF, MANGA }
+enum class EngineType { TEXT, PDF, MANGA, AUDIO }
 
 data class Book(
     val id: Long = 0,
@@ -46,6 +57,7 @@ data class Book(
 ) {
     val engine: EngineType
         get() = when {
+            format.isAudio -> EngineType.AUDIO
             format.isComic || isManga -> EngineType.MANGA
             format == BookFormat.PDF -> EngineType.PDF
             else -> EngineType.TEXT

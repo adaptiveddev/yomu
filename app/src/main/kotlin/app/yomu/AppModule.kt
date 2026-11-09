@@ -46,6 +46,8 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.bind
 import org.koin.dsl.module
 import app.yomu.widget.ContinueWidgets
+import app.yomu.data.audio.AudiobookStore
+import app.yomu.feature.audio.AudioSessionActivity
 import app.yomu.data.repository.ReadingHistoryRepository
 
 val appModule = module {
@@ -63,7 +65,17 @@ val appModule = module {
     }
     single<HintStore> { SettingsHintStore(get()) }
     single { AppLauncherIcons(androidContext()) } bind LauncherIcons::class
-    viewModel { MainViewModel(get(), get(), get(), get()) }
+    viewModel { MainViewModel(get(), get(), get(), get(), get()) }
+    // The audiobook notification opens the player of its book (through the widget action that opens a book).
+    single<AudioSessionActivity> {
+        AudioSessionActivity { context, bookId ->
+            val intent = android.content.Intent(context, YomuActivity::class.java)
+                .setAction(ContinueWidgets.ACTION_OPEN_BOOK)
+                .putExtra(ContinueWidgets.EXTRA_ID, bookId)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            android.app.PendingIntent.getActivity(context, 0, intent, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+        }
+    }
     viewModel { ProfileViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { ProfileTrackingViewModel(get(), get()) }
 }
@@ -153,6 +165,7 @@ class MainViewModel(
     private val importer: ImportService,
     private val updates: AppUpdates,
     private val history: ReadingHistoryRepository,
+    private val audiobooks: AudiobookStore,
 ) : ViewModel() {
     val state: StateFlow<AppUiState?> = combine(
         combine(settings.themeMode.flow, settings.dynamicColor.flow, settings.amoled.flow, settings.accent.flow, settings.accentCustom.flow) { mode, dynamic, amoled, accent, custom ->
@@ -243,7 +256,16 @@ class MainViewModel(
                     else -> importAndOpen(listOf(data))
                 }
             }
-            Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let { importAndOpen(listOf(it)) }
+            Intent.ACTION_SEND -> {
+                val stream = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+                val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.trim().orEmpty()
+                when {
+                    stream != null -> importAndOpen(listOf(stream))
+                    // A shared link (YouTube, a podcast, an audio file) becomes an audiobook; other text is looked up.
+                    text.contains("http://") || text.contains("https://") -> addAudioLink(text)
+                    text.isNotEmpty() -> _events.trySend(MainEvent.Lookup(text.take(MAX_LOOKUP)))
+                }
+            }
             Intent.ACTION_SEND_MULTIPLE ->
                 IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.takeIf { it.isNotEmpty() }?.let { importAndOpen(it) }
             Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()?.trim()
@@ -260,6 +282,19 @@ class MainViewModel(
     private fun openOnline(itemId: Long) = viewModelScope.launch(ScreenErrors) {
         val chapter = withContext(Dispatchers.IO) { history.resumeChapter(itemId, null) }
         _events.send(if (chapter != null) MainEvent.OpenChapter(chapter) else MainEvent.OpenTitle(itemId))
+    }
+
+    private fun addAudioLink(text: String) = viewModelScope.launch(ScreenErrors) {
+        _importing.value = true
+        val outcome = runCatching { audiobooks.addLink(text) }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) { _importing.value = false; throw it } }
+            .getOrElse { ImportOutcome.Failed(text, it) }
+        _importing.value = false
+        when (outcome) {
+            is ImportOutcome.Added -> _events.send(MainEvent.OpenBook(outcome.bookId))
+            is ImportOutcome.Duplicate -> _events.send(MainEvent.OpenBook(outcome.bookId))
+            is ImportOutcome.Failed -> _events.send(MainEvent.Imported(0, 1, outcome.error))
+        }
     }
 
     private fun importAndOpen(uris: List<Uri>) = viewModelScope.launch(ScreenErrors) {

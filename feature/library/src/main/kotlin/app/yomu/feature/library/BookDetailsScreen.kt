@@ -30,6 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -219,8 +220,14 @@ private fun BookDetailsContent(
         floatingActionButton = {
             if (current != null && current.id > 0) {
                 YomuFab(
-                    text = stringResource(if (current.progress > 0f) R.string.details_continue else R.string.details_read),
-                    icon = Icons.AutoMirrored.Filled.MenuBook,
+                    text = stringResource(
+                        when {
+                            current.format.isAudio -> if (current.progress > 0f) R.string.details_continue_listening else R.string.details_listen
+                            current.progress > 0f -> R.string.details_continue
+                            else -> R.string.details_read
+                        },
+                    ),
+                    icon = if (current.format.isAudio) Icons.Default.Headphones else Icons.AutoMirrored.Filled.MenuBook,
                     onClick = { onRead(current) },
                 )
             }

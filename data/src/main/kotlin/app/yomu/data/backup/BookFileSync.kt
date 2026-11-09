@@ -120,7 +120,7 @@ internal class BookFileSync(
         val index = decodeIndex(file?.bytes)
         val replaced = index.replaced
         val entries = index.books.associateByTo(LinkedHashMap()) { it.bookHash }
-        val local = db.books().all().filter { it.format != "FOLDER" && it.fileHash != null }
+        val local = db.books().all().filter { it.format != "FOLDER" && it.fileHash != null && !isAudioCollection(it.fileHash) }
         if (local.map { it.fileHash }.toSet().size != local.size)
             throw IOException("Duplicate book identifier prevents safe file sync; resolve the conflict before syncing")
         val localHashes = local.mapNotNull { it.fileHash }.toSet()
@@ -247,7 +247,7 @@ internal class BookFileSync(
             }
         }
         verifyLocalSnapshots(snapshots)
-        val after = db.books().all().filter { it.format != "FOLDER" }.mapNotNull { it.fileHash }.toSet()
+        val after = db.books().all().filter { it.format != "FOLDER" && !isAudioCollection(it.fileHash) }.mapNotNull { it.fileHash }.toSet()
         suppressed.addAll(localHashes - after)
         suppressed.removeAll(after)
         saveBase(context, BookFileBase(syncId = syncId, present = after, suppressed = suppressed, indexKnown = file != null || added, baselines = base?.baselines.orEmpty()))
@@ -389,3 +389,9 @@ internal class BookFileSync(
             }, expected, size)
     }
 }
+
+/**
+ * Audiobook folders and `.yaudio` manifests have no single file to transfer (and manifests point to online tracks
+ * or to files of this device): they stay out of file sync, their progress and metadata still sync.
+ */
+internal fun isAudioCollection(fileHash: String?): Boolean = fileHash != null && (fileHash.startsWith("audiodir:") || fileHash.startsWith("yaudio:"))

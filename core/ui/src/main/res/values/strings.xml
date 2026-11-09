@@ -48,6 +48,11 @@
     <string name="error_title_file">Could not open the file</string>
     <string name="error_title_setup">Setup needed</string>
     <string name="error_title_incompatible">Outdated source</string>
+    <string name="error_title_audio_link">Cannot add the audiobook</string>
+    <string name="error_audio_no_link">There is no link in this text.</string>
+    <string name="error_audio_notebooklm">NotebookLM pages need a Google sign-in, so Yomu cannot open them. In NotebookLM, open the Audio Overview, tap ⋮ → Download (or Share), and open or share the file with Yomu.</string>
+    <string name="error_audio_youtube">YouTube did not give this device an audio stream (a bot check, an age or region limit). Try again later or another video.</string>
+    <string name="error_audio_unsupported">This link has no audio: paste a YouTube video or playlist, a podcast feed, an audio file or a page that links one.</string>
     <string name="webview_missing_title">WebView is not available</string>
     <string name="webview_missing">This screen works through Android System WebView, which is missing, turned off or being updated right now. Install or turn it on, then try again.</string>
     <string name="webview_missing_store">Open in store</string>

@@ -1,5 +1,7 @@
 package app.yomu.data.format
 
+import app.yomu.domain.model.AudioFiles
+import app.yomu.domain.model.AudiobookManifest
 import app.yomu.domain.model.BookFormat
 
 /** Detects a document format by magic bytes, falling back to the file extension. */
@@ -42,6 +44,7 @@ object FormatDetector {
             return BookFormat.CB7
         }
         if (at(60, "BOOKMOBI") || at(60, "TEXtREAd")) return BookFormat.MOBI
+        if (ext == AudiobookManifest.EXTENSION || isAudio(header, ext)) return BookFormat.AUDIO
         val head = String(header, 0, minOf(header.size, 1024), Charsets.ISO_8859_1)
         if (head.contains("%PDF")) return BookFormat.PDF
         val lower = head.lowercase()
@@ -49,6 +52,18 @@ object FormatDetector {
         if (lower.contains("<html") || lower.contains("<!doctype html")) return BookFormat.HTML
         BookFormat.entries.firstOrNull { ext in it.extensions && it != BookFormat.CBZ }?.let { return it }
         return if (looksLikeText(header)) BookFormat.TXT else BookFormat.UNKNOWN
+    }
+
+    /** Audio by its container signature; bare MPEG/ADTS frames only together with an audio extension. */
+    fun isAudio(header: ByteArray, ext: String): Boolean {
+        fun at(offset: Int, text: String) = header.size >= offset + text.length && text.indices.all { header[offset + it] == text[it].code.toByte() }
+        if (at(0, "ID3") || at(0, "OggS") || at(0, "fLaC") || (at(0, "RIFF") && at(8, "WAVE"))) return true
+        if (at(4, "ftyp")) {
+            val brand = String(header, 8, minOf(4, header.size - 8).coerceAtLeast(0), Charsets.ISO_8859_1)
+            return brand.startsWith("M4A") || brand.startsWith("M4B") || ext in AudioFiles.EXTENSIONS
+        }
+        val frameSync = header.size >= 2 && header[0] == 0xFF.toByte() && (header[1].toInt() and 0xE0) == 0xE0
+        return frameSync && ext in AudioFiles.EXTENSIONS
     }
 
     fun looksLikeText(bytes: ByteArray): Boolean {

@@ -43,12 +43,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
+import app.yomu.data.audio.AudiobookStore
 
 /** "Type" options of the library filter: groups of book formats and the online titles. */
 enum class FormatGroup(val formats: Set<BookFormat>) {
     BOOKS(setOf(BookFormat.EPUB, BookFormat.FB2, BookFormat.TXT, BookFormat.HTML, BookFormat.DOCX, BookFormat.MOBI)),
     PDF(setOf(BookFormat.PDF)),
     COMICS(setOf(BookFormat.CBZ, BookFormat.CBR, BookFormat.CB7, BookFormat.FOLDER)),
+    AUDIO(setOf(BookFormat.AUDIO)),
     ONLINE(emptySet()),
 }
 
@@ -117,6 +119,7 @@ sealed interface LibraryEvent {
     data class Imported(val added: Int, val duplicates: Int, val failed: Int, val firstError: Throwable?, val singleBookId: Long?) : LibraryEvent
     data class Deleted(val ids: Set<Long>) : LibraryEvent
     data class Message(val text: Int) : LibraryEvent
+    data class OpenBook(val book: app.yomu.domain.model.Book) : LibraryEvent
 }
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class, kotlinx.coroutines.DelicateCoroutinesApi::class)
@@ -127,6 +130,7 @@ class LibraryViewModel(
     private val settings: AppSettings,
     private val tabs: LibraryTabs,
     private val catalog: CatalogRepository,
+    private val audiobooks: AudiobookStore,
 ) : ViewModel() {
     private val search = MutableStateFlow("")
     private val filter = MutableStateFlow(LibraryFilter())
@@ -240,6 +244,18 @@ class LibraryViewModel(
     fun import(uris: List<Uri>, link: Boolean? = null) = viewModelScope.launch(ScreenErrors) {
         if (uris.isEmpty()) return@launch
         report(importer.import(uris, link))
+    }
+
+    /** A YouTube video or playlist, a podcast feed or an audio link becomes an audiobook, opened right away. */
+    fun addAudioLink(text: String) = viewModelScope.launch(ScreenErrors) {
+        if (text.isBlank()) return@launch
+        _events.send(LibraryEvent.Message(R.string.library_audio_link_adding))
+        val outcome = runCatching { audiobooks.addLink(text) }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            .getOrElse { ImportOutcome.Failed(text, it) }
+        val id = (outcome as? ImportOutcome.Added)?.bookId ?: (outcome as? ImportOutcome.Duplicate)?.bookId
+        val book = id?.let { books.getBook(it) }
+        if (book != null) _events.send(LibraryEvent.OpenBook(book)) else report(listOf(outcome))
     }
 
     fun importFolderAsBook(tree: Uri) = viewModelScope.launch(ScreenErrors) {

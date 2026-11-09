@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audio_chapters">Chapters</string>
+    <string name="audio_track_of">Track %1$d of %2$d</string>
+    <string name="audio_play">Play</string>
+    <string name="audio_pause">Pause</string>
+    <string name="audio_stop">Stop</string>
+    <string name="audio_previous">Previous chapter</string>
+    <string name="audio_next">Next chapter</string>
+    <string name="audio_back_10">Back 10 seconds</string>
+    <string name="audio_forward_30">Forward 30 seconds</string>
+    <string name="audio_speed">Playback speed</string>
+    <string name="audio_sleep">Sleep timer</string>
+    <string name="audio_sleep_off">Off</string>
+    <string name="audio_sleep_chapter">End of chapter</string>
+    <string name="audio_sleep_minutes">%1$d min</string>
+    <string name="audio_sleep_left">%1$d min left</string>
+    <string name="audio_play_error">Cannot play: %1$s</string>
+    <string name="audio_origin_catalog">Catalog</string>
+    <string name="audio_origin_podcast">Podcast</string>
+    <string name="audio_origin_link">Link</string>
+</resources>

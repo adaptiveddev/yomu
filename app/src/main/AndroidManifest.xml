@@ -128,6 +128,7 @@
                 <data android:mimeType="application/zip" />
                 <data android:mimeType="application/x-rar-compressed" />
                 <data android:mimeType="application/vnd.rar" />
+                <data android:mimeType="audio/*" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
 
@@ -145,7 +146,15 @@
                 <data android:mimeType="application/x-cbz" />
                 <data android:mimeType="application/x-cbr" />
                 <data android:mimeType="application/zip" />
+                <data android:mimeType="audio/*" />
                 <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+
+            <!-- Links shared from YouTube, podcast apps or a browser become audiobooks -->
+            <intent-filter android:label="@string/share_listen_label">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
 
             <!-- "Look up in Yomu" in the text selection menu of other apps -->

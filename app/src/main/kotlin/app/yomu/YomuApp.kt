@@ -21,6 +21,7 @@ import app.yomu.feature.downloads.downloadsModule
 import app.yomu.feature.editor.editorModule
 import app.yomu.feature.library.libraryModule
 import app.yomu.feature.reader.readerModule
+import app.yomu.feature.audio.audioModule
 import app.yomu.feature.settings.settingsModule
 import app.yomu.feature.translator.translatorModule
 import app.yomu.source.HttpStatusException
@@ -55,7 +56,7 @@ import app.yomu.data.book.pdf.PdfAnnotationStore
 /** Koin modules of the whole app (also used by the DI verification test). */
 val yomuModules = listOf(
     dataModule, libraryModule, annotationsModule, dictionaryModule, translatorModule, readerModule,
-    catalogModule, downloadsModule, settingsModule, editorModule, appModule,
+    catalogModule, downloadsModule, settingsModule, editorModule, audioModule, appModule,
 )
 
 class YomuApp : Application(), SingletonImageLoader.Factory {

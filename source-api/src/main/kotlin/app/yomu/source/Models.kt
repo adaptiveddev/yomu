@@ -18,6 +18,13 @@ object Status {
 /** Downloadable file of a book (OPDS acquisition link). */
 @Serializable
 data class SBookLink(val url: String, val mimeType: String, val title: String? = null, val size: Long? = null) {
+    /**
+     * Audio to listen to online instead of downloading: a feed of the chapters ([MIME_AUDIO_FEED]) or one address
+     * ([MIME_AUDIO_STREAM]). The app adds such a book to the library as an audiobook and opens the player.
+     */
+    val isAudioStream: Boolean
+        get() = mimeType.substringBefore(';').trim().lowercase().let { it == MIME_AUDIO_FEED || it == MIME_AUDIO_STREAM }
+
     val formatLabel: String
         get() = when {
             "epub" in mimeType -> "EPUB"
@@ -27,6 +34,10 @@ data class SBookLink(val url: String, val mimeType: String, val title: String? =
             "cbz" in mimeType || "comicbook" in mimeType -> "CBZ"
             "text/plain" in mimeType -> "TXT"
             "html" in mimeType -> "HTML"
+            isAudioStream -> "STREAM"
+            "mpeg" in mimeType && mimeType.startsWith("audio") -> "MP3"
+            "m4b" in mimeType || "audiobook" in mimeType -> "M4B"
+            mimeType.startsWith("audio/") -> "AUDIO"
             else -> mimeType.substringAfter('/').substringBefore(';').uppercase()
         }
 }
@@ -78,3 +89,9 @@ class SourceException(message: String, cause: Throwable? = null) : Exception(mes
 class WebViewRequiredException(val url: String) : Exception("Browser verification required for $url")
 
 class HttpStatusException(val code: Int, val url: String) : Exception("HTTP $code for $url")
+
+/** [SBookLink.mimeType] of a feed of audio chapters (RSS with enclosures, as podcasts and LibriVox publish). */
+const val MIME_AUDIO_FEED = "application/rss+xml"
+
+/** [SBookLink.mimeType] of one audio address to stream (any format the player knows, or a YouTube link). */
+const val MIME_AUDIO_STREAM = "application/x-yomu-audio-stream"

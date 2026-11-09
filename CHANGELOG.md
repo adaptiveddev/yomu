@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — audiobooks
+
+- **Audiobooks**: your own audio files, folders of tracks and ZIPs of MP3s; LibriVox in the catalog (listen online or download the ZIP); YouTube videos and playlists, podcast feeds and audio links by URL or "Share → Listen in Yomu"; NotebookLM audio overviews via download/share. A player with chapters, speed, sleep timer, background playback with notification and lock-screen controls, a "now playing" bar, saved positions and listening time in the statistics. Verified with unit tests and builds; not yet on a device or against live YouTube.
+
 ## Unreleased — GitHub sync, incognito everywhere, hidden extensions, Anki decks, notifications
 
 - **Detailed sync settings**: Settings → Sync has a switch per category — reading positions, highlights and notes, bookmarks, words, online library, tracker links, book files, deletions — plus "Only over Wi-Fi" for automatic syncs. A category switched off is neither sent nor applied on that device, and the records other devices shared stay untouched.

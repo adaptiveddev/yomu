@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -212,6 +213,7 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
     var searching by rememberSaveable { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
+    var showAudioLink by rememberSaveable { mutableStateOf(false) }
     var showFilters by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var newTab by remember { mutableStateOf(false) }
@@ -251,6 +253,7 @@ fun LibraryScreen(
                     if (r == SnackbarResult.ActionPerformed) viewModel.undoDelete(e.ids) else viewModel.commitDelete(e.ids)
                 }
                 is LibraryEvent.Message -> scope.launch { snackbar.showSnackbar(resources.getString(e.text)) }
+                is LibraryEvent.OpenBook -> onOpenBook(e.book)
             }
         }
     }
@@ -490,12 +493,24 @@ fun LibraryScreen(
                 showImport = false
                 openScanFolder.launch(null)
             }
+            SheetAction(Icons.Default.Headphones, stringResource(R.string.library_audio_link)) {
+                showImport = false
+                showAudioLink = true
+            }
             HorizontalDivider()
             SheetAction(Icons.Default.TravelExplore, stringResource(R.string.library_find_online)) {
                 showImport = false
                 onFindBooksOnline()
             }
         }
+    }
+    if (showAudioLink) {
+        TextInputDialog(
+            title = stringResource(R.string.library_audio_link),
+            label = stringResource(R.string.library_audio_link_hint),
+            onConfirm = { viewModel.addAudioLink(it) },
+            onDismiss = { showAudioLink = false },
+        )
     }
     if (showFilters) {
         FiltersSheet(viewModel, onDismiss = { showFilters = false })
@@ -809,6 +824,7 @@ private fun FormatGroup.label(): Int = when (this) {
     FormatGroup.BOOKS -> R.string.format_books
     FormatGroup.PDF -> R.string.format_pdf
     FormatGroup.COMICS -> R.string.format_comics
+    FormatGroup.AUDIO -> R.string.format_audio
     FormatGroup.ONLINE -> R.string.format_online
 }
 
