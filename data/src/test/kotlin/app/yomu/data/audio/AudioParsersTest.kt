@@ -1,7 +1,9 @@
 package app.yomu.data.audio
 
 import app.yomu.data.format.FormatDetector
+import app.yomu.domain.model.AudioChapter
 import app.yomu.domain.model.AudioOrigin
+import app.yomu.domain.model.AudioTrack
 import app.yomu.domain.model.BookFormat
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.io.path.createTempDirectory
 
 class AudioParsersTest {
     @Test
@@ -20,7 +23,33 @@ class AudioParsersTest {
         assertEquals(YouTubeRef(null, "PLabcdefgh123"), YouTubeClient.parseUrl("https://m.youtube.com/playlist?list=PLabcdefgh123"))
         assertEquals(YouTubeRef("dQw4w9WgXcQ", "PLabcdefgh123"), YouTubeClient.parseUrl("https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=PLabcdefgh123"))
         assertNull(YouTubeClient.parseUrl("https://example.com/watch?v=dQw4w9WgXcQ"))
-        assertNull(YouTubeClient.parseUrl("https://www.youtube.com/@channel"))
+        assertNull(YouTubeClient.parseUrl("https://www.youtube.com/feed/subscriptions"))
+    }
+
+    @Test
+    fun youtubeChannelLinks() {
+        assertEquals(YouTubeRef(null, null, "https://www.youtube.com/@LibriVox"), YouTubeClient.parseUrl("https://m.youtube.com/@LibriVox/videos"))
+        assertEquals(YouTubeRef(null, null, "https://www.youtube.com/channel/UCabc"), YouTubeClient.parseUrl("youtube.com/channel/UCabc"))
+        assertEquals(YouTubeRef(null, null, "https://www.youtube.com/c/Name"), YouTubeClient.parseUrl("https://www.youtube.com/c/Name"))
+        assertNull(YouTubeClient.parseUrl("https://www.youtube.com/channel/"))
+    }
+
+    @Test
+    fun youtubeChaptersFromNext() {
+        val next = Json.parseToJsonElement(
+            """
+            {"playerOverlays":{"x":{"markers":[
+              {"chapterRenderer":{"title":{"simpleText":"Chapter 2"},"timeRangeStartMillis":60000}},
+              {"chapterRenderer":{"title":{"simpleText":"Intro"},"timeRangeStartMillis":0}},
+              {"chapterRenderer":{"title":{"simpleText":"Intro again"},"timeRangeStartMillis":0}},
+              {"chapterRenderer":{"title":{"simpleText":"  "},"timeRangeStartMillis":90000}}
+            ]}}}
+            """,
+        )
+        assertEquals(listOf(AudioChapter("Intro", 0), AudioChapter("Chapter 2", 60_000)), YouTubeClient.parseChapters(next))
+        // Marks past the end are a wrong list.
+        assertTrue(YouTubeClient.parseChapters(next, durationMs = 30_000).isEmpty())
+        assertTrue(YouTubeClient.parseChapters(Json.parseToJsonElement("{}")).isEmpty())
     }
 
     @Test
@@ -60,6 +89,74 @@ class AudioParsersTest {
         assertEquals(listOf("Chapter 1", "Chapter 3"), tracks.map { it.title })
         assertEquals("youtube:aaaaaaaaaaa", tracks.first().uri)
         assertEquals(125_000L, tracks.first().durationMs)
+    }
+
+    @Test
+    fun youtubePlaylistSkipsDeletedVideosAndReadsBadges() {
+        val page = Json.parseToJsonElement(
+            """
+            {"contents":{"playlistVideoListRenderer":{"contents":[
+              {"playlistVideoRenderer":{"videoId":"ddddddddddd","title":{"runs":[{"text":"[Deleted video]"}]}}},
+              {"playlistVideoRenderer":{"videoId":"eeeeeeeeeee","title":{"runs":[{"text":"[Bonus] Live"}]},"lengthSeconds":"60"}}
+            ],"continuations":[{"nextContinuationData":{"continuation":"NEXT"}}]},
+            "y":{"lockupViewModel":{"contentId":"fffffffffff","contentType":"LOCKUP_CONTENT_TYPE_VIDEO",
+              "contentImage":{"thumbnailViewModel":{"overlays":[{"thumbnailBottomOverlayViewModel":{"badges":[{"thumbnailBadgeViewModel":{"text":"1:02:03"}}]}}]}},
+              "metadata":{"lockupMetadataViewModel":{"title":{"content":"Part 2"}}}}}},
+             "header":{"playlistHeaderRenderer":{"title":{"runs":[{"text":"My book"}]}}}}
+            """,
+        )
+        val tracks = YouTubeClient.parsePlaylistVideos(page)
+        assertEquals(listOf("[Bonus] Live", "Part 2"), tracks.map { it.title })
+        assertEquals(listOf(60_000L, 3_723_000L), tracks.map { it.durationMs })
+        assertEquals("NEXT", YouTubeClient.continuation(page))
+        assertEquals("My book", YouTubeClient.playlistTitle(page))
+    }
+
+    @Test
+    fun youtubeSearchResults() {
+        val page = Json.parseToJsonElement(
+            """
+            {"contents":[
+              {"compactVideoRenderer":{"videoId":"v2hg3ZjL-8E","title":{"runs":[{"text":"A book"}]},"lengthText":{"runs":[{"text":"11:10:40"}]},
+                "shortBylineText":{"runs":[{"text":"Reader"}]}}},
+              {"compactPlaylistRenderer":{"playlistId":"PLxyz123456","title":{"runs":[{"text":"A series"}]},"videoCountShortText":{"runs":[{"text":"24"}]},
+                "shortBylineText":{"runs":[{"text":"Channel"}]},"thumbnail":{"thumbnails":[{"url":"//i.ytimg.com/small.jpg"},{"url":"https://i.ytimg.com/big.jpg"}]}}},
+              {"compactVideoRenderer":{"videoId":"notitle0000"}}
+            ],"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"T2"}}}}
+            """,
+        )
+        val items = YouTubeClient.parseSearch(page)
+        assertEquals(2, items.size)
+        val video = items.first { !it.isPlaylist }
+        assertEquals(40_240_000L, video.durationMs)
+        assertEquals("Reader", video.author)
+        assertEquals("https://www.youtube.com/watch?v=v2hg3ZjL-8E", video.url)
+        val list = items.first { it.isPlaylist }
+        assertEquals(24, list.videoCount)
+        assertEquals("https://i.ytimg.com/big.jpg", list.thumbnailUrl)
+        assertEquals("https://www.youtube.com/playlist?list=PLxyz123456", list.url)
+        assertEquals("T2", YouTubeClient.continuation(page))
+    }
+
+    @Test
+    fun offlineCopies() {
+        assertEquals("m4a", AudiobookDownloader.extension("audio/mp4", "youtube:abc"))
+        assertEquals("webm", AudiobookDownloader.extension("audio/webm; codecs=\"opus\"", "youtube:abc"))
+        assertEquals("mp3", AudiobookDownloader.extension(null, "https://example.com/ep1.mp3?token=1"))
+        assertEquals("audio", AudiobookDownloader.extension(null, "https://example.com/stream"))
+        assertTrue(AudiobookDownloader.isRemote("youtube:abc"))
+        assertTrue(AudiobookDownloader.isRemote("https://example.com/a.mp3"))
+        assertFalse(AudiobookDownloader.isRemote("file:///data/a.mp3"))
+
+        val dir = createTempDirectory().toFile()
+        val copy = java.io.File(dir, "0001.m4a").apply { writeText("x") }
+        val track = AudioTrack("One", "youtube:abc", file = "file://" + copy.absolutePath)
+        assertEquals(track.file, AudiobookStore.playableUri(track))
+        copy.delete()
+        // A copy that is gone streams again.
+        assertEquals("youtube:abc", AudiobookStore.playableUri(track))
+        assertEquals("book.files", AudiobookStore.downloadDirOf(java.io.File(dir, "book.yaudio")).name)
+        dir.deleteRecursively()
     }
 
     @Test

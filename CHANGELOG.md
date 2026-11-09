@@ -2,6 +2,9 @@
 
 ## Unreleased — audiobooks
 
+- **Audiobooks, continued**: offline listening for online audiobooks (YouTube, podcasts, catalog streams) — a download button in the player saves the tracks in the background, resumes after interruptions and is removed with the book; chapters stored inside M4B/MP4 (QuickTime, Nero) and MP3 (ID3 CHAP) files; "Skip silence" per book; a short rewind after long pauses; expired YouTube addresses are refreshed every time, not only once per track.
+- **YouTube**: a YouTube source in the catalog (long videos, all videos, playlists); YouTube’s own chapter lists, including automatic chapters; channel links; playlists are read to the end (the web client stopped after about 20 videos) with durations and without deleted or private videos. Checked against live YouTube; downloading needs a single-file stream, which data-centre networks under YouTube’s bot check do not get.
+
 - **Audiobooks**: your own audio files, folders of tracks and ZIPs of MP3s; LibriVox in the catalog (listen online or download the ZIP); YouTube videos and playlists, podcast feeds and audio links by URL or "Share → Listen in Yomu"; NotebookLM audio overviews via download/share. A player with chapters, speed, sleep timer, background playback with notification and lock-screen controls, a "now playing" bar, saved positions and listening time in the statistics. Verified with unit tests and builds; not yet on a device or against live YouTube.
 
 ## Unreleased — GitHub sync, incognito everywhere, hidden extensions, Anki decks, notifications

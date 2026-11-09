@@ -28,6 +28,10 @@
     </plurals>
     <string name="notif_translating">Перевод книги</string>
     <string name="notif_translation_done">Перевод готов: %s</string>
+    <string name="notif_audio_downloading">Скачивание «%s» для прослушивания офлайн</string>
+    <string name="notif_audio_track">Дорожка %1$d из %2$d</string>
+    <string name="notif_audio_downloaded">Доступно офлайн: %s</string>
+    <string name="notif_audio_download_failed">Не удалось скачать «%s»</string>
     <string name="notif_scanning">Сканирование папок библиотеки</string>
     <plurals name="notif_downloads_left">
         <item quantity="one">Загрузка · осталась %d</item>

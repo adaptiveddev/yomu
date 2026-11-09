@@ -19,4 +19,16 @@
     <string name="audio_origin_catalog">Каталог</string>
     <string name="audio_origin_podcast">Подкаст</string>
     <string name="audio_origin_link">Ссылка</string>
+    <string name="audio_skip_silence">Пропуск тишины</string>
+    <string name="audio_offline">Прослушивание офлайн</string>
+    <string name="audio_offline_hint">Сохранить дорожки на устройстве, чтобы слушать без сети.</string>
+    <string name="audio_offline_state">Сохранено дорожек: %1$d из %2$d · %3$s</string>
+    <string name="audio_offline_complete">Всё сохранено на устройстве · %1$s</string>
+    <string name="audio_offline_running">Скачивается дорожка %1$d из %2$d…</string>
+    <string name="audio_offline_waiting">Ожидание сети…</string>
+    <string name="audio_offline_failed">Ошибка скачивания: %1$s</string>
+    <string name="audio_download">Скачать</string>
+    <string name="audio_download_rest">Докачать</string>
+    <string name="audio_download_cancel">Остановить</string>
+    <string name="audio_download_remove">Удалить скачанное</string>
 </resources>

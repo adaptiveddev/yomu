@@ -6,5 +6,5 @@ import org.koin.dsl.module
 
 val audioModule = module {
     single { AudioController(androidContext()) }
-    viewModel { (bookId: Long) -> AudioPlayerViewModel(bookId, get(), get(), get()) }
+    viewModel { (bookId: Long) -> AudioPlayerViewModel(bookId, get(), get(), get(), get(), get()) }
 }

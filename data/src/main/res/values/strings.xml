@@ -24,6 +24,10 @@
     </plurals>
     <string name="notif_translating">Translating the book</string>
     <string name="notif_translation_done">Translation finished: %s</string>
+    <string name="notif_audio_downloading">Downloading “%s” for offline listening</string>
+    <string name="notif_audio_track">Track %1$d of %2$d</string>
+    <string name="notif_audio_downloaded">Ready for offline listening: %s</string>
+    <string name="notif_audio_download_failed">Could not download “%s”</string>
     <string name="notif_scanning">Scanning library folders</string>
     <plurals name="notif_downloads_left">
         <item quantity="one">Downloading · %d left</item>

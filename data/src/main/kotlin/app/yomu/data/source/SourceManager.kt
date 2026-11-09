@@ -2,6 +2,8 @@ package app.yomu.data.source
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import app.yomu.data.audio.YouTubeClient
+import app.yomu.data.audio.YouTubeSource
 import app.yomu.core.database.SourceEntity
 import app.yomu.core.database.YomuDatabase
 import app.yomu.core.datastore.AppSettings
@@ -79,6 +81,7 @@ class SourceManager(
     private val db: YomuDatabase,
     private val settings: AppSettings,
     private val extensions: ExtensionManager,
+    youtube: YouTubeClient,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineExceptionHandler { _, e -> Timber.e(e, "Source list update failed") })
     private val json = Json { ignoreUnknownKeys = true }
@@ -92,6 +95,7 @@ class SourceManager(
         add(InternetArchiveSource())
         add(OpenLibrarySource())
         add(LibriVoxSource())
+        add(YouTubeSource(youtube))
         listOf("en", "ru", "de", "fr").forEach { add(WikisourceSource(it)) }
         // Online novels (2.0.0): Mihon extensions are manga only.
         add(RanobeLibSource())
