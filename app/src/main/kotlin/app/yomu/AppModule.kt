@@ -265,7 +265,9 @@ class MainViewModel(
     private fun importAndOpen(uris: List<Uri>) = viewModelScope.launch(ScreenErrors) {
         _importing.value = true
         // Access to shared files is temporary, so they are always copied into the library.
-        val results = runCatching { importer.import(uris, link = false) }.getOrElse { e -> listOf(ImportOutcome.Failed("", e)) }
+        val results = runCatching { importer.import(uris, link = false) }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) { _importing.value = false; throw it } }
+            .getOrElse { e -> listOf(ImportOutcome.Failed("", e)) }
         _importing.value = false
         val opened = results.mapNotNull {
             when (it) {
