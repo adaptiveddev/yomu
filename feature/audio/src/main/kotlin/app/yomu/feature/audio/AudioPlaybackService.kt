@@ -133,7 +133,10 @@ class AudioPlaybackService : MediaSessionService() {
             override fun getSeekBackIncrement() = settings.skipBackSec * 1000L
             override fun getSeekForwardIncrement() = settings.skipForwardSec * 1000L
             override fun seekBack() = seekTo((currentPosition - seekBackIncrement).coerceAtLeast(0))
-            override fun seekForward() = seekTo(currentPosition + seekForwardIncrement)
+            override fun seekForward() {
+                val target = currentPosition + seekForwardIncrement
+                seekTo(if (duration != C.TIME_UNSET) target.coerceAtMost(duration) else target)
+            }
         }
         session = MediaSession.Builder(this, seeking)
             .setCallback(callback)
