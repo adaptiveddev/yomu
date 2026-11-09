@@ -5,5 +5,5 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val editorModule = module {
-    viewModel { (bookId: Long) -> EditorViewModel(androidContext(), bookId, get(), get(), get(), get(), get(), get()) }
+    viewModel { (bookId: Long) -> EditorViewModel(androidContext(), bookId, get(), get(), get(), get(), get(), get(), get()) }
 }

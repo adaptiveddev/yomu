@@ -410,6 +410,10 @@ interface DictionaryDao {
     @Query("DELETE FROM dictionaries WHERE id = :id")
     suspend fun delete(id: Long)
 
+    /** Dictionaries whose import never finished (the count is set only at its end); their entries go with them. */
+    @Query("DELETE FROM dictionaries WHERE entryCount = 0")
+    suspend fun deleteUnfinished(): Int
+
     @Insert
     suspend fun insertEntries(entries: List<DictionaryEntryEntity>)
 

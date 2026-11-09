@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Task
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -56,6 +57,7 @@ private fun NotifyKind.title(): Int = when (this) {
     NotifyKind.BACKUP -> R.string.set_notify_backup
     NotifyKind.TASKS -> R.string.set_notify_tasks
     NotifyKind.REMINDERS -> R.string.set_notify_reminders
+    NotifyKind.APP_UPDATE -> R.string.set_notify_app_update
 }
 
 private fun NotifyKind.summary(): Int = when (this) {
@@ -65,6 +67,7 @@ private fun NotifyKind.summary(): Int = when (this) {
     NotifyKind.BACKUP -> R.string.set_notify_backup_sum
     NotifyKind.TASKS -> R.string.set_notify_tasks_sum
     NotifyKind.REMINDERS -> R.string.set_notify_reminders_sum
+    NotifyKind.APP_UPDATE -> R.string.set_notify_app_update_sum
 }
 
 private fun NotifyKind.icon(): ImageVector = when (this) {
@@ -74,6 +77,7 @@ private fun NotifyKind.icon(): ImageVector = when (this) {
     NotifyKind.BACKUP -> Icons.Outlined.Backup
     NotifyKind.TASKS -> Icons.Outlined.Task
     NotifyKind.REMINDERS -> Icons.Outlined.School
+    NotifyKind.APP_UPDATE -> Icons.Outlined.SystemUpdate
 }
 
 /** Settings → Notifications: permission, kinds, quiet hours and the recent notifications. */

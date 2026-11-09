@@ -99,6 +99,8 @@ class YomuApp : Application(), SingletonImageLoader.Factory {
 
         val settings = get<AppSettings>()
         appScope.launch { runCatching { settings.migrate() }.onFailure { Timber.w(it, "Settings migration failed") } }
+        // A process killed during a dictionary import leaves it half-written: nothing can be importing at start.
+        appScope.launch { runCatching { get<app.yomu.data.dictionary.DictionaryRepository>().removeUnfinished() } }
         // The network and image layers read the traffic limits without suspending.
         appScope.launch {
             combine(settings.dataSaver.flow, settings.coversOnMobile.flow) { saver, covers -> saver to covers }

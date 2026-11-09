@@ -10,6 +10,7 @@ import androidx.room.withTransaction
 import app.yomu.core.database.YomuDatabase
 import app.yomu.core.datastore.AppSettings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -314,12 +315,40 @@ class BackupManager(private val context: Context, private val db: YomuDatabase, 
 
     fun suggestedName(): String = "yomu_" + SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US).format(Date()) + ".yomubackup"
 
+    /**
+     * Writes a backup into the document [uri]. A backup without book files is built in the cache first and copied
+     * whole, so the document never holds a half-written zip; with files (too big to stage twice) it is written
+     * directly. Either way a failed or cancelled backup removes the document instead of leaving a broken file that
+     * looks like a backup (and would push an older good one out of the automatic rotation).
+     */
+    suspend fun createTo(uri: Uri, includeFiles: Boolean) = withContext(Dispatchers.IO) {
+        val resolver = context.contentResolver
+        try {
+            if (includeFiles) {
+                resolver.openOutputStream(uri)?.use { create(it, includeFiles = true) } ?: error("Cannot write the backup file")
+            } else {
+                val staged = File.createTempFile("backup-", ".zip", context.cacheDir)
+                try {
+                    staged.outputStream().use { create(it, includeFiles = false) }
+                    withContext(NonCancellable) {
+                        resolver.openOutputStream(uri)?.use { out -> staged.inputStream().use { it.copyTo(out) } } ?: error("Cannot write the backup file")
+                    }
+                } finally {
+                    staged.delete()
+                }
+            }
+        } catch (e: Throwable) {
+            withContext(NonCancellable) { runCatching { DocumentsContract.deleteDocument(resolver, uri) } }
+            throw e
+        }
+    }
+
     /** Writes a backup into the configured SAF folder and keeps only the newest N files. */
     suspend fun autoBackup() = withContext(Dispatchers.IO) {
         val folder = settings.backupFolder.get().takeIf { it.isNotBlank() }?.let(Uri::parse) ?: return@withContext
         val treeDoc = DocumentsContract.buildDocumentUriUsingTree(folder, DocumentsContract.getTreeDocumentId(folder))
         val uri = DocumentsContract.createDocument(context.contentResolver, treeDoc, "application/zip", suggestedName()) ?: error("Cannot create backup file")
-        context.contentResolver.openOutputStream(uri)!!.use { create(it, includeFiles = false) }
+        createTo(uri, includeFiles = false)
         settings.lastBackupAt.set(System.currentTimeMillis())
         val keep = settings.backupKeep.get().coerceAtLeast(1)
         val files = app.yomu.data.library.SafTree.walk(context, folder, maxDepth = 0, includeDirs = false)

@@ -455,6 +455,9 @@ internal class SyncMerger(private val db: YomuDatabase) {
 
         // 9. The new shared state and base.
         if (o.deletions) live.forEach { tomb.remove(it) }
+        // A switched-off category keeps its last acknowledged base: switched on again, its records merge from there
+        // instead of looking new (or concurrently edited) on both sides.
+        val carried = b?.keys.orEmpty().filter { it.length > 1 && it[1] == '|' && it[0] in "hnbw" && !o.includes(it) }.toSet()
         val horizon = now - TOMBSTONE_DAYS * 24L * 3600 * 1000
         val keptTombs = tomb.filterValues { it >= horizon }
         val finalTabs = collections.bookCollections()
@@ -475,7 +478,7 @@ internal class SyncMerger(private val db: YomuDatabase) {
         val finalNotesForPrivateRevisions = ann.allNotes().filter { it.highlightId != null }.groupBy { it.highlightId }
         val newBase = SyncBase(
             syncId = syncId,
-            keys = live,
+            keys = live + carried,
             tombstones = keptTombs,
             read = baseRead,
             marked = baseMarked,
@@ -485,9 +488,14 @@ internal class SyncMerger(private val db: YomuDatabase) {
                 outHl.forEach { (key, value) -> if (key in live) put(key, AnnotationRevisions.highlight(value)) }
                 outNotes.forEach { (key, value) -> if (key in live) put(key, AnnotationRevisions.note(value)) }
                 outBm.forEach { (key, value) -> if (key in live) put(key, AnnotationRevisions.bookmark(value)) }
+                b?.annotationRevisions?.forEach { (key, value) -> if (key in carried) put(key, value) }
             },
-            privateAnnotationRevisions = ann.allHighlights().filter { o.annotations && it.bookId in hashById }.associate { h ->
-                SyncKeys.highlight(hashById.getValue(h.bookId), h.createdAt, h.text) to AnnotationRevisions.privateHighlight(h, finalNotesForPrivateRevisions[h.id].orEmpty())
+            privateAnnotationRevisions = if (o.annotations) {
+                ann.allHighlights().filter { it.bookId in hashById }.associate { h ->
+                    SyncKeys.highlight(hashById.getValue(h.bookId), h.createdAt, h.text) to AnnotationRevisions.privateHighlight(h, finalNotesForPrivateRevisions[h.id].orEmpty())
+                }
+            } else {
+                b?.privateAnnotationRevisions.orEmpty().filterKeys { it in carried && b?.annotationRevisions?.containsKey(it) == true }
             },
             annotationDeletionProofs = proofs.filterKeys { it in keptTombs },
         )

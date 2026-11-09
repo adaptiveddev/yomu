@@ -105,6 +105,10 @@ fun MangaPageSettings(s: MangaSettings, update: MangaSettingsUpdate) {
             steps = 5,
         )
         PreferenceSwitch(stringResource(R.string.mr_webtoon_gaps), s.webtoonGaps, { v -> update { it.copy(webtoonGaps = v) } })
+        PreferenceSwitch(
+            stringResource(R.string.mr_webtoon_double_tap), s.webtoonDoubleTapZoom, { v -> update { it.copy(webtoonDoubleTapZoom = v) } },
+            stringResource(R.string.mr_webtoon_double_tap_sum),
+        )
     } else {
         PreferenceSwitch(stringResource(R.string.mr_dual), s.dualPageLandscape, { v -> update { it.copy(dualPageLandscape = v) } })
     }

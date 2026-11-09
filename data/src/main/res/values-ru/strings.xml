@@ -5,6 +5,7 @@
     <string name="channel_backup">Резервные копии и синхронизация</string>
     <string name="channel_reminders">Напоминания о словах</string>
     <string name="channel_tasks">Фоновые задачи</string>
+    <string name="channel_app_update">Обновления приложения</string>
     <string name="notif_downloading">Загрузка</string>
     <string name="notif_checking_updates">Проверка новых глав</string>
     <string name="notif_new_chapters">Новые главы</string>

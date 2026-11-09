@@ -46,6 +46,7 @@ object Notifications {
     const val BACKUP = "backup"
     const val REMINDERS = "reminders"
     const val TASKS = "tasks"
+    const val APP_UPDATE = "app_update"
 
     const val ID_DOWNLOAD = 1001
     const val ID_UPDATES = 1002
@@ -57,6 +58,8 @@ object Notifications {
     const val ID_DOWNLOAD_DONE = 1008
     const val ID_SYNC = 1009
     const val ID_TEST = 1010
+    const val ID_APP_UPDATE_PROGRESS = 1011
+    const val ID_APP_UPDATE = 1012
 
     /** Intent action of the notifications that open the download queue (handled by the app's main activity). */
     const val ACTION_OPEN_DOWNLOADS = "app.yomu.action.OPEN_DOWNLOADS"
@@ -68,9 +71,9 @@ object Notifications {
         val nm = context.getSystemService(NotificationManager::class.java)
         listOf(
             DOWNLOADS to R.string.channel_downloads, UPDATES to R.string.channel_updates, BACKUP to R.string.channel_backup,
-            REMINDERS to R.string.channel_reminders, TASKS to R.string.channel_tasks,
+            REMINDERS to R.string.channel_reminders, TASKS to R.string.channel_tasks, APP_UPDATE to R.string.channel_app_update,
         ).forEach { (id, name) ->
-            val importance = if (id == UPDATES || id == REMINDERS) NotificationManager.IMPORTANCE_DEFAULT else NotificationManager.IMPORTANCE_LOW
+            val importance = if (id == UPDATES || id == REMINDERS || id == APP_UPDATE) NotificationManager.IMPORTANCE_DEFAULT else NotificationManager.IMPORTANCE_LOW
             nm.createNotificationChannel(NotificationChannel(id, context.getString(name), importance))
         }
     }
@@ -87,16 +90,38 @@ object Notifications {
 
     /** Settings → Notifications; kept current by the app (see [watch]). */
     @Volatile var prefs: NotificationPrefs = NotificationPrefs()
+    @Volatile private var prefsLoaded = false
+    @Volatile private var settingsRef: AppSettings? = null
+
+    private suspend fun readPrefs(settings: AppSettings) = NotificationPrefs(
+        settings.notifyDisabled.get().mapNotNull { n -> NotifyKind.entries.firstOrNull { it.name == n } }.toSet(),
+        settings.quietHours.get(), settings.quietFrom.get(), settings.quietTo.get(),
+    )
+
+    /**
+     * The current settings: a worker started with the process may post before [watch] delivered them; off the main
+     * thread they are then read once, so its notification still follows the user's choices.
+     */
+    private fun currentPrefs(): NotificationPrefs {
+        val s = settingsRef
+        if (prefsLoaded || s == null || android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) return prefs
+        return runCatching { kotlinx.coroutines.runBlocking { readPrefs(s) } }.getOrDefault(prefs)
+    }
 
     /** Keeps [prefs] in step with the settings for as long as [scope] lives. */
     fun watch(scope: kotlinx.coroutines.CoroutineScope, settings: AppSettings) {
+        settingsRef = settings
         scope.launch {
             kotlinx.coroutines.flow.combine(
                 settings.notifyDisabled.flow, settings.quietHours.flow, settings.quietFrom.flow, settings.quietTo.flow,
             ) { off, quiet, from, to ->
                 NotificationPrefs(off.mapNotNull { n -> NotifyKind.entries.firstOrNull { it.name == n } }.toSet(), quiet, from, to)
-            }.collect { prefs = it }
+            }.collect { prefs = it; prefsLoaded = true }
         }
+    }
+
+    fun cancel(context: Context, id: Int) {
+        runCatching { NotificationManagerCompat.from(context).cancel(id) }
     }
 
     /** The kind of a notification posted on [channel] when the caller does not say. */
@@ -105,6 +130,7 @@ object Notifications {
         UPDATES -> NotifyKind.NEW_CHAPTERS
         BACKUP -> NotifyKind.BACKUP
         REMINDERS -> NotifyKind.REMINDERS
+        APP_UPDATE -> NotifyKind.APP_UPDATE
         else -> NotifyKind.TASKS
     }
 
@@ -113,7 +139,7 @@ object Notifications {
      * notifications. During quiet hours it arrives silently.
      */
     fun notify(context: Context, id: Int, builder: NotificationCompat.Builder, kind: NotifyKind? = null) {
-        val p = prefs
+        val p = currentPrefs()
         val quiet = p.isQuiet(Calendar.getInstance().get(Calendar.HOUR_OF_DAY))
         if (quiet) builder.setSilent(true)
         val n = runCatching { builder.build() }.getOrNull() ?: return
@@ -406,6 +432,15 @@ class WorkScheduler(private val context: Context, private val settings: AppSetti
             return
         }
         wm.enqueueUniquePeriodicWork(BackupWorker.NAME, ExistingPeriodicWorkPolicy.UPDATE, PeriodicWorkRequestBuilder<BackupWorker>(hours.toLong(), TimeUnit.HOURS).build())
+    }
+
+    /**
+     * After the user changed the sync target or "Only over Wi-Fi": a waiting automatic sync keeps the network constraint
+     * it was queued with, so it is dropped (the next app start or exit queues a new one) and the periodic one updated.
+     */
+    suspend fun rescheduleSyncAfterChange() {
+        wm.cancelUniqueWork("${SyncWorker.NAME}_auto")
+        scheduleSync()
     }
 
     suspend fun scheduleSync() {

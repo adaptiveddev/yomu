@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.yomu.core.common.AppScope
 import app.yomu.core.common.Files
 import app.yomu.core.common.ScreenErrors
 import app.yomu.core.common.runCatchingApp
@@ -52,6 +53,7 @@ class SettingsViewModel(
     /** Accounts of MyAnimeList, AniList and Shikimori (Settings → Tracking). */
     val trackers: TrackerManager,
     private val extensions: ExtensionManager,
+    private val appScope: AppScope = AppScope(),
 ) : ViewModel() {
     private val _events = Channel<SettingsEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
@@ -71,7 +73,7 @@ class SettingsViewModel(
     fun rescheduleScan() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleScan() }
     fun rescheduleUpdates() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleUpdates() }
     fun rescheduleBackup() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleBackup() }
-    fun rescheduleSync() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleSync() }
+    fun rescheduleSync() = viewModelScope.launch(ScreenErrors) { scheduler.rescheduleSyncAfterChange() }
     fun rescheduleReminder() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleReminder() }
 
     private fun persist(uri: Uri, write: Boolean) {
@@ -106,10 +108,10 @@ class SettingsViewModel(
     fun createBackup(uri: Uri, includeFiles: Boolean) = viewModelScope.launch(ScreenErrors) {
         busy.value = true
         runCatchingApp {
-            withContext(Dispatchers.IO) {
-                context.contentResolver.openOutputStream(uri)?.use { backup.create(it, includeFiles) } ?: error("Cannot write the file")
+            appScope.detached {
+                backup.createTo(uri, includeFiles)
+                settings.lastBackupAt.set(System.currentTimeMillis())
             }
-            settings.lastBackupAt.set(System.currentTimeMillis())
         }.onSuccess { _events.send(SettingsEvent.Message(R.string.set_backup_done)) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         busy.value = false
@@ -118,7 +120,7 @@ class SettingsViewModel(
     fun restoreBackup(uri: Uri) = viewModelScope.launch(ScreenErrors) {
         busy.value = true
         runCatchingApp {
-            withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { backup.restore(it) } ?: error("Cannot read the file") }
+            appScope.detached { withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { backup.restore(it) } ?: error("Cannot read the file") } }
         }.onSuccess { r ->
             _events.send(SettingsEvent.Message(R.string.set_restore_done, listOf(r.rows, r.files)))
             _events.send(SettingsEvent.Restored)
@@ -134,7 +136,7 @@ class SettingsViewModel(
 
     fun backupNowToFolder() = viewModelScope.launch(ScreenErrors) {
         busy.value = true
-        runCatchingApp { backup.autoBackup() }
+        runCatchingApp { appScope.detached { backup.autoBackup() } }
             .onSuccess { _events.send(SettingsEvent.Message(R.string.set_backup_done)) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         busy.value = false
@@ -148,7 +150,7 @@ class SettingsViewModel(
 
     fun syncNow() = viewModelScope.launch(ScreenErrors) {
         busy.value = true
-        runCatchingApp { sync.syncNow() }
+        runCatchingApp { appScope.detached { sync.syncNow() } }
             .onSuccess { n -> _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(n))) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         busy.value = false
@@ -156,8 +158,8 @@ class SettingsViewModel(
 
     fun createGitHubRepository(name: String) = viewModelScope.launch(ScreenErrors) {
         busy.value = true
-        runCatchingApp { sync.createGitHubRepository(name) }
-            .onSuccess { full -> _events.send(SettingsEvent.Message(R.string.set_github_created, listOf(full))); scheduler.scheduleSync() }
+        runCatchingApp { appScope.detached { sync.createGitHubRepository(name).also { scheduler.scheduleSync() } } }
+            .onSuccess { full -> _events.send(SettingsEvent.Message(R.string.set_github_created, listOf(full))) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         busy.value = false
     }
@@ -174,7 +176,7 @@ class SettingsViewModel(
 
     fun checkSync() = viewModelScope.launch(ScreenErrors) {
         busy.value = true
-        runCatchingApp { sync.check() }
+        runCatchingApp { appScope.detached { sync.check() } }
             .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_check_ok)) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         busy.value = false
@@ -199,7 +201,7 @@ class SettingsViewModel(
     /** "Keep my version": the changed local file becomes the book's new version and syncs. */
     fun adoptChangedBook(bookId: Long) = viewModelScope.launch(ScreenErrors) {
         busy.value = true
-        runCatchingApp { sync.adoptChangedBook(bookId) }
+        runCatchingApp { appScope.detached { sync.adoptChangedBook(bookId) } }
             .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         loadSyncProblems()
@@ -209,7 +211,7 @@ class SettingsViewModel(
     /** "Take the other device's version": the local file is replaced by the adopted remote version. */
     fun takeRemoteBookVersion(bookId: Long) = viewModelScope.launch(ScreenErrors) {
         busy.value = true
-        runCatchingApp { sync.takeRemoteBookVersion(bookId) }
+        runCatchingApp { appScope.detached { sync.takeRemoteBookVersion(bookId) } }
             .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         loadSyncProblems()
@@ -219,7 +221,7 @@ class SettingsViewModel(
     /** Migrates a legacy image folder onto a stable identity so file sync can include it. */
     fun migrateLegacyFolder(folderId: Long) = viewModelScope.launch(ScreenErrors) {
         busy.value = true
-        runCatchingApp { sync.migrateLegacyFolder(folderId) }
+        runCatchingApp { appScope.detached { sync.migrateLegacyFolder(folderId) } }
             .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         loadSyncProblems()
@@ -229,7 +231,7 @@ class SettingsViewModel(
     /** "Publish my version" of a folder whose page changes stopped the sync. */
     fun publishFolderVersion(folderId: Long) = viewModelScope.launch(ScreenErrors) {
         busy.value = true
-        runCatchingApp { sync.publishFolderVersion(folderId) }
+        runCatchingApp { appScope.detached { sync.publishFolderVersion(folderId) } }
             .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         loadSyncProblems()
@@ -239,7 +241,7 @@ class SettingsViewModel(
     /** "Accept the other version" of a folder whose page changes stopped the sync. */
     fun acceptFolderVersion(folderId: Long) = viewModelScope.launch(ScreenErrors) {
         busy.value = true
-        runCatchingApp { sync.acceptFolderVersion(folderId) }
+        runCatchingApp { appScope.detached { sync.acceptFolderVersion(folderId) } }
             .onSuccess { _events.send(SettingsEvent.Message(R.string.set_sync_done, listOf(it))) }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         loadSyncProblems()
@@ -254,7 +256,7 @@ class SettingsViewModel(
     fun importMihon(uri: Uri) = viewModelScope.launch(ScreenErrors) {
         busy.value = true
         runCatchingApp {
-            withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { mihon.import(it) } ?: error("Cannot read the file") }
+            appScope.detached { withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { mihon.import(it) } ?: error("Cannot read the file") } }
         }.onSuccess { mihonResult.value = it }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         busy.value = false
