@@ -302,4 +302,16 @@
     <string name="reader_quick_display">Вид и яркость</string>
     <string name="reader_keep_awake">Не гасить экран</string>
     <string name="reader_brightness_auto">Авто</string>
+    <string name="rs_page_anim">Анимация перелистывания</string>
+    <string name="rs_page_anim_slide">Сдвиг</string>
+    <string name="rs_page_anim_fade">Затухание</string>
+    <string name="rs_page_anim_none">Без анимации</string>
+    <string name="rs_auto_night">Автоматическая ночная тема</string>
+    <string name="rs_auto_night_summary">Переключаться на тёмную тему чтения, когда приложение в тёмном режиме</string>
+    <string name="rs_night_theme">Ночная тема</string>
+    <string name="rs_edge_gestures">Жесты по краям экрана</string>
+    <string name="rs_edge_gestures_summary">Свайп вверх или вниз у левого края меняет яркость, у правого — тёплый фильтр</string>
+    <string name="rs_brightness_pill">Яркость</string>
+    <string name="rs_warm_pill">Тёплый фильтр</string>
+    <string name="hint_reader_edges">Проведите вверх или вниз у левого края, чтобы изменить яркость, у правого — тёплый фильтр.</string>
 </resources>

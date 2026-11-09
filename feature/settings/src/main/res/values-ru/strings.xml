@@ -601,4 +601,6 @@
     <string name="set_notify_test_sum">Проверяет разрешение, тихие часы и список</string>
     <string name="set_notify_test_title">Уведомления Yomu работают</string>
     <string name="set_notify_test_text">Так Yomu сообщает о новых главах, загрузках и синхронизации.</string>
+    <string name="set_secret_show">Показать</string>
+    <string name="set_secret_hide">Скрыть</string>
 </resources>

@@ -67,6 +67,8 @@ import app.yomu.core.datastore.AppSettings
 import app.yomu.core.ui.components.BookListItem
 import app.yomu.core.ui.components.ConfirmDialog
 import app.yomu.core.ui.components.EmptyState
+import app.yomu.core.ui.components.SwipeAction
+import app.yomu.core.ui.components.SwipeActionsBox
 import app.yomu.core.ui.components.motionItem
 import app.yomu.core.ui.components.navBarBottomPadding
 import app.yomu.core.ui.theme.Dimens
@@ -287,19 +289,19 @@ fun HistoryPane(
                 list.forEach { day ->
                     stickyHeader(key = "d:${day.day}") { DayHeader(day) }
                     items(day.items, key = { it.key }) { item ->
-                        HistoryRow(
-                            item = item,
-                            onOpen = { open(item) },
-                            onDetails = { details(item) },
-                            onRemove = {
-                                viewModel.remove(item)
-                                scope.launch {
-                                    snackbar.currentSnackbarData?.dismiss()
-                                    snackbar.showSnackbar(resources.getString(R.string.history_removed, item.title))
-                                }
-                            },
+                        val remove: () -> Unit = {
+                            viewModel.remove(item)
+                            scope.launch {
+                                snackbar.currentSnackbarData?.dismiss()
+                                snackbar.showSnackbar(resources.getString(R.string.history_removed, item.title))
+                            }
+                        }
+                        SwipeActionsBox(
                             modifier = motionItem(),
-                        )
+                            end = SwipeAction.destructive(stringResource(R.string.history_remove), remove),
+                        ) {
+                            HistoryRow(item = item, onOpen = { open(item) }, onDetails = { details(item) }, onRemove = remove)
+                        }
                     }
                 }
             }

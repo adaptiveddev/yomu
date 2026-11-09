@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -74,6 +75,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -117,6 +119,7 @@ import app.yomu.core.ui.components.CircleIconButton
 import app.yomu.core.ui.components.ConfirmDialog
 import app.yomu.core.ui.components.CoverImage
 import app.yomu.core.ui.components.EmptyState
+import app.yomu.core.ui.components.OneTimeHint
 import app.yomu.core.ui.components.PillTab
 import app.yomu.core.ui.components.PillTabRow
 import app.yomu.core.ui.components.RemovableChip
@@ -195,6 +198,7 @@ fun LibraryScreen(
     val onlineShown by viewModel.onlineShown.collectAsStateWithLifecycle()
     val tabPick by viewModel.tabPick.collectAsStateWithLifecycle()
     val incognito by viewModel.incognito.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -399,6 +403,7 @@ fun LibraryScreen(
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         TopLevelBody(padding, Modifier.fillMaxSize()) {
+            PullToRefreshBox(isRefreshing = refreshing, onRefresh = { if (!selecting) viewModel.refresh() }, modifier = Modifier.fillMaxSize()) {
             when {
                 inOnline -> online.pane(snackbar, search)
                 (booksLoading && showBooks) || total < 0 || !onlineLoaded -> if (grid) SkeletonGrid() else SkeletonList()
@@ -444,6 +449,13 @@ fun LibraryScreen(
                         onDetails = onOpenDetails,
                     )
                 }
+            }
+            if (bookCount > 0 && !selecting && !inOnline) {
+                OneTimeHint(
+                    "library_select", stringResource(R.string.hint_library_select),
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = navBarBottomPadding(64.dp)).widthIn(max = 480.dp),
+                )
+            }
             }
         }
     }

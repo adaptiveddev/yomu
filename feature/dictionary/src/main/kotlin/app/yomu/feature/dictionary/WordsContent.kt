@@ -69,6 +69,8 @@ import app.yomu.core.ui.components.EmptyState
 import app.yomu.core.ui.components.FilterChipsRow
 import app.yomu.core.ui.components.SearchField
 import app.yomu.core.ui.components.SkeletonList
+import app.yomu.core.ui.components.SwipeAction
+import app.yomu.core.ui.components.SwipeActionsBox
 import app.yomu.core.ui.components.TextInputDialog
 import app.yomu.core.ui.components.errorMessage
 import app.yomu.core.ui.theme.Dimens
@@ -182,21 +184,27 @@ fun WordsContent(viewModel: WordsViewModel, onOpenBook: (Long, Locator?, String)
                 is UiState.Data -> LazyColumn(contentPadding = PaddingValues(bottom = navBarBottomPadding(88.dp))) {
                     items(s.value, key = { it.id }) { w ->
                         val selected = w.id in selection
-                        ListItem(
-                            colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
-                            headlineContent = { Text(w.term, maxLines = 1) },
-                            supportingContent = {
-                                Column {
-                                    (w.translation ?: w.definition)?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                                    w.context?.let { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                }
-                            },
-                            trailingContent = { LevelIndicator(w.level) },
-                            modifier = Modifier.animateItem().combinedClickable(
-                                onClick = { if (selection.isNotEmpty()) viewModel.toggleSelect(w.id) else editing = w },
-                                onLongClick = { viewModel.toggleSelect(w.id) },
-                            ),
-                        )
+                        SwipeActionsBox(
+                            modifier = Modifier.animateItem(),
+                            end = SwipeAction.destructive(stringResource(UiR.string.delete)) { viewModel.delete(setOf(w.id)) },
+                            enabled = selection.isEmpty(),
+                        ) {
+                            ListItem(
+                                colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
+                                headlineContent = { Text(w.term, maxLines = 1) },
+                                supportingContent = {
+                                    Column {
+                                        (w.translation ?: w.definition)?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                                        w.context?.let { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                    }
+                                },
+                                trailingContent = { LevelIndicator(w.level) },
+                                modifier = Modifier.combinedClickable(
+                                    onClick = { if (selection.isNotEmpty()) viewModel.toggleSelect(w.id) else editing = w },
+                                    onLongClick = { viewModel.toggleSelect(w.id) },
+                                ),
+                            )
+                        }
                     }
                 }
             }

@@ -301,4 +301,16 @@
     <string name="reader_quick_display">Display</string>
     <string name="reader_keep_awake">Keep screen on</string>
     <string name="reader_brightness_auto">Auto</string>
+    <string name="rs_page_anim">Page turn animation</string>
+    <string name="rs_page_anim_slide">Slide</string>
+    <string name="rs_page_anim_fade">Fade</string>
+    <string name="rs_page_anim_none">None</string>
+    <string name="rs_auto_night">Auto night theme</string>
+    <string name="rs_auto_night_summary">Switch to a dark reader theme when the app is in dark mode</string>
+    <string name="rs_night_theme">Night theme</string>
+    <string name="rs_edge_gestures">Edge swipe gestures</string>
+    <string name="rs_edge_gestures_summary">Swipe up or down on the left edge for brightness, on the right edge for the warm filter</string>
+    <string name="rs_brightness_pill">Brightness</string>
+    <string name="rs_warm_pill">Warm filter</string>
+    <string name="hint_reader_edges">Slide up or down along the left edge to change brightness, along the right edge for the warm filter.</string>
 </resources>

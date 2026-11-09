@@ -189,4 +189,7 @@
     <string name="library_batch_tags_add">Добавить теги (через запятую)</string>
     <string name="library_batch_apply">Применить</string>
     <string name="library_batch_saved">Метаданные обновлены</string>
+    <string name="library_no_scan_folders">Папок для сканирования пока нет: добавьте её в меню импорта</string>
+    <string name="library_up_to_date">Библиотека актуальна</string>
+    <string name="hint_library_select">Удерживайте книгу, чтобы выбрать несколько сразу. Потяните вниз, чтобы пересканировать папки.</string>
 </resources>

@@ -12,6 +12,13 @@
 - **Hide extensions and sources**: the eye button in Extensions hides all sources of an extension from the catalog and the global search; the extension sheet can pin, disable or hide each source; a source's menu hides it alone. "Show hidden" in the source filters lists them again, Settings → Catalog shows the counts and restores everything.
 - **Export words**: a ready **Anki deck (.apkg)** for Anki/AnkiDroid/AnkiMobile (re-exports update the same notes), the Anki text file, CSV, Quizlet/Memrise (tab-separated), JSON and Markdown. Highlights can be exported as an Anki deck or an Anki text file as well.
 - Tested with MockWebServer and Robolectric only: no real GitHub account or Anki import was exercised.
+- **UI/UX pass**:
+  - Reader: brightness and warm-filter swipes along the left/right screen edge (text and PDF, with a live percent pill; can be switched off in Controls); a page-turn animation choice for books (slide, fade, none); an automatic night theme that follows the app's dark mode; tap-zone layouts for books (L-shape, Kindle, edges, left/right, off) like the manga reader.
+  - Lists: swipe actions — delete notes, bookmarks and saved words (with Undo), remove history entries, cancel/remove/retry downloads. Pull down in the library to rescan the scan folders.
+  - Book and title pages are tinted with the cover's colour (the placeholder's colour for books without a cover). On wide screens (≥ 840 dp) a book's details open in a side pane next to the library.
+  - Predictive back: the screen shrinks away with the gesture. Haptics for switches, stepped sliders and swipe thresholds. One-time hints for multi-select, edge swipes and list swipes.
+  - Polish: a fade under the floating navigation bar, a new empty state, icon circles on profile tiles, the dictionary search in the same style as the other search fields, dimmed disabled switches, a label for the password visibility button.
+  - Verified with unit and Robolectric screenshot tests only, not on a device.
 
 ## 2.0.6 — trackers and PDF reflow (stages 2–3)
 

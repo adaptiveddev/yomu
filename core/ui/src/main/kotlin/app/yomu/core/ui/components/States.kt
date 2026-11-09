@@ -87,14 +87,22 @@ fun EmptyState(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        val primary = MaterialTheme.colorScheme.primary
+        val tertiary = MaterialTheme.colorScheme.tertiary
         Box(
-            Modifier.size(96.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+            Modifier.size(124.dp).clip(CircleShape).background(primary.copy(alpha = 0.06f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.primary)
+            Box(
+                Modifier.size(92.dp).clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(primary.copy(alpha = 0.26f), tertiary.copy(alpha = 0.16f)))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(44.dp), tint = primary)
+            }
         }
         Spacer(Modifier.height(Dimens.l))
-        Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
         if (message != null) {
             Spacer(Modifier.height(Dimens.s))
             Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)

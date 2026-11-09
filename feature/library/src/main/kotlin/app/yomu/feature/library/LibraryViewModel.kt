@@ -254,6 +254,29 @@ class LibraryViewModel(
         report(importer.scanTree(tree))
     }
 
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing
+
+    /** Pull-to-refresh: scans the scan folders in place and reports what was found. */
+    fun refresh() {
+        if (_refreshing.value) return
+        viewModelScope.launch(ScreenErrors) {
+            _refreshing.value = true
+            try {
+                val folders = settings.scanFolders.get()
+                if (folders.isEmpty()) {
+                    _events.send(LibraryEvent.Message(R.string.library_no_scan_folders))
+                    return@launch
+                }
+                val outcomes = folders.flatMap { runCatching { importer.scanTree(Uri.parse(it)) }.getOrDefault(emptyList()) }
+                if (outcomes.any { it is ImportOutcome.Added || it is ImportOutcome.Failed }) report(outcomes)
+                else _events.send(LibraryEvent.Message(R.string.library_up_to_date))
+            } finally {
+                _refreshing.value = false
+            }
+        }
+    }
+
     fun rescan() = LibraryScanWorker.runNow(context).let { _events.trySend(LibraryEvent.Message(R.string.library_scan_started)) }
 
     private fun persist(uri: Uri) {

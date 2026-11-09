@@ -114,6 +114,7 @@ import app.yomu.core.common.Files
 import app.yomu.core.common.Share
 import app.yomu.core.ui.components.ConfirmDialog
 import app.yomu.core.ui.components.CoverImage
+import app.yomu.core.ui.components.coverTint
 import app.yomu.core.ui.components.ErrorState
 import app.yomu.core.ui.components.SheetTitle
 import app.yomu.core.ui.components.SkeletonList
@@ -739,6 +740,7 @@ private fun FilterRow(label: String, checked: Boolean, summary: String? = null, 
 @Composable
 private fun TitleHeader(e: CatalogEntry, sourceName: String?) {
     val context = LocalContext.current
+    val tint = app.yomu.core.ui.components.rememberCoverColor(e.coverUrl, app.yomu.core.ui.components.coverPlaceholderColor(e.title))
     Box(Modifier.fillMaxWidth()) {
         if (e.coverUrl != null && !app.yomu.core.ui.components.LocalHideCovers.current) {
             AsyncImage(
@@ -753,6 +755,7 @@ private fun TitleHeader(e: CatalogEntry, sourceName: String?) {
                 Brush.verticalGradient(listOf(Color.Transparent, MaterialTheme.colorScheme.surface)),
             ),
         )
+        Box(Modifier.matchParentSize().coverTint(tint))
         Row(Modifier.fillMaxWidth().padding(Dimens.l), horizontalArrangement = Arrangement.spacedBy(Dimens.l)) {
             CoverImage(e.coverUrl, e.title, Modifier.width(112.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Dimens.xs)) {

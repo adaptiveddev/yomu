@@ -87,8 +87,11 @@ import app.yomu.core.common.Share
 import app.yomu.core.common.UiState
 import app.yomu.core.ui.components.ChipItem
 import app.yomu.core.ui.components.EmptyState
+import app.yomu.core.ui.components.OneTimeHint
 import app.yomu.core.ui.components.FilterChipsRow
 import app.yomu.core.ui.components.SheetAction
+import app.yomu.core.ui.components.SwipeAction
+import app.yomu.core.ui.components.SwipeActionsBox
 import app.yomu.core.ui.components.SheetTitle
 import app.yomu.core.ui.components.SkeletonList
 import app.yomu.core.ui.components.TextInputDialog
@@ -277,6 +280,7 @@ fun AnnotationsScreen(
                     contentPadding = PaddingValues(horizontal = Dimens.l, vertical = Dimens.s),
                     modifier = Modifier.fillMaxSize(),
                 ) {
+                    item(key = "swipe-hint") { OneTimeHint("annotations_swipe", stringResource(R.string.hint_annotations_swipe), Modifier.fillMaxWidth()) }
                     var lastBook: Long? = null
                     s.value.forEach { e ->
                         if (viewModel.allBooks && filter.sort == AnnotationSort.POSITION && e.bookId != lastBook) {
@@ -291,13 +295,17 @@ fun AnnotationsScreen(
                             }
                         }
                         item(key = e.key) {
-                            AnnotationCard(
-                                entry = e,
-                                showBook = viewModel.allBooks && filter.sort == AnnotationSort.DATE,
-                                onClick = { onOpen(e.bookId, e.locator, "${e.key.first()}:${e.key.drop(1)}:${e.createdAt}") },
-                                onLongClick = { sheetFor = e },
+                            SwipeActionsBox(
                                 modifier = Modifier.animateItem(),
-                            )
+                                end = SwipeAction.destructive(stringResource(UiR.string.delete)) { viewModel.delete(e) },
+                            ) {
+                                AnnotationCard(
+                                    entry = e,
+                                    showBook = viewModel.allBooks && filter.sort == AnnotationSort.DATE,
+                                    onClick = { onOpen(e.bookId, e.locator, "${e.key.first()}:${e.key.drop(1)}:${e.createdAt}") },
+                                    onLongClick = { sheetFor = e },
+                                )
+                            }
                         }
                     }
                 }

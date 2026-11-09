@@ -146,6 +146,8 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.paging.runtime)
     testImplementation(libs.okhttp.mockwebserver)
+    // The reader settings screenshots need a text engine controller (UiUxScreensTest).
+    testImplementation(project(":feature:reader-epub"))
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
     testImplementation(platform(libs.compose.bom))

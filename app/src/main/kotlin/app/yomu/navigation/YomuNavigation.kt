@@ -16,6 +16,11 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,6 +39,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.navigation.NavController
@@ -229,8 +235,14 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
         startDestination = HomeRoute,
         enterTransition = { if (reduceMotion) EnterTransition.None else fadeIn(tween(220, delayMillis = 60)) + scaleIn(tween(220, delayMillis = 60), initialScale = 0.97f) },
         exitTransition = { if (reduceMotion) ExitTransition.None else fadeOut(tween(90)) },
-        popEnterTransition = { if (reduceMotion) EnterTransition.None else fadeIn(tween(220, delayMillis = 60)) },
-        popExitTransition = { if (reduceMotion) ExitTransition.None else fadeOut(tween(120)) + scaleOut(tween(180), targetScale = 0.97f) },
+        // During a predictive back gesture NavHost seeks these two with the finger: the screen shrinks away like a card
+        // and the one below comes up from a slight zoom, the Android 14+ "peek" look.
+        popEnterTransition = {
+            if (reduceMotion) EnterTransition.None else fadeIn(tween(240)) + scaleIn(tween(300), initialScale = 0.94f)
+        },
+        popExitTransition = {
+            if (reduceMotion) ExitTransition.None else fadeOut(tween(220, delayMillis = 60)) + scaleOut(tween(300), targetScale = 0.88f)
+        },
     ) {
         // ---------------------------------------------------------------- tabs
         val settingsLinks = SettingsLinks(
@@ -426,13 +438,42 @@ private fun LibraryTab(nav: NavHostController, tabs: TabsState) {
             OnlineLibraryPane(catalogVm, snackbar, query, onOpenTitle = openTitle, onBrowse = { tabs.select(TopLevel.CATALOG) })
         }
     }
-    LibraryScreen(
-        viewModel = koinViewModel(),
-        onOpenBook = { nav.navigate(ReaderRoute(bookId = it.id)) },
-        onOpenDetails = { nav.navigate(BookDetailsRoute(it.id)) },
-        onFindBooksOnline = { tabs.select(TopLevel.CATALOG) },
-        onOpenSettings = { tabs.select(TopLevel.SETTINGS) },
-        onOpenTitle = openTitle,
-        online = online,
-    )
+    // Wide windows keep the grid and show the details of the tapped book in a pane beside it.
+    val twoPane = LocalConfiguration.current.screenWidthDp >= 840
+    var paneBook by rememberSaveable { mutableStateOf<Long?>(null) }
+    val library: @Composable (Modifier) -> Unit = { modifier ->
+        Box(modifier) {
+            LibraryScreen(
+                viewModel = koinViewModel(),
+                onOpenBook = { nav.navigate(ReaderRoute(bookId = it.id)) },
+                onOpenDetails = { if (twoPane) paneBook = it.id else nav.navigate(BookDetailsRoute(it.id)) },
+                onFindBooksOnline = { tabs.select(TopLevel.CATALOG) },
+                onOpenSettings = { tabs.select(TopLevel.SETTINGS) },
+                onOpenTitle = openTitle,
+                online = online,
+            )
+        }
+    }
+    val pane = paneBook
+    if (twoPane && pane != null) {
+        Row(Modifier.fillMaxSize()) {
+            library(Modifier.weight(1f).fillMaxSize())
+            VerticalDivider()
+            key(pane) {
+                Box(Modifier.width(420.dp).fillMaxSize()) {
+                    BookDetailsScreen(
+                        viewModel = koinViewModel(key = "pane-$pane") { parametersOf(pane) },
+                        onBack = { paneBook = null },
+                        onRead = { nav.navigate(ReaderRoute(bookId = it.id)) },
+                        onOpenEditor = { nav.navigate(EditorRoute(it.id)) },
+                        onOpenAnnotations = { nav.navigate(AnnotationsRoute(it.id)) },
+                        onOpenPageLayout = { nav.navigate(DocxLayoutRoute(it.id)) },
+                        inPane = true,
+                    )
+                }
+            }
+        }
+    } else {
+        library(Modifier.fillMaxSize())
+    }
 }

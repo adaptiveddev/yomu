@@ -11,6 +11,9 @@ enum class ReaderTheme(val bg: Long, val fg: Long) {
     CUSTOM(0xFFFFFFFF, 0xFF000000),
 }
 
+/** How paged text moves between pages. */
+enum class PageTurnAnimation { SLIDE, FADE, NONE }
+
 enum class TextAlignment { START, JUSTIFY, CENTER }
 
 @Serializable
@@ -37,6 +40,10 @@ data class TextReaderSettings(
     /** Extra space between letters and between words, in em. */
     val letterSpacing: Float = 0f,
     val wordSpacing: Float = 0f,
+    val pageAnimation: PageTurnAnimation = PageTurnAnimation.SLIDE,
+    /** Uses [nightTheme] instead of [theme] while the app is in dark mode. */
+    val autoNight: Boolean = false,
+    val nightTheme: ReaderTheme = ReaderTheme.DARK,
 ) {
     val background: Long get() = if (theme == ReaderTheme.CUSTOM) customBackground else theme.bg
     val foreground: Long get() = if (theme == ReaderTheme.CUSTOM) customText else theme.fg
@@ -125,6 +132,9 @@ data class CommonReaderSettings(
     val footer: Boolean = true,
     val footerClock: Boolean = true,
     val footerChapter: Boolean = true,
+    /** Vertical drag on the left screen edge changes brightness, on the right edge the warm filter. */
+    val edgeGestures: Boolean = true,
+    val textTapZones: TapZoneLayout = TapZoneLayout.LEFT_RIGHT,
 )
 
 /** A named set of text settings (built-in or saved by the user). */
