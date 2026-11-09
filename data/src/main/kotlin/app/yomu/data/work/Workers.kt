@@ -281,9 +281,9 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         fun runNow(context: Context) = WorkManager.getInstance(context).enqueueUniqueWork("${NAME}_now", ExistingWorkPolicy.REPLACE, OneTimeWorkRequestBuilder<SyncWorker>().build())
 
         /** An automatic sync (app start, app left): one at a time, with a network when the target is a server. */
-        fun runSoon(context: Context, needsNetwork: Boolean) {
+        fun runSoon(context: Context, needsNetwork: Boolean, wifiOnly: Boolean = false) {
             val request = OneTimeWorkRequestBuilder<SyncWorker>()
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(if (needsNetwork) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED).build())
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(syncNetwork(needsNetwork, wifiOnly)).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork("${NAME}_auto", ExistingWorkPolicy.KEEP, request)
@@ -364,7 +364,7 @@ class WorkScheduler(private val context: Context, private val settings: AppSetti
             return
         }
         val request = PeriodicWorkRequestBuilder<SyncWorker>(hours.coerceAtLeast(1).toLong(), TimeUnit.HOURS)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(if (network) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED).build())
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(syncNetwork(network, settings.syncWifiOnly.get())).build())
             .build()
         wm.enqueueUniquePeriodicWork(SyncWorker.NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
@@ -385,4 +385,11 @@ class WorkScheduler(private val context: Context, private val settings: AppSetti
         val request = PeriodicWorkRequestBuilder<ReminderWorker>(1, TimeUnit.DAYS).setInitialDelay(delay, TimeUnit.MILLISECONDS).build()
         wm.enqueueUniquePeriodicWork(ReminderWorker.NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
+}
+
+/** Network a background sync waits for: none for a shared folder, Wi-Fi (unmetered) when the user asked for it. */
+internal fun syncNetwork(needsNetwork: Boolean, wifiOnly: Boolean): NetworkType = when {
+    !needsNetwork -> NetworkType.NOT_REQUIRED
+    wifiOnly -> NetworkType.UNMETERED
+    else -> NetworkType.CONNECTED
 }

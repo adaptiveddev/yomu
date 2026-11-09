@@ -202,7 +202,7 @@ fun BookDetailsScreen(
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Box(Modifier.fillMaxWidth().height(300.dp)) {
-                val cover = current.coverPath?.let { File(it) }
+                val cover = current.coverPath?.takeIf { !app.yomu.core.ui.components.LocalHideCovers.current }?.let { File(it) }
                 if (cover != null) {
                     AsyncImage(
                         model = cover, contentDescription = null, contentScale = ContentScale.Crop,

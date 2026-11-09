@@ -268,7 +268,11 @@ class SyncManager(
             try { deletion.publish(remote) } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: IOException) { /* recorded inside */ }
         }
-        val options = SyncMerger.Options(catalog = settings.syncCatalog.get(), deletions = settings.syncDeletions.get(), device = deviceName())
+        val options = SyncMerger.Options(
+            catalog = settings.syncCatalog.get(), deletions = settings.syncDeletions.get(), device = deviceName(),
+            progress = settings.syncProgress.get(), annotations = settings.syncAnnotations.get(),
+            bookmarks = settings.syncBookmarks.get(), words = settings.syncWords.get(),
+        )
         val stableFolders = db.books().all().filter { it.format == "FOLDER" && it.fileHash?.let(FolderManifestCodec::validId) == true }
         val outcome = if (folderSnapshot != null || stableFolders.isNotEmpty()) {
             val revisions = folderSnapshot?.revisions.orEmpty().associateByTo(LinkedHashMap()) { it.id }
@@ -283,7 +287,7 @@ class SyncManager(
         } else mergeAndWrite(db, backend, file, remote, base, System.currentTimeMillis(), options)
         // Only after the file was written: the base describes what the shared file and this device agree on.
         saveBase(context, outcome.base)
-        val trackChanges = if (backend is TrackLinkTransport) {
+        val trackChanges = if (backend is TrackLinkTransport && settings.syncTrackLinks.get()) {
             TrackLinkSync(context, db).sync(backend, backend.id, settings.syncCatalog.get(), settings.syncDeletions.get())
         } else 0
         if (deletion != null) {

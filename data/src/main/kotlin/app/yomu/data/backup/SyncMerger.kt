@@ -24,7 +24,28 @@ import app.yomu.core.database.YomuDatabase
  * Records of books that are not on this device are kept in the shared state for the other devices.
  */
 internal class SyncMerger(private val db: YomuDatabase) {
-    data class Options(val catalog: Boolean = true, val deletions: Boolean = true, val device: String = "")
+    /**
+     * What takes part in the sync. A category that is off keeps the shared records as they are: nothing is applied here,
+     * nothing of this device is published, and its records missing here are never taken for deletions.
+     */
+    data class Options(
+        val catalog: Boolean = true,
+        val deletions: Boolean = true,
+        val device: String = "",
+        val progress: Boolean = true,
+        val annotations: Boolean = true,
+        val bookmarks: Boolean = true,
+        val words: Boolean = true,
+    ) {
+        /** Whether the record behind [key] (see [SyncKeys]) takes part in the sync. */
+        fun includes(key: String): Boolean = when (key.firstOrNull()) {
+            'h', 'n' -> annotations
+            'b' -> bookmarks
+            'w' -> words
+            'c' -> catalog
+            else -> true
+        }
+    }
     data class Outcome(val state: SyncState, val base: SyncBase, val changed: Int)
 
     suspend fun merge(remote: SyncState?, base: SyncBase?, syncId: String, now: Long, o: Options): Outcome = db.withTransaction {
@@ -48,12 +69,12 @@ internal class SyncMerger(private val db: YomuDatabase) {
             throw java.io.IOException("Duplicate book identifier prevents safe metadata sync; resolve the conflict before syncing")
         val idByHash = books.associate { it.fileHash!! to it.id }
         val hashById = books.associate { it.id to it.fileHash!! }
-        val localHl = ann.allHighlights().filter { it.bookId in hashById }
+        val localHl = if (o.annotations) ann.allHighlights().filter { it.bookId in hashById } else emptyList()
         val allNotes = ann.allNotes()
-        val localNotes = allNotes.filter { it.highlightId == null && it.bookId in hashById }
+        val localNotes = if (o.annotations) allNotes.filter { it.highlightId == null && it.bookId in hashById } else emptyList()
         val linkedNotes = allNotes.filter { it.highlightId != null }.groupBy { it.highlightId }
-        val localBm = ann.allBookmarks().filter { it.bookId in hashById }
-        val localWords = words.all()
+        val localBm = if (o.bookmarks) ann.allBookmarks().filter { it.bookId in hashById } else emptyList()
+        val localWords = if (o.words) words.all() else emptyList()
         var tabs = collections.bookCollections()
         val favorites = if (o.catalog) catalog.favorites() else emptyList()
 
@@ -143,7 +164,7 @@ internal class SyncMerger(private val db: YomuDatabase) {
                 if (book == null && k.length > 1 && k[1] == '|' && k[0] in "hnb")
                     throw java.io.IOException("Invalid annotation key in sync base; no data was deleted")
                 if (book != null && book !in idByHash) continue
-                if (k.startsWith("c|") && !o.catalog) continue
+                if (!o.includes(k)) continue
                 if (book != null) {
                     val baseVersion = b.annotationRevisions[k] ?: throw AnnotationSyncProblem(AnnotationSyncProblem.Kind.NO_PROOF, "Annotation deletion has no saved revision; no data was deleted")
                     val remoteVersion = remoteVersions[k]
@@ -181,7 +202,7 @@ internal class SyncMerger(private val db: YomuDatabase) {
             var value = bk.progress
             var at = lp?.updatedAt ?: 0L
             var status = bk.status
-            if (rb?.locator != null && rb.updatedAt > at) {
+            if (o.progress && rb?.locator != null && rb.updatedAt > at) {
                 db.progress().upsert(ReadingProgressEntity(bk.id, rb.locator, rb.progress, rb.updatedAt))
                 db.books().updateProgress(bk.id, rb.progress, rb.updatedAt)
                 if (rb.status == "FINISHED" && bk.status != "FINISHED") {
@@ -197,7 +218,9 @@ internal class SyncMerger(private val db: YomuDatabase) {
             val merged = merge3(localTabs, rb?.tabs?.toSet(), b?.bookTabs?.get(hash)?.toSet())
             if (merged != localTabs) wantedBookTabs[bk.id] = merged
             finalBookTabs[hash] = merged
-            outBooks[hash] = SyncBook(hash, bk.title, locator, value, at, status, merged.sorted())
+            outBooks[hash] = if (o.progress) SyncBook(hash, bk.title, locator, value, at, status, merged.sorted())
+            // Position sync off: the shared position stays what the other devices wrote; tabs still merge.
+            else SyncBook(hash, bk.title, rb?.locator, rb?.progress ?: 0f, rb?.updatedAt ?: 0L, rb?.status ?: bk.status, merged.sorted())
         }
         r.books.forEach { rb -> if (rb.hash !in outBooks) outBooks[rb.hash] = rb }
 
@@ -227,6 +250,7 @@ internal class SyncMerger(private val db: YomuDatabase) {
             live += k
         }
         for ((k, rh) in remoteHl) {
+            if (!o.annotations) { outHl[k] = rh; continue }
             if (k in outHl || dead(k, rh.updatedAt)) continue
             val bookId = idByHash[rh.hash]
             if (bookId != null) {
@@ -259,6 +283,7 @@ internal class SyncMerger(private val db: YomuDatabase) {
             live += k
         }
         for ((k, rn) in remoteNotes) {
+            if (!o.annotations) { outNotes[k] = rn; continue }
             if (k in outNotes || dead(k, rn.updatedAt)) continue
             val bookId = idByHash[rn.hash]
             if (bookId != null) {
@@ -291,6 +316,7 @@ internal class SyncMerger(private val db: YomuDatabase) {
             live += k
         }
         for ((k, rm) in remoteBm) {
+            if (!o.bookmarks) { outBm[k] = rm; continue }
             if (k in outBm || dead(k, rm.createdAt)) continue
             val bookId = idByHash[rm.hash]
             if (bookId != null) {
@@ -327,6 +353,7 @@ internal class SyncMerger(private val db: YomuDatabase) {
             live += k
         }
         for ((k, rw) in remoteWords) {
+            if (!o.words) { outWords[k] = rw; continue }
             if (k in outWords || dead(k, maxOf(rw.createdAt, rw.lastReviewedAt ?: 0L))) continue
             if (words.find(rw.normalized, rw.lang) == null) {
                 words.insert(WordEntity(0, rw.term, rw.normalized, rw.lang, rw.translation, rw.definition, rw.context, null, null, null, rw.tags, rw.createdAt, rw.level, rw.ease, rw.intervalDays, rw.repetitions, rw.dueAt, rw.lapses, rw.lastReviewedAt))
@@ -459,7 +486,7 @@ internal class SyncMerger(private val db: YomuDatabase) {
                 outNotes.forEach { (key, value) -> if (key in live) put(key, AnnotationRevisions.note(value)) }
                 outBm.forEach { (key, value) -> if (key in live) put(key, AnnotationRevisions.bookmark(value)) }
             },
-            privateAnnotationRevisions = ann.allHighlights().filter { it.bookId in hashById }.associate { h ->
+            privateAnnotationRevisions = ann.allHighlights().filter { o.annotations && it.bookId in hashById }.associate { h ->
                 SyncKeys.highlight(hashById.getValue(h.bookId), h.createdAt, h.text) to AnnotationRevisions.privateHighlight(h, finalNotesForPrivateRevisions[h.id].orEmpty())
             },
             annotationDeletionProofs = proofs.filterKeys { it in keptTombs },

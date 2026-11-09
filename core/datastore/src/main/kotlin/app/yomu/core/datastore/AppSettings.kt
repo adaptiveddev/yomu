@@ -100,6 +100,8 @@ class AppSettings(context: Context) {
     val librarySort = enum("library_sort", LibrarySort.LAST_READ)
     val libraryAscending = bool("library_ascending", false)
     val showContinueReading = bool("show_continue", true)
+    /** Covers are replaced by their generated placeholder everywhere in the app (and the home-screen widget). */
+    val hideCovers = bool("hide_covers", false)
     /** COPY or LINK. */
     val importMode = string("import_mode", "COPY")
     val scanFolders = stringSet("scan_folders")
@@ -228,6 +230,14 @@ class AppSettings(context: Context) {
     val syncBookFiles = bool("sync_book_files", false)
     /** Deleted highlights, notes, bookmarks, words and online titles are deleted on the other devices too (2.0.0). */
     val syncDeletions = bool("sync_deletions", true)
+    /** Granular sync (what takes part): reading positions and statuses, highlights with notes, bookmarks, words, tracker links. */
+    val syncProgress = bool("sync_progress", true)
+    val syncAnnotations = bool("sync_annotations", true)
+    val syncBookmarks = bool("sync_bookmarks", true)
+    val syncWords = bool("sync_words", true)
+    val syncTrackLinks = bool("sync_track_links", true)
+    /** Automatic syncs over a network target wait for Wi-Fi (or another unmetered network). */
+    val syncWifiOnly = bool("sync_wifi_only", false)
     /** Result of the last sync attempt: empty = success, otherwise the error text. */
     val lastSyncError = string("last_sync_error", "")
 

@@ -34,7 +34,7 @@ class AutoSync(private val context: Context, private val settings: AppSettings) 
                 val network = SyncManager.needsNetwork(settings.syncBackend.get())
                 // Coming back after a minute is not a reason for another sync.
                 if (onStart && System.currentTimeMillis() - settings.lastSyncAt.get() < MIN_GAP_MS) return@launch
-                SyncWorker.runSoon(context, needsNetwork = network)
+                SyncWorker.runSoon(context, needsNetwork = network, wifiOnly = settings.syncWifiOnly.get())
             }
         }
     }

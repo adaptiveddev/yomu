@@ -140,6 +140,13 @@
     <string name="ext_repo_warning">Extensions are third-party code that runs inside the app with network access. Add only repositories you trust. Yomu does not host or review extensions and is not responsible for the content of the sites they open.</string>
     <string name="ext_add_repo">Add repository</string>
     <string name="ext_remove_repo">Remove repository</string>
+    <string name="ext_rec_title">Popular repositories</string>
+    <string name="ext_rec_note">Community repositories, not affiliated with Yomu. Before adding, Yomu shows the name, the number of extensions and the signing key; extensions still need your trust after install.</string>
+    <string name="ext_rec_keiyoushi">The main community repository: over a thousand manga sources in every language</string>
+    <string name="ext_rec_yuzono">Keiyoushi plus extra and fixed extensions, merged every few hours</string>
+    <string name="ext_rec_zosetsu">Extra sources that are not in Keiyoushi</string>
+    <string name="ext_rec_kavita">Kavita: read from your own Kavita server</string>
+    <string name="ext_rec_suwayomi">Suwayomi: read from your own Suwayomi server</string>
     <string name="ext_remove_repo_text">Extensions installed from it stay installed, but will not get updates.</string>
     <string name="ext_repo_url">Repository address</string>
     <string name="ext_repo_url_hint">https://…/index.min.json</string>

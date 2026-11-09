@@ -144,6 +144,13 @@
     <string name="ext_repo_warning">Расширения — сторонний код, который выполняется внутри приложения и имеет доступ к сети. Добавляйте только репозитории, которым доверяете. Yomu не размещает и не проверяет расширения и не отвечает за содержимое сайтов, которые они открывают.</string>
     <string name="ext_add_repo">Добавить репозиторий</string>
     <string name="ext_remove_repo">Удалить репозиторий</string>
+    <string name="ext_rec_title">Популярные репозитории</string>
+    <string name="ext_rec_note">Репозитории сообщества, не связанные с Yomu. Перед добавлением Yomu покажет название, число расширений и ключ подписи; после установки расширениям всё равно нужно ваше доверие.</string>
+    <string name="ext_rec_keiyoushi">Основной репозиторий сообщества: больше тысячи источников манги на всех языках</string>
+    <string name="ext_rec_yuzono">Keiyoushi плюс дополнительные и исправленные расширения, обновляется каждые несколько часов</string>
+    <string name="ext_rec_zosetsu">Дополнительные источники, которых нет в Keiyoushi</string>
+    <string name="ext_rec_kavita">Kavita: чтение с вашего сервера Kavita</string>
+    <string name="ext_rec_suwayomi">Suwayomi: чтение с вашего сервера Suwayomi</string>
     <string name="ext_remove_repo_text">Установленные из него расширения останутся, но перестанут обновляться.</string>
     <string name="ext_repo_url">Адрес репозитория</string>
     <string name="ext_repo_url_hint">https://…/index.min.json</string>

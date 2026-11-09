@@ -197,6 +197,8 @@ class MainViewModel(
 
     fun setIncognito(on: Boolean) = viewModelScope.launch(ScreenErrors) { settings.incognito.set(on) }
 
+    val hideCovers: StateFlow<Boolean> = settings.hideCovers.flow.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     init {
         viewModelScope.launch(ScreenErrors) {
             val code = BuildConfig.VERSION_CODE.toLong()

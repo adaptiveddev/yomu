@@ -39,6 +39,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 /** The "Reduce motion" setting: decorative animations are skipped when it is on (provided by the app root). */
 val LocalReduceMotion = staticCompositionLocalOf { false }
 
+/** The "Hide covers" setting: covers show only their generated placeholder (provided by the app root). */
+val LocalHideCovers = androidx.compose.runtime.compositionLocalOf { false }
+
 /** Animates insertions, removals and moves of a list row, unless motion is reduced. */
 @Composable
 fun LazyItemScope.motionItem(): Modifier = if (LocalReduceMotion.current) Modifier else Modifier.animateItem()

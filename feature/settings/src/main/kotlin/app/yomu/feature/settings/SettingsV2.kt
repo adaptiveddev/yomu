@@ -160,9 +160,16 @@ internal fun ColumnScope.SyncSection(vm: SettingsViewModel, onOpenProblems: () -
         listOf(0, 1, 3, 6, 12, 24).map { h -> h to if (h <= 0) stringResource(R.string.set_off) else pluralStringResource(R.plurals.set_every_hours, h, h) },
         after = { vm.rescheduleSync() },
     )
+    if (webdav || github) SwitchPref(vm, s.syncWifiOnly, R.string.set_sync_wifi_only, R.string.set_sync_wifi_only_sum, after = { vm.rescheduleSync() })
 
     PreferenceHeader(stringResource(R.string.set_sync_what))
+    Hint(stringResource(R.string.set_sync_what_hint))
+    SwitchPref(vm, s.syncProgress, R.string.set_sync_progress, R.string.set_sync_progress_sum)
+    SwitchPref(vm, s.syncAnnotations, R.string.set_sync_annotations, R.string.set_sync_annotations_sum)
+    SwitchPref(vm, s.syncBookmarks, R.string.set_sync_bookmarks, R.string.set_sync_bookmarks_sum)
+    SwitchPref(vm, s.syncWords, R.string.set_sync_words, R.string.set_sync_words_sum)
     SwitchPref(vm, s.syncCatalog, R.string.set_sync_catalog, R.string.set_sync_catalog_sum)
+    SwitchPref(vm, s.syncTrackLinks, R.string.set_sync_track_links, R.string.set_sync_track_links_sum)
     SwitchPref(vm, s.syncBookFiles, R.string.set_sync_book_files, R.string.set_sync_book_files_sum)
     SwitchPref(vm, s.syncDeletions, R.string.set_sync_deletions, R.string.set_sync_deletions_sum)
     if (webdav) {

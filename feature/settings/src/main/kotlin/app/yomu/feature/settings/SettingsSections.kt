@@ -505,6 +505,7 @@ internal fun ColumnScope.LibrarySection(vm: SettingsViewModel) {
     val auto = stringResource(R.string.set_auto)
     IntSliderPref(vm, s.gridColumns, R.string.set_columns, 0..6, label = { if (it == 0) auto else it.toString() })
     SwitchPref(vm, s.showContinueReading, R.string.set_show_continue)
+    SwitchPref(vm, s.hideCovers, R.string.set_hide_covers, R.string.set_hide_covers_sum)
     ChoicePref(vm, s.importMode, R.string.set_import_mode, listOf(
         "COPY" to stringResource(R.string.set_import_copy),
         "LINK" to stringResource(R.string.set_import_link),

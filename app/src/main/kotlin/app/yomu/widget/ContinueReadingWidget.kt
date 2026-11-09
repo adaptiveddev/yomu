@@ -139,11 +139,11 @@ object ContinueWidgets : KoinComponent {
     private fun entries(): Flow<List<WidgetEntry>> {
         val books = get<BookRepositoryImpl>()
         val catalog = get<CatalogRepository>()
-        return combine(books.observeContinueReading(MAX_ROWS), catalog.observeFavorites()) { b, o ->
-            val local = b.map { WidgetEntry(it.id, false, it.title, it.authors.firstOrNull(), it.progress, 0, it.coverPath, it.lastReadAt ?: 0) }
+        return combine(books.observeContinueReading(MAX_ROWS), catalog.observeFavorites(), get<app.yomu.core.datastore.AppSettings>().hideCovers.flow) { b, o, hide ->
+            val local = b.map { WidgetEntry(it.id, false, it.title, it.authors.firstOrNull(), it.progress, 0, it.coverPath.takeUnless { hide }, it.lastReadAt ?: 0) }
             val remote = o.filter { it.lastReadAt > 0 && it.unread > 0 }.map { e ->
                 val fraction = if (e.chapterCount <= 0) 0f else (e.chapterCount - e.unread).coerceAtLeast(0).toFloat() / e.chapterCount
-                WidgetEntry(e.id, true, e.title, e.author, fraction, e.unread, e.coverUrl, e.lastReadAt)
+                WidgetEntry(e.id, true, e.title, e.author, fraction, e.unread, e.coverUrl.takeUnless { hide }, e.lastReadAt)
             }
             (local + remote).sortedByDescending { it.time }.take(MAX_ROWS)
         }

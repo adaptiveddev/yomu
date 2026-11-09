@@ -150,6 +150,7 @@ fun ExtensionsScreen(
     var uninstallFor by remember { mutableStateOf<InstalledExtension?>(null) }
     var detailsFor by remember { mutableStateOf<String?>(null) }
     var addStore by rememberSaveable { mutableStateOf(addStoreUrl != null) }
+    var addStoreInitial by rememberSaveable { mutableStateOf(addStoreUrl.orEmpty()) }
     var removeStore by remember { mutableStateOf<StoreState?>(null) }
     var pickLanguages by remember { mutableStateOf(false) }
     val pickApk = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(viewModel::installFromFile) }
@@ -253,7 +254,7 @@ fun ExtensionsScreen(
                             message = stringResource(R.string.ext_no_repos_hint),
                             icon = Icons.Outlined.Storage,
                             actionLabel = stringResource(R.string.ext_add_repo),
-                            onAction = { tab = 2; addStore = true },
+                            onAction = { tab = 2 },
                         )
                     }
                 } else if (available.isEmpty() && !refreshing) {
@@ -295,6 +296,32 @@ fun ExtensionsScreen(
                     }
                 }
                 items(stores, key = { it.url }) { s -> StoreRow(s, onRemove = { removeStore = s }) }
+                val suggested = RECOMMENDED_STORES.filter { rec -> stores.none { rec.matches(it.url) } }
+                if (suggested.isNotEmpty()) {
+                    item(key = "rec-h") { SectionHeader(stringResource(R.string.ext_rec_title)) }
+                    items(suggested, key = { "rec-" + it.url }) { rec ->
+                        ListItem(
+                            leadingContent = { Icon(Icons.Outlined.Storage, null, tint = MaterialTheme.colorScheme.primary) },
+                            headlineContent = { Text(rec.name) },
+                            supportingContent = { Text(stringResource(rec.description), style = MaterialTheme.typography.bodySmall) },
+                            trailingContent = {
+                                FilledTonalButton(onClick = {
+                                    addStoreInitial = rec.url
+                                    addStore = true
+                                    viewModel.previewStore(rec.url)
+                                }) { Text(stringResource(CoreR.string.add)) }
+                            },
+                        )
+                    }
+                    item(key = "rec-note") {
+                        Text(
+                            stringResource(R.string.ext_rec_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = Dimens.l, vertical = Dimens.s),
+                        )
+                    }
+                }
             }
         }
     }
@@ -354,7 +381,7 @@ fun ExtensionsScreen(
     }
     if (addStore) {
         AddStoreDialog(
-            initial = addStoreUrl.orEmpty(),
+            initial = addStoreInitial,
             preview = preview,
             onCheck = viewModel::previewStore,
             onConfirm = { viewModel.confirmStore(); addStore = false },
