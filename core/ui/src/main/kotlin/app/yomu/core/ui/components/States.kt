@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.GppMaybe
@@ -137,6 +138,14 @@ fun errorMessage(context: android.content.Context, error: Throwable): String = w
     is AppError.NoSpace -> context.getString(R.string.error_no_space)
     is AppError.NotConfigured -> context.getString(R.string.error_not_configured, e.what)
     is AppError.Incompatible -> context.getString(R.string.error_incompatible)
+    is AppError.AudioLink -> context.getString(
+        when (e.reason) {
+            AppError.AudioLink.Reason.NO_LINK -> R.string.error_audio_no_link
+            AppError.AudioLink.Reason.NOTEBOOKLM -> R.string.error_audio_notebooklm
+            AppError.AudioLink.Reason.YOUTUBE_BLOCKED -> R.string.error_audio_youtube
+            AppError.AudioLink.Reason.UNSUPPORTED -> R.string.error_audio_unsupported
+        },
+    )
     is AppError.Unknown -> error.message?.takeIf { it.isNotBlank() }?.let(::shorten) ?: context.getString(R.string.error_generic)
 }
 
@@ -158,6 +167,7 @@ private fun errorTitle(e: AppError): String = stringResource(
         is AppError.FileMissing, is AppError.NoSpace -> R.string.error_title_file
         is AppError.NotConfigured -> R.string.error_title_setup
         is AppError.Incompatible -> R.string.error_title_incompatible
+        is AppError.AudioLink -> R.string.error_title_audio_link
         is AppError.Unknown -> R.string.error_generic
     },
 )
@@ -173,6 +183,7 @@ private fun errorIcon(e: AppError): ImageVector = when (e) {
     is AppError.NoSpace -> Icons.Outlined.SdCard
     is AppError.NotConfigured -> Icons.Outlined.Settings
     is AppError.Incompatible -> Icons.Outlined.Extension
+    is AppError.AudioLink -> Icons.Outlined.Link
     is AppError.Unknown -> Icons.Outlined.ErrorOutline
 }
 

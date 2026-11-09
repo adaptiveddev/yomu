@@ -4,6 +4,8 @@ import app.yomu.core.database.YomuDatabase
 import app.yomu.core.datastore.AppSettings
 import app.yomu.core.network.NetworkClients
 import app.yomu.core.network.NetworkMonitor
+import app.yomu.data.audio.AudiobookStore
+import app.yomu.data.audio.YouTubeClient
 import app.yomu.data.backup.BackupManager
 import app.yomu.data.backup.MihonImporter
 import app.yomu.data.tracking.TrackerManager
@@ -51,7 +53,9 @@ val dataModule = module {
     single { WordRepositoryImpl(get()) } bind WordRepository::class
     single { StatsRepositoryImpl(get()) } bind StatsRepository::class
     single { ReadingHistoryRepository(get(), get()) }
-    single { ImportService(androidContext(), get(), get(), get()) }
+    single { YouTubeClient { get<NetworkClients>().client } }
+    single { AudiobookStore(androidContext(), get(), { get<NetworkClients>().client }, get()) }
+    single { ImportService(androidContext(), get(), get(), get(), get()) }
     single { MlKitEngine(androidContext()) }
     single { TranslationService(get(), get(), get(), get(), get()) }
     single { BookTranslator(androidContext(), get(), get(), get()) }

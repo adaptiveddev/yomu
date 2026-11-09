@@ -33,6 +33,15 @@ An honest list of what is simplified, not done or not verified. Update on every 
 - PDF reflow (2.0.6 WIP): a geometric page analysis (XY-cut) — columns are read in the correct order, page-number headers and footers are dropped, paragraphs are rebuilt from indents, gaps and headings, hyphenated words are joined. Pages without a text layer render as an image. Artistic layouts with complex image wrapping, tables inside columns and multi-column spreads can parse imprecisely.
 - Read-aloud uses the system TTS engine; quality and languages depend on the device.
 
+## Audiobooks
+
+- **YouTube** is read through its internal player API with clients that need no JavaScript player (the approach of yt-dlp; no GPL extractor is bundled, to keep the Apache-2.0 license). YouTube changes these rules often and asks some networks (VPNs, data centres) to sign in; then a video cannot play until YouTube lets the device through. Stream addresses expire after a few hours and are fetched again when needed. Age-restricted, members-only and "made for kids" videos do not play. Not verified against live YouTube: the development sandbox gets the bot check, so only recorded answers were tested.
+- **NotebookLM** has no public API for personal notebooks, and Google blocks its sign-in in embedded browsers: audio overviews are added as downloaded or shared files.
+- Chapters embedded in M4B files are not read (such a file is one chapter); folders and playlists use their tracks as chapters, YouTube videos their description timestamps.
+- Online audiobooks (YouTube, podcasts, catalog streams) need the network; they cannot be downloaded for offline listening yet (LibriVox also offers its ZIP). Audiobook folders and online audiobooks are left out of book-file sync; their progress and metadata sync like other books.
+- LibriVox search matches the start of a title or an author's surname (its API has no full-text search). A YouTube playlist adds at most 500 videos.
+- Verified with unit tests and builds only, not on a device.
+
 ## Translation, dictionaries, OCR
 
 - OCR and offline translation use Google ML Kit: they require Google Play Services and a one-time model download. Without GMS (e.g. an F-Droid build) these features are unavailable; online translation and dictionaries work.

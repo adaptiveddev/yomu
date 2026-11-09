@@ -48,6 +48,11 @@
     <string name="error_title_file">Не удалось открыть файл</string>
     <string name="error_title_setup">Нужна настройка</string>
     <string name="error_title_incompatible">Источник устарел</string>
+    <string name="error_title_audio_link">Не удалось добавить аудиокнигу</string>
+    <string name="error_audio_no_link">В этом тексте нет ссылки.</string>
+    <string name="error_audio_notebooklm">Страницы NotebookLM требуют входа в Google, поэтому Yomu не может их открыть. В NotebookLM откройте аудиопересказ (Audio Overview), нажмите ⋮ → «Скачать» (или «Поделиться») и откройте файл в Yomu или поделитесь им с Yomu.</string>
+    <string name="error_audio_youtube">YouTube не отдал этому устройству аудиопоток (проверка на бота, возрастное или региональное ограничение). Попробуйте позже или другое видео.</string>
+    <string name="error_audio_unsupported">По этой ссылке нет аудио. Вставьте видео или плейлист YouTube, RSS подкаста, аудиофайл или страницу со ссылкой на них.</string>
     <string name="webview_missing_title">WebView недоступен</string>
     <string name="webview_missing">Этот экран работает через Android System WebView, а он не установлен, отключён или сейчас обновляется. Установите или включите его и повторите.</string>
     <string name="webview_missing_store">Открыть в магазине</string>

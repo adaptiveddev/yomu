@@ -409,4 +409,8 @@
     <string name="track_refresh_required">Refresh to load progress and score</string>
     <string name="track_sign_in_refresh">Sign in and refresh to load progress and score</string>
     <string name="track_refresh_action">Refresh</string>
+    <string name="title_listen">Listen</string>
+    <string name="title_listen_online">Listen online</string>
+    <string name="title_listen_online_hint">Streams in the player, nothing to download</string>
+    <string name="title_audio_adding">Adding the audiobook…</string>
 </resources>

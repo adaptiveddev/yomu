@@ -17,6 +17,8 @@ import app.yomu.core.common.runCatchingApp
 import app.yomu.core.datastore.AppSettings
 import app.yomu.core.datastore.stateIn
 import app.yomu.data.catalog.CatalogRepository
+import app.yomu.data.audio.AudiobookStore
+import app.yomu.data.library.ImportOutcome
 import app.yomu.data.catalog.CatalogRepository.BrowseMode
 import app.yomu.data.catalog.GlobalSearchResult
 import app.yomu.data.catalog.HistoryEntry
@@ -100,6 +102,9 @@ sealed interface CatalogEvent {
     data class Count(val res: Int, val count: Int) : CatalogEvent
     data class Failure(val error: Throwable) : CatalogEvent
     data class OpenTitle(val entryId: Long) : CatalogEvent
+
+    /** A library book to open (an audiobook added from a catalog title). */
+    data class OpenBook(val bookId: Long) : CatalogEvent
 }
 
 // region Catalog home
@@ -834,6 +839,7 @@ class TitleViewModel(
     private val sources: SourceManager,
     private val settings: AppSettings,
     private val trackers: TrackerManager,
+    private val audiobooks: AudiobookStore,
 ) : ViewModel(), TrackingViewModel {
     val entry: StateFlow<CatalogEntry?> = catalog.observeEntry(entryId).state(this, null)
     private val allChapters: StateFlow<List<ChapterInfo>?> = catalog.observeChapters(entryId).state(this, null)
@@ -1133,6 +1139,20 @@ class TitleViewModel(
 
     fun downloadBook(link: SBookLink) = viewModelScope.launch(ScreenErrors) {
         val e = entry.value ?: return@launch
+        if (link.isAudioStream) {
+            // Streams are listened to online: the book joins the library and opens in the player.
+            _events.send(CatalogEvent.Message(R.string.title_audio_adding))
+            runCatchingApp { audiobooks.addStream(link.url, e.title, e.author, e.coverUrl, e.description) }
+                .onSuccess { outcome ->
+                    when (outcome) {
+                        is ImportOutcome.Added -> _events.send(CatalogEvent.OpenBook(outcome.bookId))
+                        is ImportOutcome.Duplicate -> _events.send(CatalogEvent.OpenBook(outcome.bookId))
+                        is ImportOutcome.Failed -> _events.send(CatalogEvent.Failure(outcome.error))
+                    }
+                }
+                .onFailure { _events.send(CatalogEvent.Failure(it)) }
+            return@launch
+        }
         runCatchingApp {
             val headers = runCatching { catalog.source(e.sourceId).imageHeaders() }.getOrDefault(emptyMap())
             downloads.enqueueBook(e.title, link.url, link.mimeType, e.sourceId, headers)

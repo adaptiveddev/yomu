@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import app.yomu.data.audio.AudioMeta
+import app.yomu.data.audio.AudiobookStore
 import app.yomu.data.book.Containers
 import app.yomu.data.book.Converted
 import app.yomu.data.book.DocxConverter
@@ -75,6 +77,7 @@ object MetadataExtractor {
             BookFormat.HTML -> fromConverted(HtmlConverter.convert(read(context, uri), fileName), fallbackTitle)
             BookFormat.MOBI -> fromConverted(MobiConverter.convert(read(context, uri), fileName), fallbackTitle)
             BookFormat.DOCX -> Containers.open(context, uri, BookFormat.CBZ).use { c -> fromConverted(DocxConverter.convert(c, fileName), fallbackTitle) }
+            BookFormat.AUDIO -> audioMeta(context, uri, fileName, fallbackTitle)
             BookFormat.UNKNOWN -> ExtractedMeta(fallbackTitle)
         }
     }
@@ -86,6 +89,13 @@ object MetadataExtractor {
         BookFormat.MOBI -> MobiConverter.convert(read(context, uri), fileName)
         BookFormat.DOCX -> Containers.open(context, uri, BookFormat.CBZ).use { DocxConverter.convert(it, fileName) }
         else -> null
+    }
+
+    /** A single audio file by its tags; an audiobook manifest by its own fields. */
+    private fun audioMeta(context: Context, uri: Uri, fileName: String, fallbackTitle: String): ExtractedMeta {
+        if (!AudiobookStore.isManifest(fileName)) return AudioMeta.extract(context, uri, fallbackTitle, multiTrack = false)
+        val m = AudiobookStore.decode(read(context, uri).decodeToString())
+        return ExtractedMeta(title = m.title.ifBlank { fallbackTitle }, authors = m.authors, description = m.description, language = m.language)
     }
 
     private fun read(context: Context, uri: Uri): ByteArray = Files.open(context, uri).use { it.readBytes() }

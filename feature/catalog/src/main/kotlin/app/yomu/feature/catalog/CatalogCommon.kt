@@ -29,8 +29,10 @@ internal fun CatalogEventsEffect(
     snackbar: SnackbarHostState,
     onOpenTitle: (Long) -> Unit = {},
     onOpenWebView: ((String) -> Unit)? = null,
+    onOpenBook: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
+    val openBook by rememberUpdatedState(onOpenBook)
     val resources = LocalResources.current
     val openTitle by rememberUpdatedState(onOpenTitle)
     val openWeb by rememberUpdatedState(onOpenWebView)
@@ -38,6 +40,7 @@ internal fun CatalogEventsEffect(
         events.collect { e ->
             when (e) {
                 is CatalogEvent.OpenTitle -> openTitle(e.entryId)
+                is CatalogEvent.OpenBook -> openBook(e.bookId)
                 is CatalogEvent.Message -> launch {
                     snackbar.showSnackbar(if (e.arg != null) resources.getString(e.res, e.arg) else resources.getString(e.res))
                 }

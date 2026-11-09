@@ -423,4 +423,8 @@
     <string name="track_refresh_required">Обновите, чтобы загрузить прогресс и оценку</string>
     <string name="track_sign_in_refresh">Войдите и обновите, чтобы загрузить прогресс и оценку</string>
     <string name="track_refresh_action">Обновить</string>
+    <string name="title_listen">Слушать</string>
+    <string name="title_listen_online">Слушать онлайн</string>
+    <string name="title_listen_online_hint">Играет в плеере, без скачивания</string>
+    <string name="title_audio_adding">Добавляю аудиокнигу…</string>
 </resources>

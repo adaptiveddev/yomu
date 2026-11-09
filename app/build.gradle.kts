@@ -122,6 +122,7 @@ dependencies {
     implementation(project(":feature:catalog"))
     implementation(project(":feature:downloads"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:audio"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

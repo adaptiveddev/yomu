@@ -61,6 +61,7 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.ExtensionOff
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomAppBar
@@ -182,6 +183,7 @@ fun TitleScreen(
     onMigrate: (entryId: Long, title: String) -> Unit,
     onOpenWebView: (String) -> Unit,
     onOpenDownloads: () -> Unit,
+    onOpenBook: (Long) -> Unit = {},
 ) {
     val context = LocalContext.current
     val entry by viewModel.entry.collectAsStateWithLifecycle()
@@ -215,7 +217,7 @@ fun TitleScreen(
     var showTracking by remember { mutableStateOf(false) }
     val tracks by viewModel.tracks.collectAsStateWithLifecycle()
 
-    CatalogEventsEffect(viewModel.events, snackbar, onOpenWebView = onOpenWebView)
+    CatalogEventsEffect(viewModel.events, snackbar, onOpenWebView = onOpenWebView, onOpenBook = onOpenBook)
     val numberWidth = rememberNumberWidth(stats.total)
 
     val e = entry
@@ -829,10 +831,10 @@ private fun Genres(genres: List<String>) {
 @Composable
 private fun LinkRow(link: SBookLink, onDownload: () -> Unit) {
     ListItem(
-        headlineContent = { Text(link.title?.takeIf { it.isNotBlank() } ?: link.formatLabel) },
-        supportingContent = { Text(listOfNotNull(link.formatLabel, link.size?.takeIf { it > 0 }?.let { Files.humanSize(it) }).joinToString(" · ")) },
-        leadingContent = { Icon(Icons.Outlined.FileDownload, null) },
-        trailingContent = { FilledTonalButton(onClick = onDownload) { Text(stringResource(R.string.download)) } },
+        headlineContent = { Text(if (link.isAudioStream) stringResource(R.string.title_listen_online) else link.title?.takeIf { it.isNotBlank() } ?: link.formatLabel) },
+        supportingContent = { Text(listOfNotNull(if (link.isAudioStream) stringResource(R.string.title_listen_online_hint) else link.formatLabel, link.size?.takeIf { it > 0 }?.let { Files.humanSize(it) }).joinToString(" · ")) },
+        leadingContent = { Icon(if (link.isAudioStream) Icons.Outlined.Headphones else Icons.Outlined.FileDownload, null) },
+        trailingContent = { FilledTonalButton(onClick = onDownload) { Text(stringResource(if (link.isAudioStream) R.string.title_listen else R.string.download)) } },
         modifier = Modifier.clickable(onClick = onDownload),
     )
 }

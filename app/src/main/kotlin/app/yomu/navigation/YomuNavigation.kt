@@ -99,6 +99,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.yomu.feature.catalog.CatalogHomeViewModel
 import app.yomu.feature.catalog.OnlineLibraryPane
 import app.yomu.feature.library.OnlineLibrary
+import app.yomu.domain.repository.BookRepository
+import app.yomu.feature.audio.AudioController
+import app.yomu.feature.audio.AudioPlayerScreen
+import app.yomu.feature.audio.NowPlayingBar
+import androidx.compose.runtime.produceState
+import org.koin.compose.koinInject
 
 /** The screens of the [NavTab]s, all inside [HomeRoute] (see [TabsHost]); [trailName] names them in crash reports. */
 enum class TopLevel(val tab: NavTab, val trailName: String) {
@@ -188,9 +194,23 @@ fun YomuNavigation(main: MainViewModel, reduceMotion: Boolean, navLabels: Boolea
     val incognito by main.incognito.collectAsStateWithLifecycle()
     // Every screen but the reader, which keeps the whole screen for the text.
     val showIncognito = incognito && entry?.destination?.hasRoute(ReaderRoute::class) != true
+    // An audiobook playing in the background: a bar on every screen but its player and the reader.
+    val audio: AudioController = koinInject()
+    val nowPlaying by audio.state.collectAsStateWithLifecycle()
+    val playing = nowPlaying?.takeIf { entry?.destination?.hasRoute(ReaderRoute::class) != true }
     Column(Modifier.fillMaxSize()) {
         if (showIncognito) IncognitoBanner(onTurnOff = { main.setIncognito(false) })
-        Box(Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(if (showIncognito) WindowInsets.statusBars else WindowInsets(0, 0, 0, 0))) {
+        playing?.let { np ->
+            NowPlayingBar(
+                np,
+                onOpen = { nav.navigate(ReaderRoute(bookId = np.bookId)) },
+                onToggle = audio::togglePlay,
+                onStop = audio::stop,
+                modifier = if (showIncognito) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
+            )
+        }
+        val topTaken = showIncognito || playing != null
+        Box(Modifier.weight(1f).fillMaxWidth().consumeWindowInsets(if (topTaken) WindowInsets.statusBars else WindowInsets(0, 0, 0, 0))) {
             Shell(adaptive, current, barHidden, items, shown, navLabels, tabsState, barInset, nav, reduceMotion)
         }
     }
@@ -312,7 +332,15 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
         }
         screen<ReaderRoute> { entry ->
             val r = entry.toRoute<ReaderRoute>()
-            ReaderScreen(
+            // Audiobooks open in the player; everything else in the reader.
+            val books: BookRepository = koinInject()
+            val isAudio by produceState<Boolean?>(if (r.bookId < 0) false else null, r.bookId) {
+                if (r.bookId >= 0) value = runCatching { books.getBook(r.bookId)?.format?.isAudio == true }.getOrDefault(false)
+            }
+            when (isAudio) {
+                null -> Unit
+                true -> AudioPlayerScreen(koinViewModel { parametersOf(r.bookId) }, back)
+                false -> ReaderScreen(
                 viewModel = koinViewModel { parametersOf(ReaderArgs(bookId = r.bookId, locatorJson = r.locator, chapterId = r.chapterId, positionReference = r.positionReference)) },
                 onBack = back,
                 onOpenAnnotations = { nav.navigate(AnnotationsRoute(it)) },
@@ -322,6 +350,7 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
                 onOpenEditor = { nav.navigate(EditorRoute(it)) },
                 onOpenPageLayout = { nav.navigate(DocxLayoutRoute(it)) },
             )
+            }
         }
         screen<DocxLayoutRoute> { entry ->
             val r = entry.toRoute<DocxLayoutRoute>()
@@ -403,6 +432,7 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
                 onMigrate = { id, title -> nav.navigate(GlobalSearchRoute(query = title, migrateFrom = id)) },
                 onOpenWebView = { nav.navigate(WebViewRoute(it)) },
                 onOpenDownloads = { nav.navigate(DownloadsRoute) },
+                onOpenBook = { nav.navigate(ReaderRoute(bookId = it)) },
             )
         }
         screen<ExtensionsRoute> { entry ->

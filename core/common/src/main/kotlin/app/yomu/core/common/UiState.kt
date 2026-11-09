@@ -32,6 +32,11 @@ sealed class AppError(message: String? = null, cause: Throwable? = null) : Excep
 
     /** The code of a source does not fit this app version (an outdated or broken extension: missing classes or methods). */
     class Incompatible(cause: Throwable) : AppError(cause.message, cause)
+    /** A link could not become an audiobook; [reason] says why (each has its own explanation). */
+    class AudioLink(val reason: Reason, cause: Throwable? = null) : AppError(reason.name, cause) {
+        enum class Reason { NO_LINK, NOTEBOOKLM, YOUTUBE_BLOCKED, UNSUPPORTED }
+    }
+
     class Unknown(cause: Throwable) : AppError(cause.message, cause)
 
     /** Technical description for the "Details" section of error screens (class and message of the root cause). */

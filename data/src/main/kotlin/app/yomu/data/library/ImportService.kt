@@ -9,6 +9,11 @@ import app.yomu.core.common.Files
 import app.yomu.core.database.BookEntity
 import app.yomu.core.datastore.AppSettings
 import app.yomu.data.format.FormatDetector
+import app.yomu.data.audio.AudiobookStore
+import app.yomu.data.audio.YouTubeClient
+import app.yomu.data.book.Containers
+import app.yomu.domain.model.AudioFiles
+import app.yomu.domain.model.AudiobookManifest
 import app.yomu.data.backup.FolderManifestCodec
 import app.yomu.data.backup.FolderEntry
 import app.yomu.data.backup.FolderSnapshot
@@ -50,6 +55,8 @@ class ImportService(
     private val books: BookRepositoryImpl,
     private val settings: AppSettings,
     private val covers: CoverStore,
+    // Only folder and ZIP imports use it, never the network: tests may leave the default.
+    private val audio: AudiobookStore = AudiobookStore(context, books, { okhttp3.OkHttpClient() }, YouTubeClient { okhttp3.OkHttpClient() }),
 ) {
     private val mutex = Mutex()
     private val _progress = MutableStateFlow(ImportProgress(0, 0, null))
@@ -82,6 +89,7 @@ class ImportService(
     suspend fun importFolder(uri: Uri, name: String, scanFolder: String? = null): ImportOutcome = withContext(Dispatchers.IO) {
         mutex.withLock {
             runCatching {
+                if (isAudioFolder(uri)) return@runCatching audio.addFolder(uri, name, linked = uri.scheme != "file", scanFolder = scanFolder)
                 // Keep existing imports unchanged when file sync is off. When enabled, a new
                 // folder receives a stable identity and a baseline before it can be read.
                 if (!settings.syncBookFiles.get()) importOne(uri, name, true, scanFolder, BookFormat.FOLDER)
@@ -157,6 +165,7 @@ class ImportService(
             FormatDetector.detect(header, name)
         }
         if (format == BookFormat.UNKNOWN) throw AppError.UnsupportedFormat(FormatDetector.extension(name).ifEmpty { "?" })
+        if (format == BookFormat.CBZ && forced == null) importAudioZip(uri, name, alreadyLocal)?.let { return it }
         val size = if (format == BookFormat.FOLDER) 0L else Files.size(context, uri)
         val hash = if (format == BookFormat.FOLDER) (folderIdentity ?: "dir:$uri") else Files.sha1(Files.open(context, uri), HASH_LIMIT) + ":" + size
         books.findByHash(hash)?.let { return ImportOutcome.Duplicate(name, it) }
@@ -239,6 +248,28 @@ class ImportService(
         runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
 
+    /** A folder is an audiobook when it holds audio files and no more images than those (a cover is fine). */
+    private fun isAudioFolder(uri: Uri): Boolean {
+        val tracks = runCatching { audio.listFolder(uri) }.getOrDefault(emptyList())
+        if (tracks.isEmpty()) return false
+        val images = runCatching { FolderSnapshot.enumerate(context, uri).size }.getOrDefault(0)
+        return images <= tracks.size
+    }
+
+    /** A ZIP of audio files becomes a folder audiobook in app storage; null for any other ZIP (a comic). */
+    private suspend fun importAudioZip(uri: Uri, name: String, alreadyLocal: Boolean): ImportOutcome? {
+        val entries = runCatching { Containers.open(context, uri, BookFormat.CBZ).use { it.entries } }.getOrNull() ?: return null
+        if (!AudiobookStore.isAudioZip(entries)) return null
+        val local = uri.takeIf { it.scheme == "file" }?.path?.let(::File)
+        val zip = local ?: File(context.cacheDir, "audiozip/${System.nanoTime()}.zip").also { Files.copy(context, uri, it) }
+        try {
+            return audio.addZip(zip, name)
+        } finally {
+            // A downloaded ZIP is not kept next to its unpacked tracks; a user's own file is never touched.
+            if (local == null || alreadyLocal) zip.delete()
+        }
+    }
+
     private fun unique(file: File): File {
         if (!file.exists()) return file
         val base = file.nameWithoutExtension
@@ -255,12 +286,26 @@ class ImportService(
     suspend fun scanTree(treeUri: Uri): List<ImportOutcome> = withContext(Dispatchers.IO) {
         val files = SafTree.walk(context, treeUri)
         val known = books.urisInFolder(treeUri.toString()).toSet()
-        val supported = files.filter { !it.isDirectory && FormatDetector.extension(it.name).let { ext -> ext in SUPPORTED_EXT } && it.uri.toString() !in known }
+        // Folders with several audio files are audiobooks: their tracks are not separate books.
+        val audioDirs = files.filter { !it.isDirectory && AudioFiles.isAudio(it.name) }
+            .groupBy { it.path.substringBeforeLast('/', "") }
+            .filter { (dir, tracks) -> dir.isNotEmpty() && tracks.size >= 2 }.keys
+        val supported = files.filter {
+            !it.isDirectory && FormatDetector.extension(it.name).let { ext -> ext in SUPPORTED_EXT } && it.uri.toString() !in known &&
+                !(AudioFiles.isAudio(it.name) && it.path.substringBeforeLast('/', "") in audioDirs)
+        }
         val out = mutableListOf<ImportOutcome>()
         if (supported.isNotEmpty()) out += import(supported.map { it.uri }, link = true, scanFolder = treeUri.toString())
+        audioDirs.forEach { dirPath ->
+            val dir = files.firstOrNull { it.isDirectory && it.path == dirPath } ?: return@forEach
+            if (dir.uri.toString() in known) return@forEach
+            out += mutex.withLock {
+                runCatching { audio.addFolder(dir.uri, dir.name, linked = true, scanFolder = treeUri.toString()) }.getOrElse { ImportOutcome.Failed(dir.name, it) }
+            }
+        }
         val imageDirs = files.filter { !it.isDirectory && FormatDetector.isImage(it.name) }
             .groupBy { it.path.substringBeforeLast('/', "") }
-            .filter { (dir, imgs) -> dir.isNotEmpty() && imgs.size >= 3 }
+            .filter { (dir, imgs) -> dir.isNotEmpty() && imgs.size >= 3 && dir !in audioDirs }
         imageDirs.keys.forEach { dirPath ->
             val dir = files.firstOrNull { it.isDirectory && it.path == dirPath } ?: return@forEach
             if (dir.uri.toString() in known) return@forEach
@@ -272,7 +317,8 @@ class ImportService(
 
     companion object {
         const val HASH_LIMIT = 1024L * 1024
-        val SUPPORTED_EXT = setOf("epub", "pdf", "cbz", "cbr", "cb7", "zip", "rar", "7z", "fb2", "fb2.zip", "txt", "html", "htm", "xhtml", "docx", "mobi", "azw3", "azw", "prc")
+        val SUPPORTED_EXT = setOf("epub", "pdf", "cbz", "cbr", "cb7", "zip", "rar", "7z", "fb2", "fb2.zip", "txt", "html", "htm", "xhtml", "docx", "mobi", "azw3", "azw", "prc") +
+            AudioFiles.EXTENSIONS + AudiobookManifest.EXTENSION
         const val RTL_SETTINGS = "{\"manga\":{\"direction\":\"RTL\"}}"
     }
 }

@@ -25,7 +25,7 @@ include(":domain", ":data")
 include(
     ":feature:library", ":feature:reader", ":feature:reader-epub", ":feature:reader-pdf", ":feature:reader-manga",
     ":feature:annotations", ":feature:dictionary", ":feature:translator",
-    ":feature:editor", ":feature:catalog", ":feature:downloads", ":feature:settings",
+    ":feature:editor", ":feature:catalog", ":feature:downloads", ":feature:settings", ":feature:audio",
 )
 include(":source-api", ":sources:opds", ":sources:mangadex", ":sources:novels", ":sources:local")
 include(":compat:tachiyomi")

@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name" translatable="false">Yomu</string>
     <string name="process_text_label">Look up in Yomu</string>
+    <string name="share_listen_label">Listen in Yomu</string>
     <string name="import_failed_count">failed: %1$d</string>
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_back">Back</string>

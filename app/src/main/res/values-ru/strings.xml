@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="process_text_label">Найти в Yomu</string>
+    <string name="share_listen_label">Слушать в Yomu</string>
     <string name="import_failed_count">с ошибкой: %1$d</string>
     <string name="onboarding_skip">Пропустить</string>
     <string name="onboarding_back">Назад</string>

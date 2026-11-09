@@ -66,3 +66,11 @@ One line per decision. Format: **what was chosen** — why / how it differs from
 - **`lint.checkReleaseBuilds = false`** — lint runs as a separate CI task, not on every release build (time and memory savings).
 - **Tests: JUnit 5 for logic (domain, data, editor, OPDS), Robolectric + Roborazzi (JUnit 4/vintage) for the app smoke test with screenshots.**
 - **Shared module settings are convention plugins in `build-logic`**, versions live in `gradle/libs.versions.toml`.
+
+## Audiobooks
+
+- **Media3 (ExoPlayer + MediaSessionService) for audiobooks** — background playback, notification, lock-screen and Bluetooth controls, HLS; the service owns the playlist, saves positions and resolves streams, so playback survives leaving the screen.
+- **One `AUDIO` format for files, folders and `.yaudio` manifests** — a book is an audio file, a folder of tracks, or a small JSON manifest of online tracks (YouTube, feeds, catalog streams). Positions use the common `Locator` (chapter = track, offset = milliseconds), so history, statistics and progress sync work unchanged.
+- **YouTube without NewPipeExtractor or yt-dlp** — they are GPL or need Python; a small InnerTube client with the JavaScript-free clients (visionOS HLS, Android VR, iOS) keeps the Apache-2.0 license. The client table lives in one place (`YouTubeClient.CLIENTS`) for updates.
+- **NotebookLM through files** — no public API for personal notebooks, and Google sign-in is blocked in WebViews; downloaded or shared audio overviews import like any audio.
+- **Catalog audiobooks stay `SourceContent.BOOK`** — a stream is one more acquisition-link type (`application/rss+xml`, `application/x-yomu-audio-stream`), so OPDS, extensions and the title page need no new content type.

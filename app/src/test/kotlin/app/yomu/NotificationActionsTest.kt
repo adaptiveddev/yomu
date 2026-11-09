@@ -80,7 +80,7 @@ class NotificationActionsTest {
     @Test
     fun tapOpensTheQueue() = runBlocking {
         val koin = GlobalContext.get()
-        val main = MainViewModel(koin.get(), koin.get(), koin.get(), koin.get())
+        val main = MainViewModel(koin.get(), koin.get(), koin.get(), koin.get(), koin.get())
         main.handleIntent(Intent(Notifications.ACTION_OPEN_DOWNLOADS))
         assertEquals(MainEvent.OpenDownloads, withTimeout(5_000) { main.events.first() })
     }
