@@ -29,12 +29,17 @@ class GitHubSyncBackendTest {
     private val repos = mutableSetOf("me/yomu-sync")
     private var push = true
     private var putCount = 0
+    private var publicRepo = false
+    /** PUTs answered 409 before succeeding (a commit race on the branch). */
+    private var racingPuts = 0
+    private var rateLimited = false
 
     @Before fun setUp() {
         server = MockWebServer().apply {
             dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest): MockResponse = synchronized(this@GitHubSyncBackendTest) {
                     if (request.headers["Authorization"] != "Bearer tok") return MockResponse.Builder().code(401).build()
+                    if (rateLimited) return MockResponse.Builder().code(403).setHeader("X-RateLimit-Remaining", "0").build()
                     val path = request.url.encodedPath
                     val contents = Regex("/repos/me/yomu-sync/contents/(.+)").matchEntire(path)?.groupValues?.get(1)
                     val blob = Regex("/repos/me/yomu-sync/git/blobs/(.+)").matchEntire(path)?.groupValues?.get(1)
@@ -46,7 +51,7 @@ class GitHubSyncBackendTest {
                             else json("""{"full_name":"me/$name"}""", 201)
                         }
                         request.method == "GET" && path.startsWith("/repos/me/") && path.count { it == '/' } == 3 ->
-                            if (path.removePrefix("/repos/") in repos) json("""{"permissions":{"push":$push}}""") else MockResponse.Builder().code(404).build()
+                            if (path.removePrefix("/repos/") in repos) json("""{"private":${!publicRepo},"permissions":{"push":$push}}""") else MockResponse.Builder().code(404).build()
                         contents != null && request.method == "GET" -> {
                             val bytes = files[contents] ?: return MockResponse.Builder().code(404).build()
                             // Big files come without content, like on GitHub.
@@ -60,6 +65,7 @@ class GitHubSyncBackendTest {
                         }
                         contents != null && request.method == "PUT" -> {
                             putCount++
+                            if (racingPuts > 0) { racingPuts--; return MockResponse.Builder().code(409).build() }
                             val b = body(request)
                             val sha = b["sha"]?.jsonPrimitive?.content
                             when {
@@ -189,6 +195,30 @@ class GitHubSyncBackendTest {
     fun createsAPrivateRepositoryOrReusesTheExistingOne() = runBlocking {
         assertEquals("me/books", GitHubSyncBackend.createRepository(OkHttpClient(), "tok", "books", api))
         assertEquals("me/yomu-sync", GitHubSyncBackend.createRepository(OkHttpClient(), "tok", "yomu-sync", api))
+    }
+
+    @Test
+    fun refusesAPublicRepositoryEvenWhenReusingOne() = runBlocking {
+        publicRepo = true
+        try { backend().check(); fail() } catch (e: IOException) { assertTrue(e.message!!.contains("public")) }
+        try { GitHubSyncBackend.createRepository(OkHttpClient(), "tok", "yomu-sync", api); fail() } catch (e: IOException) { assertTrue(e.message!!.contains("public")) }
+        // Nothing is written to a public repository, even when sync starts with a write.
+        try { backend().write("x".toByteArray(), null); fail() } catch (e: IOException) { assertTrue(e.message!!.contains("public")) }
+        assertEquals(0, putCount)
+    }
+
+    @Test
+    fun retriesABookUploadThatRacedAnotherCommit() = runBlocking {
+        val bytes = ByteArray(300) { it.toByte() }
+        racingPuts = 1
+        backend().uploadBook(sha(bytes), tmp(bytes))
+        assertTrue(files["$name${sha(bytes)}.bin"]!!.contentEquals(bytes))
+    }
+
+    @Test
+    fun explainsARateLimit() = runBlocking {
+        rateLimited = true
+        try { backend().read(); fail() } catch (e: IOException) { assertTrue(e.message!!.contains("rate limit")) }
     }
 
     @Test

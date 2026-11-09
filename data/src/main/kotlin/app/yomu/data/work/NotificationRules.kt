@@ -32,23 +32,30 @@ data class NotificationPrefs(
 @Serializable
 data class NotificationRecord(val at: Long, val kind: String, val title: String, val text: String = "", val shown: Boolean = true)
 
-/** The recent notifications (newest first, at most [MAX]) kept in the app's folder, also those muted by the settings. */
+/**
+ * The recent notifications (newest first, at most [MAX]) kept in the app's folder, also those muted by the settings.
+ * The file is read and written on a background thread of its own, in call order: callers (the UI included) never wait.
+ */
 class NotificationLog(private val file: File) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val _entries = MutableStateFlow(load())
+    private val io = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "notification-log").apply { isDaemon = true } }
+    private val _entries = MutableStateFlow<List<NotificationRecord>>(emptyList())
     val entries: StateFlow<List<NotificationRecord>> = _entries.asStateFlow()
+
+    init {
+        io.execute { _entries.value = load() }
+    }
 
     private fun load(): List<NotificationRecord> = runCatching {
         if (!file.exists()) emptyList() else json.decodeFromString(ListSerializer(NotificationRecord.serializer()), AtomicFile(file).readFully().decodeToString())
     }.getOrDefault(emptyList())
 
-    @Synchronized
-    fun add(record: NotificationRecord) {
-        save((listOf(record) + _entries.value).take(MAX))
-    }
+    fun add(record: NotificationRecord) = io.execute { save((listOf(record) + _entries.value).take(MAX)) }
 
-    @Synchronized
-    fun clear() = save(emptyList())
+    fun clear() = io.execute { save(emptyList()) }
+
+    /** Waits for the pending reads and writes (tests). */
+    internal fun flush() = io.submit {}.get()
 
     private fun save(list: List<NotificationRecord>) {
         _entries.value = list

@@ -87,15 +87,33 @@ object Notifications {
 
     /** Settings → Notifications; kept current by the app (see [watch]). */
     @Volatile var prefs: NotificationPrefs = NotificationPrefs()
+    @Volatile private var prefsLoaded = false
+    @Volatile private var settingsRef: AppSettings? = null
+
+    private suspend fun readPrefs(settings: AppSettings) = NotificationPrefs(
+        settings.notifyDisabled.get().mapNotNull { n -> NotifyKind.entries.firstOrNull { it.name == n } }.toSet(),
+        settings.quietHours.get(), settings.quietFrom.get(), settings.quietTo.get(),
+    )
+
+    /**
+     * The current settings: a worker started with the process may post before [watch] delivered them; off the main
+     * thread they are then read once, so its notification still follows the user's choices.
+     */
+    private fun currentPrefs(): NotificationPrefs {
+        val s = settingsRef
+        if (prefsLoaded || s == null || android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) return prefs
+        return runCatching { kotlinx.coroutines.runBlocking { readPrefs(s) } }.getOrDefault(prefs)
+    }
 
     /** Keeps [prefs] in step with the settings for as long as [scope] lives. */
     fun watch(scope: kotlinx.coroutines.CoroutineScope, settings: AppSettings) {
+        settingsRef = settings
         scope.launch {
             kotlinx.coroutines.flow.combine(
                 settings.notifyDisabled.flow, settings.quietHours.flow, settings.quietFrom.flow, settings.quietTo.flow,
             ) { off, quiet, from, to ->
                 NotificationPrefs(off.mapNotNull { n -> NotifyKind.entries.firstOrNull { it.name == n } }.toSet(), quiet, from, to)
-            }.collect { prefs = it }
+            }.collect { prefs = it; prefsLoaded = true }
         }
     }
 
@@ -113,7 +131,7 @@ object Notifications {
      * notifications. During quiet hours it arrives silently.
      */
     fun notify(context: Context, id: Int, builder: NotificationCompat.Builder, kind: NotifyKind? = null) {
-        val p = prefs
+        val p = currentPrefs()
         val quiet = p.isQuiet(Calendar.getInstance().get(Calendar.HOUR_OF_DAY))
         if (quiet) builder.setSilent(true)
         val n = runCatching { builder.build() }.getOrNull() ?: return
@@ -406,6 +424,15 @@ class WorkScheduler(private val context: Context, private val settings: AppSetti
             return
         }
         wm.enqueueUniquePeriodicWork(BackupWorker.NAME, ExistingPeriodicWorkPolicy.UPDATE, PeriodicWorkRequestBuilder<BackupWorker>(hours.toLong(), TimeUnit.HOURS).build())
+    }
+
+    /**
+     * After the user changed the sync target or "Only over Wi-Fi": a waiting automatic sync keeps the network constraint
+     * it was queued with, so it is dropped (the next app start or exit queues a new one) and the periodic one updated.
+     */
+    suspend fun rescheduleSyncAfterChange() {
+        wm.cancelUniqueWork("${SyncWorker.NAME}_auto")
+        scheduleSync()
     }
 
     suspend fun scheduleSync() {

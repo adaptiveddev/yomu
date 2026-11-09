@@ -36,6 +36,8 @@
     <string name="mr_preload">Загружать страниц заранее</string>
     <string name="mr_webtoon_padding">Поля по бокам</string>
     <string name="mr_webtoon_gaps">Промежутки между страницами</string>
+    <string name="mr_webtoon_double_tap">Увеличение двойным тапом</string>
+    <string name="mr_webtoon_double_tap_sum">Одиночный тап тогда срабатывает с небольшой задержкой. Щипок для увеличения работает всегда</string>
     <string name="mr_image">Изображение</string>
     <string name="mr_brightness">Яркость</string>
     <string name="mr_contrast">Контраст</string>

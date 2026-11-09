@@ -37,6 +37,8 @@
     <string name="mr_preload">Pages loaded ahead</string>
     <string name="mr_webtoon_padding">Side margins</string>
     <string name="mr_webtoon_gaps">Gaps between pages</string>
+    <string name="mr_webtoon_double_tap">Zoom with a double tap</string>
+    <string name="mr_webtoon_double_tap_sum">Single taps then wait a moment to tell a double tap apart. Pinch zoom always works</string>
     <string name="mr_image">Image</string>
     <string name="mr_brightness">Brightness</string>
     <string name="mr_contrast">Contrast</string>

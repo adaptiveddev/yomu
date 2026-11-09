@@ -1,6 +1,7 @@
 package app.yomu.data.backup
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -13,6 +14,7 @@ import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSink
@@ -55,7 +57,7 @@ class GitHubSyncBackend(
         val meta = client.newCall(req).execute().use { r ->
             when {
                 r.code == 404 -> return null
-                !r.isSuccessful -> fail(r.code, "reading $name")
+                !r.isSuccessful -> fail(r, "reading $name")
                 else -> json.parseToJsonElement(r.body.string()).jsonObject
             }
         }
@@ -73,7 +75,7 @@ class GitHubSyncBackend(
     private fun <T> streamBlob(sha: String, name: String, consume: (InputStream) -> T): T {
         val blob = request("/git/blobs/$sha").header("Accept", "application/vnd.github.raw+json").get().build()
         return client.newCall(blob).execute().use { r ->
-            if (!r.isSuccessful) fail(r.code, "reading $name")
+            if (!r.isSuccessful) fail(r, "reading $name")
             r.body.byteStream().use(consume)
         }
     }
@@ -95,24 +97,35 @@ class GitHubSyncBackend(
             previous?.tag?.let { put("sha", it) }
         }
         val req = request(contentsPath(name)).put(body.toString().toRequestBody(JSON)).build()
-        val code = client.newCall(req).execute().use { it.code }
-        when {
-            code in 200..299 -> Unit
-            // 409: the SHA is not the current one; 422 without a SHA: someone created the file meanwhile.
-            code == 409 || (code == 422 && previous == null) -> throw SyncConflictException()
-            else -> fail(code, "writing $name")
+        client.newCall(req).execute().use { r ->
+            when {
+                r.isSuccessful -> Unit
+                // 409: the SHA is not the current one; 422 without a SHA: someone created the file meanwhile.
+                r.code == 409 || (r.code == 422 && previous == null) -> throw SyncConflictException()
+                else -> fail(r, "writing $name")
+            }
         }
     }
 
-    override suspend fun read(): SyncFile? = withContext(Dispatchers.IO) { readNamed(SyncManager.FILE_NAME, MAX_SYNC_FILE_BYTES) }
-    override suspend fun write(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { writeNamed(SyncManager.FILE_NAME, bytes, previous, MAX_SYNC_FILE_BYTES) }
+    // Before anything is read or written the repository is checked (private, writable), once per backend instance.
+    @Volatile private var checked = false
+
+    private suspend fun ensureChecked() {
+        if (!checked) { check(); checked = true }
+    }
+
+    override suspend fun read(): SyncFile? = withContext(Dispatchers.IO) {
+        ensureChecked()
+        readNamed(SyncManager.FILE_NAME, MAX_SYNC_FILE_BYTES)
+    }
+    override suspend fun write(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { ensureChecked(); writeNamed(SyncManager.FILE_NAME, bytes, previous, MAX_SYNC_FILE_BYTES) }
     override suspend fun readTrackLinks(): SyncFile? = withContext(Dispatchers.IO) { readNamed(TRACK_INDEX, MAX_INDEX_BYTES) }
-    override suspend fun writeTrackLinks(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { writeNamed(TRACK_INDEX, bytes, previous, MAX_INDEX_BYTES) }
+    override suspend fun writeTrackLinks(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { ensureChecked(); writeNamed(TRACK_INDEX, bytes, previous, MAX_INDEX_BYTES) }
 
     override suspend fun readBookIndex(): SyncFile? = withContext(Dispatchers.IO) { readNamed(BOOK_INDEX, MAX_INDEX_BYTES) }
-    override suspend fun writeBookIndex(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { writeNamed(BOOK_INDEX, bytes, previous, MAX_INDEX_BYTES) }
+    override suspend fun writeBookIndex(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { ensureChecked(); writeNamed(BOOK_INDEX, bytes, previous, MAX_INDEX_BYTES) }
     override suspend fun readFolderIndex(): SyncFile? = withContext(Dispatchers.IO) { readNamed(FOLDER_INDEX, MAX_INDEX_BYTES) }
-    override suspend fun writeFolderIndex(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { writeNamed(FOLDER_INDEX, bytes, previous, MAX_INDEX_BYTES) }
+    override suspend fun writeFolderIndex(bytes: ByteArray, previous: SyncFile?) = withContext(Dispatchers.IO) { ensureChecked(); writeNamed(FOLDER_INDEX, bytes, previous, MAX_INDEX_BYTES) }
 
     private fun blobName(sha256: String): String {
         require(sha256.matches(SHA256)) { "Invalid book hash" }
@@ -130,11 +143,24 @@ class GitHubSyncBackend(
         val name = blobName(sha256)
         val size = file.length()
         if (size > maxBookBytes) throw IOException("The book is larger than the ${maxBookBytes / (1024 * 1024)} MB per-file limit of GitHub")
+        ensureChecked()
         if (meta(name) == null) {
-            val req = request(contentsPath(name)).put(Base64JsonBody("Yomu sync: book $sha256", file)).build()
-            val code = client.newCall(req).execute().use { it.code }
-            // 422: someone created the same blob meanwhile; it is verified below like any existing one.
-            if (code !in 200..299 && code != 422) fail(code, "uploading a book")
+            // Every Contents write is a commit on the branch: one racing with another device's commit gets a 409 even
+            // though this path is new. Such a race clears on its own, so it is retried a few times.
+            var attempt = 0
+            while (true) {
+                val req = request(contentsPath(name)).put(Base64JsonBody("Yomu sync: book $sha256", file)).build()
+                val retry = client.newCall(req).execute().use { r ->
+                    when {
+                        // 422: the same blob was created meanwhile; it is verified below like any existing one.
+                        r.isSuccessful || r.code == 422 -> false
+                        r.code == 409 && ++attempt < UPLOAD_ATTEMPTS -> true
+                        else -> fail(r, "uploading a book")
+                    }
+                }
+                if (!retry) break
+                delay(attempt * 1_000L)
+            }
         }
         readBook(sha256) { input -> BookFileSync.verifyStream(input, sha256, size) }
     }
@@ -158,15 +184,17 @@ class GitHubSyncBackend(
         }
     }
 
-    /** The repository exists, the token can see it and may write to it. */
+    /** The repository exists, is private, the token can see it and may write to it. */
     override suspend fun check(): Unit = withContext(Dispatchers.IO) {
         val info = client.newCall(request("").get().build()).execute().use { r ->
             when {
                 r.code == 404 -> throw IOException("Repository $repo was not found or the token has no access to it")
-                !r.isSuccessful -> fail(r.code, "connecting")
+                !r.isSuccessful -> fail(r, "connecting")
                 else -> json.parseToJsonElement(r.body.string()).jsonObject
             }
         }
+        // Reading positions, notes, words and book files must never land in a public repository.
+        if (info["private"]?.jsonPrimitive?.booleanOrNull != true) throw IOException("Repository $repo is public: make it private on GitHub or choose another one")
         val push = (info["permissions"] as? JsonObject)?.get("push")?.jsonPrimitive?.booleanOrNull
         if (push == false) throw IOException("The token cannot write to $repo")
     }
@@ -179,6 +207,7 @@ class GitHubSyncBackend(
 
         /** GitHub refuses files over 100 MiB. */
         const val MAX_BOOK_BYTES = 100L * 1024 * 1024
+        private const val UPLOAD_ATTEMPTS = 3
         private const val BOOK_INDEX = "yomu-books.json"
         private const val FOLDER_INDEX = "yomu-folders.json"
         private val SHA256 = Regex("[0-9a-f]{64}")
@@ -205,13 +234,17 @@ class GitHubSyncBackend(
             return parts.joinToString("/")
         }
 
-        private fun fail(code: Int, what: String): Nothing = throw IOException(
-            when (code) {
-                401 -> "GitHub rejected the token ($what)"
-                403 -> "GitHub refused access or the rate limit was reached ($what)"
-                else -> "GitHub error $code while $what"
-            },
-        )
+        private fun fail(r: Response, what: String): Nothing {
+            val limited = r.code == 429 || (r.code == 403 && (r.header("X-RateLimit-Remaining") == "0" || r.header("Retry-After") != null))
+            throw IOException(
+                when {
+                    limited -> "GitHub rate limit reached; sync will continue later ($what)"
+                    r.code == 401 -> "GitHub rejected the token: it is wrong or expired ($what)"
+                    r.code == 403 -> "The GitHub token has no permission for this ($what)"
+                    else -> "GitHub error ${r.code} while $what"
+                },
+            )
+        }
 
         /**
          * Creates a private repository for the sync under the token's account and returns its `owner/name`. When the
@@ -232,12 +265,15 @@ class GitHubSyncBackend(
                     when {
                         r.isSuccessful -> return@withContext json.parseToJsonElement(r.body.string()).jsonObject["full_name"]?.jsonPrimitive?.content
                             ?: throw IOException("GitHub did not return the new repository")
-                        r.code != 422 -> fail(r.code, "creating the repository")
+                        r.code == 403 || r.code == 404 -> throw IOException(
+                            "The GitHub token cannot create repositories: create a private repository on GitHub and enter it, or give the token the Administration permission",
+                        )
+                        r.code != 422 -> fail(r, "creating the repository")
                     }
                 }
                 // 422: the name is taken, most likely by an earlier run. Use it if it belongs to this account.
                 val user = client.newCall(authorized(Request.Builder().url("$api/user"), token).get().build()).execute().use { r ->
-                    if (!r.isSuccessful) fail(r.code, "reading the account")
+                    if (!r.isSuccessful) fail(r, "reading the account")
                     json.parseToJsonElement(r.body.string()).jsonObject["login"]?.jsonPrimitive?.content
                         ?: throw IOException("GitHub did not return the account name")
                 }

@@ -43,10 +43,12 @@ class NotificationRulesTest {
         val file = File(tmp.root, "recent.json")
         val log = NotificationLog(file)
         repeat(NotificationLog.MAX + 5) { log.add(NotificationRecord(it.toLong(), "TASKS", "n$it")) }
+        log.flush()
         assertEquals(NotificationLog.MAX, log.entries.value.size)
         assertEquals("n${NotificationLog.MAX + 4}", log.entries.value.first().title)
-        assertEquals(log.entries.value, NotificationLog(file).entries.value)
+        assertEquals(log.entries.value, NotificationLog(file).also { it.flush() }.entries.value)
         log.clear()
-        assertTrue(NotificationLog(file).entries.value.isEmpty())
+        log.flush()
+        assertTrue(NotificationLog(file).also { it.flush() }.entries.value.isEmpty())
     }
 }

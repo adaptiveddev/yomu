@@ -15,8 +15,9 @@ internal val RECOMMENDED_STORES = listOf(
     RecommendedStore("Suwayomi", "https://raw.githubusercontent.com/suwayomi/tachiyomi-extension/repo", R.string.ext_rec_suwayomi, "https://github.com/Suwayomi/tachiyomi-extension"),
 )
 
-/** Whether [storeUrl] (any form the store list keeps) belongs to the same GitHub repository as [rec]. */
+/** Whether [storeUrl] (raw, github.com or jsDelivr address, with or without a trailing part) is the same repository as [rec]. */
 internal fun RecommendedStore.matches(storeUrl: String): Boolean {
     val key = url.removePrefix("https://raw.githubusercontent.com/").substringBeforeLast("/").lowercase()
-    return storeUrl.lowercase().contains("/$key/")
+    val s = storeUrl.lowercase().replace("@", "/")
+    return Regex("(^|/)${Regex.escape(key)}(/|$)").containsMatchIn(s)
 }

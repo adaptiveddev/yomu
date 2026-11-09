@@ -74,6 +74,8 @@ data class MangaSettings(
     val webtoonSidePadding: Int = 0,
     /** Webtoon mode: small gap between pages instead of a seamless strip. */
     val webtoonGaps: Boolean = false,
+    /** Double tap zooms the webtoon strip; off by default because single taps then wait for the double-tap timeout. */
+    val webtoonDoubleTapZoom: Boolean = false,
     /**
      * Shows where to tap for a few seconds when a manga opens. Off by default since 1.8.0: the overlay covered the
      * first page every time. A new name on purpose, so the "on" stored by earlier versions is not carried over (the

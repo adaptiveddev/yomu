@@ -479,7 +479,7 @@ private fun Webtoon(controller: MangaController, listener: MangaListener, hasPre
                     }
                 }
             }
-            .pointerInput(s.tapZones, s.invertTapZones) {
+            .pointerInput(s.tapZones, s.invertTapZones, s.webtoonDoubleTapZoom, zoom > 1.01f) {
                 detectTapGestures(
                     onTap = { pos ->
                         val action = TapZones.action(s.tapZones, s.invertTapZones, false, pos.x / size.width, pos.y / size.height)
@@ -489,7 +489,8 @@ private fun Webtoon(controller: MangaController, listener: MangaListener, hasPre
                             TapAction.PREV -> scope.launch { scrollBy(-size.height * 0.8f) }
                         }
                     },
-                    onDoubleTap = { zoom = if (zoom > 1.01f) 1f else 2f },
+                    // Without a double-tap handler single taps fire at once; zoomed in, a double tap always zooms back out.
+                    onDoubleTap = if (s.webtoonDoubleTapZoom || zoom > 1.01f) { _ -> zoom = if (zoom > 1.01f) 1f else 2f } else null,
                     onLongPress = { pos -> listener.onLongPressAt(controller.page, stripCoords?.takeIf { it.isAttached }?.localToWindow(pos) ?: pos) },
                 )
             },

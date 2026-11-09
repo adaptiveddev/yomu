@@ -145,6 +145,30 @@ class SyncMergerTest {
     }
 
     @Test
+    fun aCategorySwitchedOffAndOnAgainResumesFromItsBase() {
+        val bookA = a.addBook("resume"); b.addBook("resume")
+        a.highlight(bookA, "deleted elsewhere")
+        a.highlight(bookA, "edited elsewhere")
+        a.sync(); b.sync(); a.sync()
+        val off = SyncMerger.Options(annotations = false)
+        a.sync(options = off)
+        // While A does not sync highlights, B deletes one and edits the other.
+        runBlocking {
+            val hs = b.db.annotations().allHighlights()
+            b.db.annotations().deleteHighlight(hs.first { it.text == "deleted elsewhere" }.id)
+            val e = hs.first { it.text == "edited elsewhere" }
+            b.db.annotations().updateHighlight(e.copy(note = "from B", updatedAt = e.updatedAt + 1))
+        }
+        b.sync()
+        a.sync(options = off)
+        assertEquals(listOf("deleted elsewhere", "edited elsewhere"), a.highlights())
+        // Switched on again: both changes apply, no false conflict.
+        a.sync()
+        assertEquals(listOf("edited elsewhere"), a.highlights())
+        assertEquals("from B", runBlocking { a.db.annotations().allHighlights().single().note })
+    }
+
+    @Test
     fun copiesRecordsBothWays() {
         val bookA = a.addBook("h1")
         val bookB = b.addBook("h1")

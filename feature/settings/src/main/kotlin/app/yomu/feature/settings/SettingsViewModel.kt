@@ -71,7 +71,7 @@ class SettingsViewModel(
     fun rescheduleScan() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleScan() }
     fun rescheduleUpdates() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleUpdates() }
     fun rescheduleBackup() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleBackup() }
-    fun rescheduleSync() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleSync() }
+    fun rescheduleSync() = viewModelScope.launch(ScreenErrors) { scheduler.rescheduleSyncAfterChange() }
     fun rescheduleReminder() = viewModelScope.launch(ScreenErrors) { scheduler.scheduleReminder() }
 
     private fun persist(uri: Uri, write: Boolean) {

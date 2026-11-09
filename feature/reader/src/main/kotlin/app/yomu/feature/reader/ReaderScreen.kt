@@ -454,6 +454,7 @@ fun ReaderScreen(
             val manga = (data as? ReaderContent.Manga)?.controller
             // A short pause first: dragging across the book must not fetch every page on the way.
             val thumbnail by produceState<File?>(null, manga, preview.page) {
+                value = null
                 if (manga != null) {
                     delay(150)
                     value = runCatching { manga.file(preview.page - 1) }.getOrNull()
