@@ -33,11 +33,6 @@ import java.util.Locale
 /** A YouTube address: a video, a playlist, a video inside a playlist, or a channel ([channelUrl]). */
 data class YouTubeRef(val videoId: String?, val playlistId: String?, val channelUrl: String? = null)
 
-/** A search hit: a video ([detail] is its length) or a playlist ([detail] is its size). */
-data class YouTubeResult(val id: String, val isPlaylist: Boolean, val title: String, val author: String?, val detail: String?, val thumbnailUrl: String?) {
-    val ref: YouTubeRef get() = if (isPlaylist) YouTubeRef(null, id) else YouTubeRef(id, null)
-}
-
 /** A playable stream of a video: progressive audio or an HLS manifest, with the headers its server expects. */
 data class YouTubeStream(
     val url: String,
@@ -47,8 +42,8 @@ data class YouTubeStream(
     val contentLength: Long? = null,
 )
 
-/** A catalog search result: a video or a playlist. */
-data class YouTubeSearchItem(
+/** A search result: a video or a playlist. */
+data class YouTubeResult(
     val id: String,
     val isPlaylist: Boolean,
     val title: String,
@@ -58,9 +53,10 @@ data class YouTubeSearchItem(
     val videoCount: Int? = null,
 ) {
     val url: String get() = if (isPlaylist) "https://www.youtube.com/playlist?list=$id" else "https://www.youtube.com/watch?v=$id"
+    val ref: YouTubeRef get() = if (isPlaylist) YouTubeRef(null, id) else YouTubeRef(id, null)
 }
 
-data class YouTubeSearchPage(val items: List<YouTubeSearchItem>, val continuation: String?)
+data class YouTubeSearchPage(val items: List<YouTubeResult>, val continuation: String?)
 
 /** What a search returns; [params] are YouTube's own encoded search filters. */
 enum class YouTubeSearchFilter(val params: String) {
@@ -122,13 +118,13 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
         var lastError: Throwable? = null
         for (c in listOf(BROWSE, WEB)) {
             runCatching { readPlaylist(c, playlistId, limit) }
-                .onSuccess { p ->
-                    if (p.videos.isEmpty()) return@onSuccess
-                    val tracks = if (reverse) p.videos.reversed() else p.videos
+                .onSuccess { list ->
+                    if (list.videos.isEmpty()) return@onSuccess
+                    val tracks = if (reverse) list.videos.reversed() else list.videos
                     return@withContext AudiobookManifest(
-                        title = p.title,
-                        authors = listOfNotNull(p.author),
-                        description = p.description,
+                        title = list.title,
+                        authors = listOfNotNull(list.author),
+                        description = list.description,
                         coverUrl = tracks.firstNotNullOfOrNull { AudiobookManifest.youtubeId(it.uri) }?.let(::thumbnail),
                         origin = AudioOrigin.YOUTUBE,
                         sourceUrl = "https://www.youtube.com/playlist?list=$playlistId",
@@ -145,8 +141,6 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
     private fun readPlaylist(c: Client, playlistId: String, limit: Int): PlaylistPage {
         val first = post("browse", c, buildJsonObject { put("browseId", "VL$playlistId") })
         val title = playlistTitle(first) ?: throw YouTubeException(YouTubeException.Reason.NOT_FOUND)
-        val description = findAll(first, "playlistMetadataRenderer").firstNotNullOfOrNull { it.str("description") }?.takeIf { it.isNotBlank() }
-            ?: findAll(first, "playlistHeaderRenderer").firstNotNullOfOrNull { text(it["descriptionText"]) }?.takeIf { it.isNotBlank() }
         val videos = LinkedHashMap<String, AudioTrack>()
         var page: JsonElement = first
         for (n in 0 until MAX_PAGES) {
@@ -155,6 +149,7 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
             val token = continuation(page) ?: break
             page = post("browse", c, buildJsonObject { put("continuation", token) })
         }
+        val description = findAll(first, "playlistMetadataRenderer").firstNotNullOfOrNull { it.str("description") }?.takeIf { it.isNotBlank() }
         return PlaylistPage(title, playlistAuthor(first), description, videos.values.take(limit))
     }
 
@@ -186,7 +181,7 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
             }
         }
         val page = post("search", BROWSE, body)
-        YouTubeSearchPage(parseSearchPage(page), continuation(page))
+        YouTubeSearchPage(parseSearch(page), continuation(page))
     }
 
     /** A stream address of [videoId] (valid for a few hours); [progressive] skips HLS, for downloading a single file. */
@@ -354,29 +349,6 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
             findAll(page, "continuationCommand").firstNotNullOfOrNull { it.str("token") }
                 ?: findAll(page, "nextContinuationData").firstNotNullOfOrNull { it.str("continuation") }
 
-        /** Videos and playlists of a catalog search page (compact renderers of the visionOS client, full ones of the web). */
-        internal fun parseSearchPage(page: JsonElement): List<YouTubeSearchItem> {
-            val videos = (findAll(page, "compactVideoRenderer") + findAll(page, "videoRenderer")).mapNotNull { r ->
-                val id = r.str("videoId") ?: return@mapNotNull null
-                YouTubeSearchItem(
-                    id = id, isPlaylist = false, title = text(r["title"]) ?: return@mapNotNull null,
-                    author = text(r["shortBylineText"]) ?: text(r["longBylineText"]) ?: text(r["ownerText"]),
-                    thumbnailUrl = thumbnail(id),
-                    durationMs = text(r["lengthText"])?.let(ChapterMarks::parseTime) ?: 0,
-                )
-            }
-            val playlists = (findAll(page, "compactPlaylistRenderer") + findAll(page, "playlistRenderer")).mapNotNull { r ->
-                val id = r.str("playlistId") ?: return@mapNotNull null
-                YouTubeSearchItem(
-                    id = id, isPlaylist = true, title = text(r["title"]) ?: return@mapNotNull null,
-                    author = text(r["shortBylineText"]) ?: text(r["longBylineText"]),
-                    thumbnailUrl = bestThumbnail(r) ?: findAll(r, "thumbnailRenderer").firstNotNullOfOrNull(::bestThumbnail),
-                    videoCount = (text(r["videoCountShortText"]) ?: r.str("videoCount"))?.filter(Char::isDigit)?.toIntOrNull(),
-                )
-            }
-            return (videos + playlists).distinctBy { it.isPlaylist to it.id }
-        }
-
         private fun bestThumbnail(o: JsonObject): String? =
             ((o["thumbnail"] as? JsonObject)?.get("thumbnails") as? JsonArray)?.lastOrNull()?.let { (it as? JsonObject)?.str("url") }
                 ?.let { if (it.startsWith("//")) "https:$it" else it }
@@ -467,36 +439,53 @@ class YouTubeClient(private val client: () -> OkHttpClient) {
             return classic + lockups
         }
 
-        /** Videos and playlists of a search response in page order; live streams and Shorts are left out. */
+        /**
+         * Videos and playlists of a search page in page order: compact renderers (visionOS client), full ones and the
+         * newer lockups (web). Live streams (no length), Shorts and entries without a title are left out.
+         */
         internal fun parseSearch(page: JsonElement): List<YouTubeResult> {
-            val out = LinkedHashMap<String, YouTubeResult>()
-            walk(page, setOf("videoRenderer", "playlistRenderer", "lockupViewModel")) { key, o ->
+            val out = LinkedHashMap<Pair<Boolean, String>, YouTubeResult>()
+            walk(page, setOf("videoRenderer", "compactVideoRenderer", "playlistRenderer", "compactPlaylistRenderer", "lockupViewModel")) { key, o ->
                 val r = when (key) {
-                    "videoRenderer" -> o.str("videoId")?.let { id ->
-                        val length = text(o["lengthText"]) ?: return@let null
-                        YouTubeResult(id, false, text(o["title"]) ?: id, text(o["longBylineText"]) ?: text(o["ownerText"]), length, thumbnail(id))
+                    "videoRenderer", "compactVideoRenderer" -> o.str("videoId")?.let { id ->
+                        val length = text(o["lengthText"])?.let(ChapterMarks::parseTime) ?: return@let null
+                        YouTubeResult(
+                            id = id, isPlaylist = false, title = text(o["title"]) ?: return@let null,
+                            author = text(o["shortBylineText"]) ?: text(o["longBylineText"]) ?: text(o["ownerText"]),
+                            thumbnailUrl = thumbnail(id), durationMs = length,
+                        )
                     }
-                    "playlistRenderer" -> o.str("playlistId")?.let { id ->
-                        val first = findAll(o, "watchEndpoint").firstNotNullOfOrNull { it.str("videoId") }
-                        YouTubeResult(id, true, text(o["title"]) ?: id, text(o["longBylineText"]) ?: text(o["shortBylineText"]), o.str("videoCount"), first?.let(::thumbnail))
+                    "playlistRenderer", "compactPlaylistRenderer" -> o.str("playlistId")?.let { id ->
+                        val firstVideo = findAll(o, "watchEndpoint").firstNotNullOfOrNull { it.str("videoId") }
+                        YouTubeResult(
+                            id = id, isPlaylist = true, title = text(o["title"]) ?: return@let null,
+                            author = text(o["shortBylineText"]) ?: text(o["longBylineText"]),
+                            thumbnailUrl = bestThumbnail(o) ?: findAll(o, "thumbnailRenderer").firstNotNullOfOrNull(::bestThumbnail) ?: firstVideo?.let(::thumbnail),
+                            videoCount = (text(o["videoCountShortText"]) ?: o.str("videoCount"))?.filter(Char::isDigit)?.toIntOrNull(),
+                        )
                     }
                     else -> o.str("contentId")?.let { id ->
                         val type = o.str("contentType").orEmpty()
                         if ("PLAYLIST" !in type && "VIDEO" !in type) return@let null
                         val meta = o.obj("metadata")?.obj("lockupMetadataViewModel")
-                        val author = meta?.let { findAll(it, "contentMetadataViewModel").firstOrNull() }
+                        val title = meta?.obj("title")?.str("content") ?: return@let null
+                        val author = meta.let { findAll(it, "contentMetadataViewModel").firstOrNull() }
                             ?.let { (it["metadataRows"] as? JsonArray)?.firstOrNull() as? JsonObject }
                             ?.let { (it["metadataParts"] as? JsonArray)?.firstOrNull() as? JsonObject }
                             ?.obj("text")?.str("content")
                         val badge = findAll(o, "thumbnailBadgeViewModel").firstNotNullOfOrNull { it.str("text") }
-                        val image = findAll(o, "thumbnailViewModel").firstNotNullOfOrNull { t ->
-                            ((t.obj("image")?.get("sources") as? JsonArray)?.firstOrNull() as? JsonObject)?.str("url")
+                        if ("PLAYLIST" in type) {
+                            val image = findAll(o, "thumbnailViewModel").firstNotNullOfOrNull { t ->
+                                ((t.obj("image")?.get("sources") as? JsonArray)?.firstOrNull() as? JsonObject)?.str("url")
+                            }
+                            YouTubeResult(id, true, title, author, image, videoCount = badge?.filter(Char::isDigit)?.toIntOrNull())
+                        } else {
+                            val length = badge?.trim()?.let(ChapterMarks::parseTime) ?: return@let null
+                            YouTubeResult(id, false, title, author, thumbnail(id), durationMs = length)
                         }
-                        val isPlaylist = "PLAYLIST" in type
-                        YouTubeResult(id, isPlaylist, meta?.obj("title")?.str("content") ?: id, author, badge, if (isPlaylist) image else thumbnail(id))
                     }
                 }
-                if (r != null) out.putIfAbsent(r.id, r)
+                if (r != null) out.putIfAbsent(r.isPlaylist to r.id, r)
             }
             return out.values.toList()
         }

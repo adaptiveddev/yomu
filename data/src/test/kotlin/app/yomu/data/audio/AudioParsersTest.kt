@@ -156,7 +156,7 @@ class AudioParsersTest {
             ],"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"T2"}}}}
             """,
         )
-        val items = YouTubeClient.parseSearchPage(page)
+        val items = YouTubeClient.parseSearch(page)
         assertEquals(2, items.size)
         val video = items.first { !it.isPlaylist }
         assertEquals(40_240_000L, video.durationMs)
@@ -262,12 +262,12 @@ class AudioParsersTest {
         val results = YouTubeClient.parseSearch(page)
         assertEquals(listOf("A4TU2h_rDlM", "PLZrCyG_xOH1jC5siVt75wbGGvPRJleTRy"), results.map { it.id })
         val video = results[0]
-        assertEquals(YouTubeResult("A4TU2h_rDlM", false, "Complete Sherlock Holmes", "Gates of Imagination", "65:14:28", YouTubeClient.thumbnail("A4TU2h_rDlM")), video)
+        assertEquals(YouTubeResult("A4TU2h_rDlM", false, "Complete Sherlock Holmes", "Gates of Imagination", YouTubeClient.thumbnail("A4TU2h_rDlM"), durationMs = 234_868_000L), video)
         assertEquals(YouTubeRef("A4TU2h_rDlM", null), video.ref)
         val list = results[1]
         assertTrue(list.isPlaylist)
         assertEquals("Magpie Audio", list.author)
-        assertEquals("77 videos", list.detail)
+        assertEquals(77, list.videoCount)
         assertEquals("https://i.ytimg.com/vi/9D0bGia4QrI/hq720.jpg", list.thumbnailUrl)
         assertEquals(YouTubeRef(null, "PLZrCyG_xOH1jC5siVt75wbGGvPRJleTRy"), list.ref)
     }

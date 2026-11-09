@@ -211,9 +211,8 @@ class AudioPlaybackService : MediaSessionService() {
     private suspend fun streamFor(index: Int, track: AudioTrack, eager: Boolean): Pair<String, String?>? {
         val playable = AudiobookStore.playableUri(track)
         if (playable != track.uri) {
-            // A downloaded copy: nothing to resolve, nothing expires.
+            // A downloaded copy: nothing to resolve.
             resolved += index
-            expiresAt.remove(index)
             return playable to null
         }
         val id = AudiobookManifest.youtubeId(track.uri) ?: return track.uri to null
@@ -228,7 +227,6 @@ class AudioPlaybackService : MediaSessionService() {
     /** A YouTube track without an address yet, or whose address has expired or is about to. */
     private fun needsStream(i: Int): Boolean {
         if (i !in tracks.indices || AudiobookManifest.youtubeId(tracks[i].uri) == null) return false
-        if (AudiobookStore.playableUri(tracks[i]) != tracks[i].uri) return false
         if (i !in resolved) return true
         val expires = expiresAt[i] ?: 0
         return expires > 0 && expires < System.currentTimeMillis() + EXPIRY_MARGIN_MS

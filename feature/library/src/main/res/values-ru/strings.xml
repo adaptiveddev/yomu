@@ -203,4 +203,10 @@
     <string name="hint_library_select">Удерживайте книгу, чтобы выбрать несколько сразу. Потяните вниз, чтобы пересканировать папки.</string>
     <string name="library_remove_book">Убрать из библиотеки</string>
     <string name="library_fast_scroll">Быстрая прокрутка</string>
+    <plurals name="library_audio_videos">
+        <item quantity="one">%d видео</item>
+        <item quantity="few">%d видео</item>
+        <item quantity="many">%d видео</item>
+        <item quantity="other">%d видео</item>
+    </plurals>
 </resources>

@@ -183,4 +183,8 @@
     <string name="hint_library_select">Long-press a book to select several at once. Pull down to rescan your folders.</string>
     <string name="library_remove_book">Remove from library</string>
     <string name="library_fast_scroll">Fast scroll</string>
+    <plurals name="library_audio_videos">
+        <item quantity="one">%d video</item>
+        <item quantity="other">%d videos</item>
+    </plurals>
 </resources>
