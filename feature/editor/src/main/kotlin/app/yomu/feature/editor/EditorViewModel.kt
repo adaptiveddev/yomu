@@ -6,6 +6,7 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.yomu.core.common.AppError
+import app.yomu.core.common.AppScope
 import app.yomu.core.common.Files
 import app.yomu.core.common.ScreenErrors
 import app.yomu.core.datastore.AppSettings
@@ -25,6 +26,7 @@ import app.yomu.data.ocr.OcrService
 import app.yomu.domain.model.Book
 import app.yomu.domain.model.BookFormat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -105,6 +107,7 @@ class EditorViewModel(
     private val bookTranslator: BookTranslator,
     private val ocr: OcrService,
     private val translation: TranslationService,
+    private val appScope: AppScope = AppScope(),
 ) : ViewModel() {
     private val draftDir = File(context.filesDir, "editor/$bookId")
     private val workDir = File(draftDir, "work")
@@ -170,7 +173,7 @@ class EditorViewModel(
     private suspend fun open(fresh: Boolean) {
         _phase.value = EditorPhase.Loading
         val book = _book.value ?: return
-        runCatching {
+        runCatchingCancellable {
             withContext(Dispatchers.IO) {
                 if (fresh) {
                     draftDir.deleteRecursively()
@@ -216,7 +219,7 @@ class EditorViewModel(
                 rel
             }
             val infoEntry = c.entries.firstOrNull { it.substringAfterLast('/').equals("ComicInfo.xml", true) }
-            val info = infoEntry?.let { runCatching { ComicInfoXml.parse(String(c.read(it)!!)) }.getOrNull() }
+            val info = infoEntry?.let { runCatchingCancellable { ComicInfoXml.parse(String(c.read(it)!!)) }.getOrNull() }
                 ?: ComicInfo(title = book.title, series = book.series.orEmpty(), writer = book.authorsText, languageIso = book.language.orEmpty())
             MangaWorkspace.create(workDir, files, info)
         }
@@ -224,18 +227,18 @@ class EditorViewModel(
 
     private fun safeEntry(name: String) = name.isNotEmpty() && !name.startsWith("/") && name.split('/', '\\').none { it == ".." }
 
-    private fun readDraft(): Pair<Long, Boolean>? = runCatching {
+    private fun readDraft(): Pair<Long, Boolean>? = runCatchingCancellable {
         val o = Json.parseToJsonElement(draftFile.readText()).jsonObject
         (o["modifiedAt"]?.jsonPrimitive?.longOrNull ?: 0L) to (o["dirty"]?.jsonPrimitive?.booleanOrNull ?: false)
     }.getOrNull()
 
     private fun writeDraft(dirty: Boolean) {
         draftDir.mkdirs()
-        draftFile.writeText(buildJsonObject { put("bookId", bookId); put("kind", kind.name); put("modifiedAt", System.currentTimeMillis()); put("dirty", dirty) }.toString())
+        writeTextAtomic(draftFile, buildJsonObject { put("bookId", bookId); put("kind", kind.name); put("modifiedAt", System.currentTimeMillis()); put("dirty", dirty) }.toString())
     }
 
     private fun setDirty(dirty: Boolean) {
-        runCatching { writeDraft(dirty) }
+        runCatchingCancellable { writeDraft(dirty) }
         _status.update { it.copy(dirty = dirty) }
     }
 
@@ -252,7 +255,7 @@ class EditorViewModel(
     private suspend fun refresh() = withContext(Dispatchers.IO) {
         version++
         epubWs?.let { ws ->
-            runCatching { ws.reload() }
+            runCatchingCancellable { ws.reload() }
             _epub.value = EpubState(
                 version = version,
                 root = ws.root,
@@ -285,7 +288,7 @@ class EditorViewModel(
         viewModelScope.launch(ScreenErrors) {
             mutex.withLock {
                 _status.update { it.copy(busy = true, progress = null) }
-                val result = runCatching {
+                val result = runCatchingCancellable {
                     withContext(Dispatchers.IO) {
                         val h = history ?: error("Editor is not ready")
                         h.change(context.getString(label), files()) { op() }
@@ -331,7 +334,7 @@ class EditorViewModel(
     }
 
     private suspend fun readImage(uri: Uri): Pair<ByteArray, String>? = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             val bytes = Files.open(context, uri).use { it.readBytes() }
             if (!ImageOps.isImage(bytes)) throw AppError.UnsupportedFormat(Files.displayName(context, uri) ?: "image")
             val mime = context.contentResolver.getType(uri)?.takeIf { it.startsWith("image/") }
@@ -356,7 +359,7 @@ class EditorViewModel(
 
     fun mergeWithNext(path: String) = edit(R.string.editor_step_merge, { ws.structureFiles() + ws.documents() }) { ws.mergeWithNext(path) }
 
-    suspend fun blocks(path: String): List<BlockInfo> = withContext(Dispatchers.IO) { runCatching { ws.blocks(path) }.getOrDefault(emptyList()) }
+    suspend fun blocks(path: String): List<BlockInfo> = withContext(Dispatchers.IO) { runCatchingCancellable { ws.blocks(path) }.getOrDefault(emptyList()) }
 
     fun updateToc(entries: List<TocEntry>) = edit(R.string.editor_step_toc, { ws.structureFiles() }) { ws.writeToc(entries) }
 
@@ -365,7 +368,7 @@ class EditorViewModel(
     fun tocFromChapters() = edit(R.string.editor_step_toc, { ws.structureFiles() }) { ws.writeToc(ws.tocFromChapters()) }
 
     /** Text of a file of the book; null (after an error message) when it cannot be read. */
-    suspend fun readSource(path: String): String? = withContext(Dispatchers.IO) { runCatching { ws.readText(path) } }
+    suspend fun readSource(path: String): String? = withContext(Dispatchers.IO) { runCatchingCancellable { ws.readText(path) } }
         .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it; _events.send(EditorEvent.Error(it)) }
         .getOrNull()
 
@@ -381,7 +384,7 @@ class EditorViewModel(
 
     fun search(q: SearchQuery, scope: List<String>?) = viewModelScope.launch(ScreenErrors) {
         _searchHits.value = null
-        runCatching { withContext(Dispatchers.IO) { ws.search(q, scope ?: ws.spinePaths) } }
+        runCatchingCancellable { withContext(Dispatchers.IO) { ws.search(q, scope ?: ws.spinePaths) } }
             .onSuccess { _searchHits.value = it }
             .onFailure {
                 _searchHits.value = emptyList()
@@ -433,7 +436,7 @@ class EditorViewModel(
     fun validate() = viewModelScope.launch(ScreenErrors) {
         _issues.value = null
         _status.update { it.copy(busy = true) }
-        runCatching { withContext(Dispatchers.IO) { ws.validate() } }
+        runCatchingCancellable { withContext(Dispatchers.IO) { ws.validate() } }
             .onSuccess { _issues.value = it }
             .onFailure { _events.send(EditorEvent.Error(it)) }
         _status.update { it.copy(busy = false) }
@@ -506,7 +509,7 @@ class EditorViewModel(
     }
 
     suspend fun autoCropPreview(index: Int): CropRect = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             val page = mws.pages[index]
             val bmp = ImageOps.rotate(ImageOps.decode(mws.file(page), maxSide = 1200), page.rotation)
             ImageOps.autoCropRect(bmp).also { bmp.recycle() }
@@ -584,7 +587,7 @@ class EditorViewModel(
     }
 
     private suspend fun translateText(text: String, lang: String): String =
-        runCatching { translation.translate(text, lang, settings.targetLang.get().ifBlank { null }).translated }.getOrDefault(text)
+        runCatchingCancellable { translation.translate(text, lang, settings.targetLang.get().ifBlank { null }).translated }.getOrDefault(text)
 
     /**
      * Recognizes the text of a page and machine-translates it, in the OCR language of the settings. [region] (fractions of
@@ -645,7 +648,7 @@ class EditorViewModel(
     fun translatePages(indices: Set<Int>) = viewModelScope.launch(ScreenErrors) {
         if (indices.isEmpty()) return@launch
         _status.update { it.copy(busy = true, progress = 0f) }
-        val result = runCatching {
+        val result = runCatchingCancellable {
             val sorted = indices.sorted()
             val out = HashMap<Int, List<TypesetBlock>>()
             sorted.forEachIndexed { n, i ->
@@ -687,14 +690,26 @@ class EditorViewModel(
 
     private fun outputExt() = if (kind == EditorKind.TEXT) "epub" else "cbz"
 
-    /** Replaces the library book with the edited version. */
+    /**
+     * Replaces the library book with the edited version. The output is built first; the write-back itself runs in the
+     * app scope, so leaving the editor (or clearing the ViewModel) cannot cut it off halfway.
+     */
     fun saveToBook(thenClose: Boolean = false) = viewModelScope.launch(ScreenErrors) {
         mutex.withLock {
             _status.update { it.copy(busy = true, progress = null) }
-            val result = runCatching { withContext(Dispatchers.IO) { writeBack() } }
+            val result = runCatchingCancellable {
+                val tmp = withContext(Dispatchers.IO) {
+                    File(context.cacheDir, "editor/out_$bookId.${outputExt()}").also { buildOutput(it, ::progress) }
+                }
+                appScope.detached {
+                    withContext(NonCancellable + Dispatchers.IO) {
+                        writeBack(tmp)
+                        setDirty(false)
+                    }
+                }
+            }
             _status.update { it.copy(busy = false, progress = null) }
             result.onSuccess {
-                setDirty(false)
                 _book.value = books.getBook(bookId)
                 message(R.string.editor_saved)
                 if (thenClose) {
@@ -707,11 +722,10 @@ class EditorViewModel(
         }
     }
 
-    private suspend fun writeBack() {
+    /** Publishes the finished [tmp] output; it is kept when something fails so the result is not lost. */
+    private suspend fun writeBack(tmp: File) {
         val book = books.getBook(bookId) ?: throw AppError.CorruptedFile("Book $bookId not found")
         val ext = outputExt()
-        val tmp = File(context.cacheDir, "editor/out_$bookId.$ext")
-        buildOutput(tmp, ::progress)
         val targetFormat = if (kind == EditorKind.TEXT) BookFormat.EPUB else BookFormat.CBZ
         val uri = Uri.parse(book.uri)
         val booksDir = File(context.filesDir, "books").apply { mkdirs() }
@@ -756,7 +770,7 @@ class EditorViewModel(
                     publisher = m.publisher,
                 ),
             )
-            ws.pkg.coverPath?.let { p -> runCatching { books.setCover(bookId, File(workDir, p).readBytes()) } }
+            ws.pkg.coverPath?.let { p -> runCatchingCancellable { books.setCover(bookId, File(workDir, p).readBytes()) } }
         } else {
             val info = mws.info
             books.update(
@@ -769,7 +783,7 @@ class EditorViewModel(
                     description = info.summary.ifBlank { null },
                 ),
             )
-            mws.pages.firstOrNull()?.let { p -> runCatching { books.setCover(bookId, ImageOps.rendered(mws.file(p), p.rotation).first) } }
+            mws.pages.firstOrNull()?.let { p -> runCatchingCancellable { books.setCover(bookId, ImageOps.rendered(mws.file(p), p.rotation).first) } }
         }
     }
 
@@ -777,7 +791,7 @@ class EditorViewModel(
     fun export(type: ExportType, target: Uri) = viewModelScope.launch(ScreenErrors) {
         mutex.withLock {
             _status.update { it.copy(busy = true, progress = null) }
-            val result = runCatching {
+            val result = runCatchingCancellable {
                 withContext(Dispatchers.IO) {
                     val tmp = File(context.cacheDir, "editor/export_$bookId.${type.ext}")
                     tmp.parentFile?.mkdirs()
@@ -805,7 +819,7 @@ class EditorViewModel(
     fun saveAsNewBook() = viewModelScope.launch(ScreenErrors) {
         mutex.withLock {
             _status.update { it.copy(busy = true, progress = null) }
-            val result = runCatching {
+            val result = runCatchingCancellable {
                 withContext(Dispatchers.IO) {
                     val ext = outputExt()
                     val dir = File(context.filesDir, "books").apply { mkdirs() }
@@ -843,7 +857,7 @@ class EditorViewModel(
     fun translateChapters(paths: List<String>, target: String, bilingual: Boolean) = viewModelScope.launch(ScreenErrors) {
         if (paths.isEmpty()) return@launch
         _status.update { it.copy(busy = true, progress = 0f) }
-        val result = runCatching {
+        val result = runCatchingCancellable {
             val out = LinkedHashMap<String, String>()
             paths.forEachIndexed { i, path ->
                 val doc = withContext(Dispatchers.IO) { EpubParser.parseXml(ws.readText(path).toByteArray()) }

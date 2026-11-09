@@ -49,6 +49,7 @@ import app.yomu.widget.ContinueWidgets
 import app.yomu.data.repository.ReadingHistoryRepository
 
 val appModule = module {
+    single { app.yomu.core.common.AppScope() }
     single { AppLockController(get()) }
     single { AutoSync(androidContext(), get()) }
     // OAuth client ids of the tracking services, set at build time (docs/TRACKING.md); the user can enter their own.

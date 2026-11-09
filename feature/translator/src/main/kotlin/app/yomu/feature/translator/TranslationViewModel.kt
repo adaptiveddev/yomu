@@ -81,7 +81,7 @@ class TranslationViewModel(
         val s = _state.value
         viewModelScope.launch(ScreenErrors) {
             _state.update { it.copy(downloading = true) }
-            runCatching {
+            app.yomu.core.common.runCatchingApp {
                 val from = s.from ?: service.detect(s.source)
                 val wifi = settings.modelsWifiOnly.get()
                 listOfNotNull(from, s.to).distinct().filter { it != "en" }.forEach { service.mlKit.download(it, wifi) }
