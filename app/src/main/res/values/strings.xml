@@ -191,8 +191,9 @@
 
     <!-- Profile: Tracking and Downloads tabs (2.0.1) -->
     <string name="profile_tab_tracking">Tracking</string>
+    <string name="profile_tracking_entry">Accounts and tracked titles</string>
+    <string name="profile_downloads_entry">Open the download queue</string>
     <string name="profile_tab_downloads">Downloads</string>
-    <string name="profile_downloads_settings">Download settings</string>
     <string name="profile_track_refresh">Refresh from the services</string>
     <string name="profile_track_settings">Tracking settings</string>
     <string name="profile_track_accounts">Accounts</string>

@@ -37,6 +37,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.ViewList
@@ -72,7 +75,9 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Switch
 import androidx.compose.ui.draw.scale
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -124,6 +129,7 @@ import androidx.paging.compose.itemKey
 import app.yomu.core.ui.components.BookGridItem
 import app.yomu.core.ui.components.BookListItem
 import app.yomu.core.ui.components.CircleIconButton
+import app.yomu.data.download.DownloadSummary
 import app.yomu.core.ui.components.ConfirmDialog
 import app.yomu.core.ui.components.CoverImage
 import app.yomu.core.ui.components.EmptyState
@@ -182,6 +188,8 @@ fun LibraryScreen(
     onFindBooksOnline: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTitle: (Long) -> Unit = {},
+    onReadChapter: (Long) -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
     online: OnlineLibrary? = null,
 ) {
     val context = LocalContext.current
@@ -208,6 +216,7 @@ fun LibraryScreen(
     val incognito by viewModel.incognito.collectAsStateWithLifecycle()
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val audioSearch by viewModel.audioSearch.collectAsStateWithLifecycle()
+    val downloads by viewModel.downloadSummary.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
     val haptic = rememberHaptic()
@@ -255,6 +264,8 @@ fun LibraryScreen(
                 }
                 is LibraryEvent.Message -> scope.launch { snackbar.showSnackbar(resources.getString(e.text)) }
                 is LibraryEvent.OpenBook -> onOpenBook(e.book)
+                is LibraryEvent.ReadChapter -> onReadChapter(e.chapterId)
+                is LibraryEvent.OpenTitle -> onOpenTitle(e.itemId)
             }
         }
     }
@@ -317,6 +328,8 @@ fun LibraryScreen(
                             onlineTotal.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.library_online_short, it, it) },
                         ).joinToString(" · ").ifEmpty { null },
                         onSearch = { searching = true },
+                        downloads = downloads,
+                        onDownloads = onOpenDownloads,
                     ) {
                         Box {
                             CircleIconButton(Icons.Default.MoreVert, stringResource(CoreR.string.more), onClick = { showMenu = true })
@@ -449,7 +462,7 @@ fun LibraryScreen(
                         selection = selection,
                         onlineTiles = onlineTiles,
                         header = {
-                            if (continueRow) ContinueReading(continueItems, onOpenBook, onOpenTitle)
+                            if (continueRow) ContinueReading(continueItems, onOpenBook, viewModel::continueOnline)
                             if (shelf) OnlineShelf(onlineShown, onlineTotal, onOpenTitle, onLongPress = { onlineMenu = it }, onShowAll = { onlineTab = true })
                             if (noBooksCard) NoBooksCard(onImport = { showImport = true })
                         },
@@ -588,22 +601,73 @@ fun LibraryScreen(
     }
 }
 
-/** Large title with the counts and round actions (search, menu). */
+/** Large title with the counts and round actions (downloads while there are any, search, menu). */
 @Composable
-private fun LibraryHeader(subtitle: String?, onSearch: () -> Unit, menu: @Composable () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().statusBarsPadding().padding(start = Dimens.xl, end = Dimens.l, top = Dimens.m, bottom = Dimens.xs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.library_title), style = MaterialTheme.typography.headlineMedium, maxLines = 1)
-            if (subtitle != null) {
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun LibraryHeader(subtitle: String?, onSearch: () -> Unit, downloads: DownloadSummary, onDownloads: () -> Unit, menu: @Composable () -> Unit) {
+    Column {
+        Row(
+            Modifier.fillMaxWidth().statusBarsPadding().padding(start = Dimens.xl, end = Dimens.l, top = Dimens.m, bottom = Dimens.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.library_title), style = MaterialTheme.typography.headlineMedium, maxLines = 1)
+                if (subtitle != null) {
+                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (downloads.visible) {
+                DownloadsButton(downloads, onDownloads)
+                Spacer(Modifier.width(Dimens.s))
+            }
+            CircleIconButton(Icons.Default.Search, stringResource(CoreR.string.search), onClick = onSearch)
+            Spacer(Modifier.width(Dimens.s))
+            menu()
+        }
+        // A thin strip stays visible under the title while data is flowing, also when the button is out of sight.
+        if (downloads.active) {
+            val fraction = downloads.fraction?.let { animatedFraction(it) }
+            if (fraction != null) {
+                LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth().height(2.dp))
+            } else {
+                LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp))
             }
         }
-        CircleIconButton(Icons.Default.Search, stringResource(CoreR.string.search), onClick = onSearch)
-        Spacer(Modifier.width(Dimens.s))
-        menu()
+    }
+}
+
+@Composable
+private fun animatedFraction(target: Float): Float = androidx.compose.animation.core.animateFloatAsState(target, label = "downloads").value
+
+/** Progress ring around a download icon with the number of items left; red with a warning icon when only failures remain. */
+@Composable
+private fun DownloadsButton(s: DownloadSummary, onClick: () -> Unit) {
+    val failedOnly = !s.active && s.remaining == 0
+    val count = if (s.remaining > 0) s.remaining else s.failed
+    val label = if (s.remaining > 0) pluralStringResource(R.plurals.library_downloads_left, s.remaining, s.remaining) else stringResource(R.string.library_downloads_failed)
+    val container = if (failedOnly) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
+    val content = if (failedOnly) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+    Box {
+        Surface(
+            onClick = onClick,
+            shape = CircleShape,
+            color = container,
+            contentColor = content,
+            modifier = Modifier.minimumInteractiveComponentSize().size(Dimens.touch - 4.dp).semantics { contentDescription = label },
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (s.active) {
+                    val ring = Modifier.size(36.dp)
+                    val fraction = s.fraction?.let { animatedFraction(it) }
+                    if (fraction != null) {
+                        CircularProgressIndicator(progress = { fraction }, modifier = ring, strokeWidth = 3.dp, trackColor = content.copy(alpha = 0.18f))
+                    } else {
+                        CircularProgressIndicator(modifier = ring, strokeWidth = 3.dp, trackColor = content.copy(alpha = 0.18f))
+                    }
+                }
+                Icon(if (failedOnly) Icons.Outlined.ErrorOutline else Icons.Default.Download, null, Modifier.size(20.dp))
+            }
+        }
+        Badge(Modifier.align(Alignment.TopEnd)) { Text(if (count > 99) "99+" else count.toString()) }
     }
 }
 
@@ -664,14 +728,14 @@ private fun ActiveFilters(filter: LibraryFilter, types: Set<FormatGroup>, viewMo
     }
 }
 
-/** The latest book or online title in progress as a large card, the others in a row under it. */
+/** The latest book or online title in progress as a large card, the others in a row under it; both resume reading. */
 @Composable
-private fun ContinueReading(items: List<ContinueItem>, onOpenBook: (Book) -> Unit, onOpenTitle: (Long) -> Unit) {
+private fun ContinueReading(items: List<ContinueItem>, onOpenBook: (Book) -> Unit, onContinueTitle: (Long) -> Unit) {
     val first = items.firstOrNull() ?: return
     val open: (ContinueItem) -> Unit = { item ->
         when (item) {
             is ContinueItem.BookItem -> onOpenBook(item.book)
-            is ContinueItem.OnlineItem -> onOpenTitle(item.entry.id)
+            is ContinueItem.OnlineItem -> onContinueTitle(item.entry.id)
         }
     }
     Column(Modifier.fillMaxWidth().padding(bottom = Dimens.s)) {
@@ -736,7 +800,7 @@ private fun ContinueReading(items: List<ContinueItem>, onOpenBook: (Book) -> Uni
                             cover = item.entry.coverUrl,
                             progress = item.entry.readFraction(),
                             modifier = Modifier.width(Dimens.coverWidth - 14.dp),
-                            onClick = { onOpenTitle(item.entry.id) },
+                            onClick = { onContinueTitle(item.entry.id) },
                         )
                     }
                 }

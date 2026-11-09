@@ -56,6 +56,13 @@ class AudioPlayerViewModel(
     val player: StateFlow<PlayerSnapshot?> = audio.state.map { s -> s?.takeIf { it.bookId == bookId } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    val audioSettings: StateFlow<AudioSettings> = book.map { AudioSettings.of(it?.readerSettingsJson) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AudioSettings())
+
+    /** Length of each entry of [chapters]; 0 where unknown. */
+    private val _chapterLengths = MutableStateFlow<List<Long>>(emptyList())
+    val chapterLengths: StateFlow<List<Long>> = _chapterLengths.asStateFlow()
+
     init {
         viewModelScope.launch {
             runCatching {
@@ -64,6 +71,7 @@ class AudioPlayerViewModel(
                 val tracks = store.tracks(b)
                 trackDurations = tracks.map { it.durationMs }
                 _chapters.value = AudioPositions.navigation(tracks)
+                _chapterLengths.value = PlayerMath.lengths(_chapters.value, trackDurations)
                 refreshOffline()
                 audio.open(bookId, play = false)
             }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it else _loadError.value = it }
@@ -96,9 +104,40 @@ class AudioPlayerViewModel(
 
     fun seekTo(positionMs: Long) { audio.player()?.seekTo(positionMs) }
 
-    fun back() { audio.player()?.seekBack() }
+    fun back() { seekBy(-audioSettings.value.skipBackSec * 1000L) }
 
-    fun forward() { audio.player()?.seekForward() }
+    fun forward() { seekBy(audioSettings.value.skipForwardSec * 1000L) }
+
+    private fun seekBy(deltaMs: Long) {
+        val p = audio.player() ?: return
+        p.seekTo((p.currentPosition + deltaMs).coerceAtLeast(0))
+    }
+
+    fun setSkipIntervals(backSec: Int, forwardSec: Int) = audio.setSkipIntervals(backSec, forwardSec)
+
+    fun addBookmark(note: String) {
+        val s = player.value ?: return
+        val mark = Bookmark(s.track, s.positionMs, note.trim(), System.currentTimeMillis())
+        audio.setBookmarks((audioSettings.value.bookmarks + mark).sortedWith(compareBy({ it.track }, { it.positionMs })))
+    }
+
+    fun removeBookmark(mark: Bookmark) = audio.setBookmarks(audioSettings.value.bookmarks - mark)
+
+    fun jump(mark: Bookmark) {
+        val p = audio.player() ?: return
+        p.seekTo(mark.track, mark.positionMs)
+        if (!p.playWhenReady) p.play()
+    }
+
+    /** Adds [minutes] to the running sleep timer, or starts one of that length. */
+    fun extendSleep(minutes: Int) {
+        val at = player.value?.sleepAt?.takeIf { it > 0 }
+        audio.sleep(if (at != null) PlayerMath.extendedSleepMinutes(at, System.currentTimeMillis(), minutes) else minutes)
+    }
+
+    /** Share of the book heard, or null while some track length is unknown. */
+    fun bookProgress(s: PlayerSnapshot): Float? = durationsFor(s)?.let { PlayerMath.bookProgress(it, s.track, s.positionMs) }
+
 
     fun jump(entry: AudioNavEntry) {
         val p = audio.player() ?: return
@@ -130,10 +169,15 @@ class AudioPlayerViewModel(
 
     /** Time left in the book at the current speed, or null while some track length is unknown. */
     fun timeLeftMs(s: PlayerSnapshot): Long? {
+        val durations = durationsFor(s) ?: return null
+        return AudioPositions.remaining(durations, s.track, s.positionMs)?.let { (it / s.speed.coerceAtLeast(0.1f)).toLong() }
+    }
+
+    private fun durationsFor(s: PlayerSnapshot): List<Long>? {
         val durations = trackDurations.toMutableList().takeIf { it.size == s.trackCount } ?: return null
         if (s.track !in durations.indices) return null
         if (s.durationMs > 0) durations[s.track] = s.durationMs
-        return AudioPositions.remaining(durations, s.track, s.positionMs)?.let { (it / s.speed.coerceAtLeast(0.1f)).toLong() }
+        return durations
     }
 
     fun toggleSkipSilence() { player.value?.let { audio.setSkipSilence(!it.skipSilence) } }

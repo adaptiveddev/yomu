@@ -12,6 +12,8 @@ import app.yomu.core.common.ScreenErrors
 import app.yomu.core.datastore.AppSettings
 import app.yomu.core.datastore.stateIn
 import app.yomu.data.catalog.CatalogRepository
+import app.yomu.data.download.DownloadOverview
+import app.yomu.data.download.DownloadSummary
 import app.yomu.data.library.ImportOutcome
 import app.yomu.data.library.ImportService
 import app.yomu.data.library.LibraryTabs
@@ -124,6 +126,8 @@ sealed interface LibraryEvent {
     data class Deleted(val ids: Set<Long>) : LibraryEvent
     data class Message(val text: Int) : LibraryEvent
     data class OpenBook(val book: app.yomu.domain.model.Book) : LibraryEvent
+    data class ReadChapter(val chapterId: Long) : LibraryEvent
+    data class OpenTitle(val itemId: Long) : LibraryEvent
 }
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class, kotlinx.coroutines.DelicateCoroutinesApi::class)
@@ -135,6 +139,8 @@ class LibraryViewModel(
     private val tabs: LibraryTabs,
     private val catalog: CatalogRepository,
     private val audiobooks: AudiobookStore,
+    private val history: app.yomu.data.repository.ReadingHistoryRepository,
+    downloads: DownloadOverview,
 ) : ViewModel() {
     private val search = MutableStateFlow("")
     private val filter = MutableStateFlow(LibraryFilter())
@@ -157,6 +163,7 @@ class LibraryViewModel(
 
     fun setIncognito(on: Boolean) = viewModelScope.launch(ScreenErrors) { settings.incognito.set(on) }
     val importProgress = importer.progress
+    val downloadSummary: StateFlow<DownloadSummary> = downloads.summary.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadSummary())
 
     private val query: Flow<LibraryQuery> = combine(search.debounce(200), settings.librarySort.flow, settings.libraryAscending.flow, filter) { s, so, asc, f ->
         LibraryQuery(s, so, asc, f)
@@ -242,6 +249,12 @@ class LibraryViewModel(
     fun selectAll() = viewModelScope.launch(ScreenErrors) {
         val q = LibraryQuery(search.value, settings.librarySort.get(), settings.libraryAscending.get(), filter.value)
         _selection.value = books.observeBooks(q).first().map { it.id }.filter { it !in pendingDelete.value }.toSet()
+    }
+
+    /** "Continue" on an online title opens the chapter to read next; the title page only when it has no chapters. */
+    fun continueOnline(itemId: Long) = viewModelScope.launch(ScreenErrors) {
+        val chapter = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { history.resumeChapter(itemId, null) }
+        _events.send(if (chapter != null) LibraryEvent.ReadChapter(chapter) else LibraryEvent.OpenTitle(itemId))
     }
 
     // ---- import ----

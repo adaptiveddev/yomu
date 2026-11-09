@@ -108,6 +108,24 @@ class AudioController(private val context: Context) {
         )
     }
 
+    fun setSkipIntervals(backSec: Int, forwardSec: Int) {
+        controller?.sendCustomCommand(
+            SessionCommand(AudioPlaybackService.CMD_SKIP_INTERVALS, Bundle.EMPTY),
+            Bundle().apply {
+                putInt(AudioPlaybackService.KEY_SKIP_BACK, backSec)
+                putInt(AudioPlaybackService.KEY_SKIP_FORWARD, forwardSec)
+            },
+        )
+    }
+
+    /** Replaces the book's bookmarks; the service keeps them with the other per-book settings. */
+    fun setBookmarks(list: List<Bookmark>) {
+        controller?.sendCustomCommand(
+            SessionCommand(AudioPlaybackService.CMD_BOOKMARKS, Bundle.EMPTY),
+            Bundle().apply { putString(AudioPlaybackService.KEY_BOOKMARKS, AudioSettings.encodeBookmarks(list).toString()) },
+        )
+    }
+
     /** Ends playback; the position is saved by the service before the playlist is cleared. */
     fun stop() {
         val p = player() ?: return

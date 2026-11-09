@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — player, profile, downloads
+
+- **Continue** on the library's "Continue reading" card opens the chapter to read next instead of the title page.
+- **YouTube in the catalog**: videos and playlists added from the YouTube source offer "Listen online" again (the title page showed "No downloadable files").
+- **Audiobook player**: a cover-tinted layout that also fits wide windows, a seek bar and times for the current chapter, "Chapter N of M · %", larger controls, bookmarks with notes, configurable skip intervals (also in the notification), "+5 min" and custom minutes for the sleep timer, and chapter durations in the chapter list.
+- **Profile**: two sections (Overview and History) instead of five tabs; statistics and tracking open from the overview.
+- **Downloads**: a button with a progress ring and a counter in the Library top bar while something downloads, a summary with pause/resume/retry/cancel all, clear per-item states (waiting for network or Wi-Fi, retrying, failed with the reason), offline audiobooks in the list, and downloads that wait out network loss and VPN switches instead of failing.
+
 ## 2.1.0 — audiobooks, YouTube, GitHub sync, notifications
 
 - **Audiobooks, continued**: offline listening for online audiobooks (YouTube, podcasts, catalog streams) — a download button in the player saves the tracks in the background, resumes after interruptions and is removed with the book; expired YouTube addresses are refreshed every time, not only once per track.

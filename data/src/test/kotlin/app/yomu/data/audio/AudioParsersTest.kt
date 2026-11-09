@@ -290,4 +290,15 @@ class AudioParsersTest {
         assertEquals(1_794_300_000_000L, YouTubeClient.expiresAt("https://manifest.googlevideo.com/api/manifest/hls_variant/expire/1794300000/ei/abc/file/index.m3u8"))
         assertEquals(0L, YouTubeClient.expiresAt("https://example.com/a.mp3"))
     }
+
+    @Test
+    fun youtubeCatalogTitlesFromTheLibraryStillOfferListening() = kotlinx.coroutines.runBlocking {
+        // The library keeps catalog titles without their links: the title page must still get "Listen online".
+        val source = YouTubeSource(YouTubeClient { okhttp3.OkHttpClient() })
+        val stored = app.yomu.source.SItem(url = "https://www.youtube.com/watch?v=A4TU2h_rDlM", title = "Atomic Habits")
+        val links = source.getDownloadLinks(stored)
+        assertEquals(listOf("https://www.youtube.com/watch?v=A4TU2h_rDlM"), links.map { it.url })
+        assertTrue(links.single().isAudioStream)
+        assertTrue(source.getDownloadLinks(stored.copy(url = "https://example.com/x")).isEmpty())
+    }
 }

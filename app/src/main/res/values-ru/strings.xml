@@ -196,8 +196,9 @@
 
     <!-- Профиль: вкладки «Трекинг» и «Загрузки» (2.0.1) -->
     <string name="profile_tab_tracking">Трекинг</string>
+    <string name="profile_tracking_entry">Аккаунты и отслеживаемые тайтлы</string>
+    <string name="profile_downloads_entry">Открыть очередь загрузок</string>
     <string name="profile_tab_downloads">Загрузки</string>
-    <string name="profile_downloads_settings">Настройки загрузок</string>
     <string name="profile_track_refresh">Обновить с сервисов</string>
     <string name="profile_track_settings">Настройки трекинга</string>
     <string name="profile_track_accounts">Аккаунты</string>

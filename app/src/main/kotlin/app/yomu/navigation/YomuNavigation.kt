@@ -295,6 +295,7 @@ private fun YomuNavHost(nav: NavHostController, reduceMotion: Boolean, tabs: Tab
                                     nav.navigate(SettingsSectionRoute(section.name))
                                 }
                             },
+                            onOpenDownloads = { nav.navigate(DownloadsRoute) },
                         )
                         TopLevel.CATALOG -> CatalogScreen(
                             viewModel = koinViewModel(),
@@ -522,6 +523,8 @@ private fun LibraryTab(nav: NavHostController, tabs: TabsState) {
                 onFindBooksOnline = { tabs.select(TopLevel.CATALOG) },
                 onOpenSettings = { tabs.select(TopLevel.SETTINGS) },
                 onOpenTitle = openTitle,
+                onReadChapter = { nav.navigate(ReaderRoute(chapterId = it)) },
+                onOpenDownloads = { nav.navigate(DownloadsRoute) },
                 online = online,
             )
         }
