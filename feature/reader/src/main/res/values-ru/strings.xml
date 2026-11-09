@@ -314,4 +314,12 @@
     <string name="rs_brightness_pill">Яркость</string>
     <string name="rs_warm_pill">Тёплый фильтр</string>
     <string name="hint_reader_edges">Проведите вверх или вниз у левого края, чтобы изменить яркость, у правого — тёплый фильтр.</string>
+    <string name="tapzones_prev">Предыдущая страница</string>
+    <string name="tapzones_next">Следующая страница</string>
+    <string name="tapzones_menu">Меню</string>
+    <string name="tapzones_edge_brightness">Яркость</string>
+    <string name="tapzones_edge_warm">Тёплый фильтр</string>
+    <string name="tapzones_title">Зоны касания. Коснитесь экрана, чтобы продолжить.</string>
+    <string name="reader_autoscroll_slower">Медленнее</string>
+    <string name="reader_autoscroll_faster">Быстрее</string>
 </resources>

@@ -2,6 +2,8 @@ package app.yomu.feature.dictionary
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -115,7 +117,7 @@ fun DictionariesScreen(viewModel: DictionariesViewModel, onBack: () -> Unit) {
                                     ).joinToString(" · "),
                                 )
                             },
-                            leadingContent = { Switch(checked = d.enabled, onCheckedChange = { viewModel.setEnabled(d.id, it) }) },
+                            leadingContent = { Switch(checked = d.enabled, onCheckedChange = { viewModel.setEnabled(d.id, it) }, modifier = Modifier.semantics { contentDescription = d.name }) },
                             trailingContent = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     IconButton(enabled = i > 0, onClick = { viewModel.move(d.id, -1) }) { Icon(Icons.Default.KeyboardArrowUp, stringResource(R.string.dicts_move_up)) }

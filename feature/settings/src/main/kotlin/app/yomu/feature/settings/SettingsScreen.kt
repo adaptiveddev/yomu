@@ -23,6 +23,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -70,6 +71,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -78,6 +80,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -88,6 +91,8 @@ import app.yomu.core.ui.components.topLevelContentInsets
 import app.yomu.core.ui.components.navBarBottomPadding
 import app.yomu.core.ui.components.TopLevelBody
 import app.yomu.core.ui.components.SearchField
+import app.yomu.core.ui.components.EmptyState
+import androidx.compose.material.icons.outlined.SearchOff
 import app.yomu.core.ui.components.errorMessage
 import app.yomu.core.ui.theme.Dimens
 import kotlinx.coroutines.launch
@@ -131,12 +136,25 @@ data class SettingsLinks(
 @Composable
 internal fun <T> Pref<*, T>.state(): State<T> = flow.collectAsStateWithLifecycle(initialValue = default)
 
-/** Settings root with search; sections open inside the same destination. */
+/**
+ * Settings root with search; sections open inside the same destination. With [onSelectSection] the root only lists
+ * (a two-pane list): sections and search results go to the caller with the option's anchor, which another instance
+ * opens via [initialSection] and [initialAnchor].
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, links: SettingsLinks, onBack: (() -> Unit)? = null, initialSection: SettingsSection? = null) {
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    links: SettingsLinks,
+    onBack: (() -> Unit)? = null,
+    initialSection: SettingsSection? = null,
+    initialAnchor: String? = null,
+    onSelectSection: ((SettingsSection, String?) -> Unit)? = null,
+) {
     var section by rememberSaveable { mutableStateOf(initialSection) }
     var query by rememberSaveable { mutableStateOf("") }
+    val focus = remember { SettingsFocus() }
+    LaunchedEffect(initialAnchor) { if (initialAnchor != null) focus.request(initialAnchor) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -154,6 +172,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, links: SettingsLinks, onBack: (
             }
         }
     }
+    BackHandler(enabled = section == null && query.isNotEmpty()) { query = "" }
     BackHandler(enabled = section != null && section != initialSection) {
         section = if (section == SettingsSection.LOGS) SettingsSection.ADVANCED
         else if (section == SettingsSection.STORAGE) SettingsSection.DOWNLOADS
@@ -188,24 +207,28 @@ fun SettingsScreen(viewModel: SettingsViewModel, links: SettingsLinks, onBack: (
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        TopLevelBody(padding) { AnimatedContent(targetState = current, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "settings") { s ->
+        TopLevelBody(padding) { CompositionLocalProvider(LocalSettingsFocus provides focus) { AnimatedContent(targetState = current, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "settings") { s ->
             if (s == null) {
                 SettingsRoot(
                     query = query,
                     onQuery = { query = it },
                     update = updateAvailable,
                     onUpdate = {
-                        section = SettingsSection.ABOUT
+                        if (onSelectSection != null) onSelectSection(SettingsSection.ABOUT, null) else section = SettingsSection.ABOUT
                         viewModel.updates.openDetails()
                     },
-                    onOpen = { section = it },
+                    onOpen = { if (onSelectSection != null) onSelectSection(it, null) else section = it },
+                    onOpenResult = { e ->
+                        if (onSelectSection != null) onSelectSection(e.section, e.anchor)
+                        else { focus.request(e.anchor); section = e.section }
+                    },
                     incognito = viewModel.settings.incognito.state().value,
                     onIncognito = { on -> viewModel.set(viewModel.settings.incognito, on) },
                 )
             } else {
                 SectionContent(s, viewModel, links, onOpen = { section = it })
             }
-        } }
+        } } }
     }
 
     updateDialog?.let { release -> UpdateDialog(release, viewModel.updates) }
@@ -228,18 +251,14 @@ private fun SettingsRoot(
     update: String?,
     onUpdate: () -> Unit,
     onOpen: (SettingsSection) -> Unit,
+    onOpenResult: (SettingsSearchEntry) -> Unit,
     incognito: Boolean,
     onIncognito: (Boolean) -> Unit,
 ) {
-    val resources = LocalResources.current
-    val q = query.trim().lowercase()
-    val results = remember(q, resources) {
-        if (q.isEmpty()) emptyList()
-        else SettingsSection.entries.filter { it.visible }.flatMap { s ->
-            val sectionTitle = resources.getString(s.title)
-            (listOf(s.title) + s.items).map { resources.getString(it) }.filter { it.lowercase().contains(q) }.map { Triple(s, sectionTitle, it) }
-        }.distinctBy { it.first to it.third }
-    }
+    val index = rememberSettingsIndex()
+    val q = query.trim()
+    val results = remember(q, index) { filterSettings(index, q) }
+    val root = stringResource(CoreR.string.settings)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = navBarBottomPadding(Dimens.xl))) {
         item(key = "search") {
             SearchField(
@@ -250,10 +269,10 @@ private fun SettingsRoot(
             )
         }
         if (q.isNotEmpty()) {
-            if (results.isEmpty()) item(key = "none") { Text(stringResource(R.string.set_search_none), Modifier.padding(Dimens.l)) }
-            item(key = "results") {
+            if (results.isEmpty()) item(key = "none") { EmptyState(stringResource(R.string.set_search_none), Modifier.fillParentMaxHeight(0.6f), icon = Icons.Outlined.SearchOff) }
+            if (results.isNotEmpty()) item(key = "results") {
                 SettingsGroup {
-                    results.forEach { (s, title, item) -> SettingsRow(s.icon, item, title) { onOpen(s) } }
+                    results.forEach { e -> SettingsRow(e.section.icon, e.title, if (e.anchor == null) root else "$root › ${e.sectionTitle}") { onOpenResult(e) } }
                 }
             }
         } else {
@@ -261,7 +280,7 @@ private fun SettingsRoot(
             item(key = "quick") {
                 SettingsGroup {
                     Row(
-                        Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable { onIncognito(!incognito) }.padding(horizontal = Dimens.l, vertical = Dimens.s),
+                        Modifier.fillMaxWidth().heightIn(min = 64.dp).toggleable(value = incognito, role = Role.Switch, onValueChange = onIncognito).padding(horizontal = Dimens.l, vertical = Dimens.s),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(Dimens.l),
                     ) {
@@ -272,7 +291,7 @@ private fun SettingsRoot(
                             Text(stringResource(CoreR.string.incognito_mode), style = MaterialTheme.typography.titleSmall)
                             Text(stringResource(CoreR.string.incognito_mode_sum), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
                         }
-                        Switch(checked = incognito, onCheckedChange = onIncognito)
+                        Switch(checked = incognito, onCheckedChange = null)
                     }
                 }
             }
@@ -310,7 +329,7 @@ private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun SettingsRow(icon: ImageVector, title: String, summary: String, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(onClick = onClick).padding(horizontal = Dimens.l, vertical = Dimens.s),
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(role = Role.Button, onClick = onClick).padding(horizontal = Dimens.l, vertical = Dimens.s),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Dimens.l),
     ) {

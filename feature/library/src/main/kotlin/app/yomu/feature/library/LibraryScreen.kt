@@ -25,6 +25,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import app.yomu.core.ui.components.FastScroller
+import app.yomu.core.ui.components.SwipeAction
+import app.yomu.core.ui.components.SwipeActionsBox
+import app.yomu.core.ui.components.asFastScrollTarget
+import app.yomu.core.ui.components.rememberHaptic
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -201,6 +208,7 @@ fun LibraryScreen(
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
+    val haptic = rememberHaptic()
     val scope = rememberCoroutineScope()
     var searching by rememberSaveable { mutableStateOf(false) }
     var showImport by remember { mutableStateOf(false) }
@@ -283,7 +291,7 @@ fun LibraryScreen(
                                 }
                             }
                             IconButton(onClick = { viewModel.openBatchEdit(selection) }) { Icon(Icons.Default.Edit, stringResource(R.string.library_edit_metadata)) }
-                            IconButton(onClick = { viewModel.selectAll() }) { Icon(Icons.Default.SelectAll, stringResource(CoreR.string.select_all)) }
+                            IconButton(onClick = { haptic.tick(); viewModel.selectAll() }) { Icon(Icons.Default.SelectAll, stringResource(CoreR.string.select_all)) }
                         },
                     )
                     searching -> Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = Dimens.s, vertical = Dimens.xs)) {
@@ -444,9 +452,16 @@ fun LibraryScreen(
                         sectionLabels = onlineTiles.isNotEmpty() && bookCount > 0,
                         onOpenTitle = onOpenTitle,
                         onOnlineLongPress = { onlineMenu = it },
-                        onClick = { book -> if (selecting) viewModel.toggleSelect(book.id) else onOpenBook(book) },
-                        onLongClick = { book -> if (selecting) onOpenDetails(book) else viewModel.toggleSelect(book.id) },
+                        onClick = { book -> if (selecting) { haptic.tick(); viewModel.toggleSelect(book.id) } else onOpenBook(book) },
+                        onLongClick = { book -> if (selecting) onOpenDetails(book) else { haptic.perform(); viewModel.toggleSelect(book.id) } },
                         onDetails = onOpenDetails,
+                        sort = sort,
+                        swipeEnabled = !selecting,
+                        onToggleRead = { book ->
+                            haptic.confirm()
+                            viewModel.setStatus(setOf(book.id), if (book.status == ReadingStatus.FINISHED) ReadingStatus.NEW else ReadingStatus.FINISHED)
+                        },
+                        onRemove = { book -> haptic.confirm(); viewModel.requestDelete(setOf(book.id)) },
                     )
                 }
             }
@@ -543,7 +558,7 @@ fun LibraryScreen(
             title = stringResource(R.string.library_delete_files),
             text = stringResource(R.string.library_delete_files_text),
             confirmLabel = stringResource(CoreR.string.delete),
-            onConfirm = { viewModel.commitDelete(ids, deleteFiles = true) },
+            onConfirm = { haptic.confirm(); viewModel.commitDelete(ids, deleteFiles = true) },
             onDismiss = { deleteFilesDialog = null },
         )
     }
@@ -778,7 +793,8 @@ private fun NoBooksCard(onImport: () -> Unit) {
 
 @Composable
 private fun BulkAction(icon: ImageVector, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.semantics { contentDescription = label }) { Icon(icon, label) }
+    val haptic = rememberHaptic()
+    IconButton(onClick = { haptic.confirm(); onClick() }, modifier = Modifier.semantics { contentDescription = label }) { Icon(icon, label) }
 }
 
 private fun LibrarySort.label(): Int = when (this) {
@@ -812,10 +828,21 @@ private fun LibraryGrid(
     onClick: (Book) -> Unit,
     onLongClick: (Book) -> Unit,
     onDetails: (Book) -> Unit,
+    sort: LibrarySort,
+    swipeEnabled: Boolean,
+    onToggleRead: (Book) -> Unit,
+    onRemove: (Book) -> Unit,
 ) {
     val bookCount = if (showBooks) books.itemCount else 0
+    val leading = 1 + (if (onlineTiles.isNotEmpty()) onlineTiles.size + (if (sectionLabels) 1 else 0) else 0) + (if (sectionLabels && bookCount > 0) 1 else 0)
+    val dateFormat = rememberMonthFormat()
+    val label: (Int) -> String? = { i -> books.peek((i - leading).coerceIn(0, (bookCount - 1).coerceAtLeast(0)))?.fastScrollLabel(sort, dateFormat) }
+    val scrollDescription = stringResource(R.string.library_fast_scroll)
     if (grid) {
+        val gridState = rememberLazyGridState()
+        Box(Modifier.fillMaxSize()) {
         LazyVerticalGrid(
+            state = gridState,
             columns = if (columns <= 0) GridCells.Adaptive(Dimens.gridMin) else GridCells.Fixed(columns),
             contentPadding = PaddingValues(start = Dimens.s, end = Dimens.s, bottom = navBarBottomPadding(96.dp)),
             modifier = Modifier.fillMaxSize(),
@@ -853,8 +880,12 @@ private fun LibraryGrid(
                 )
             }
         }
+        FastScroller(gridState.asFastScrollTarget(), scrollDescription, Modifier.align(Alignment.CenterEnd).padding(bottom = navBarBottomPadding(96.dp)), label)
+        }
     } else {
-        LazyColumn(contentPadding = PaddingValues(bottom = navBarBottomPadding(96.dp)), modifier = Modifier.fillMaxSize()) {
+        val listState = rememberLazyListState()
+        Box(Modifier.fillMaxSize()) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(bottom = navBarBottomPadding(96.dp)), modifier = Modifier.fillMaxSize()) {
             item(key = "header", contentType = "header") { Column { header() } }
             if (onlineTiles.isNotEmpty()) {
                 if (sectionLabels) {
@@ -879,6 +910,16 @@ private fun LibraryGrid(
             }
             items(bookCount, key = books.itemKey { it.id }, contentType = { "book" }) { index ->
                 val book = books[index] ?: return@items
+                val finished = book.status == ReadingStatus.FINISHED
+                SwipeActionsBox(
+                    modifier = motionItem(),
+                    enabled = swipeEnabled,
+                    start = SwipeAction.neutral(
+                        if (finished) Icons.Outlined.AutoStories else Icons.Default.DoneAll,
+                        stringResource(if (finished) R.string.library_mark_unread else R.string.library_mark_read),
+                    ) { onToggleRead(book) },
+                    end = SwipeAction.destructive(stringResource(R.string.library_remove_book)) { onRemove(book) },
+                ) {
                 BookListItem(
                     title = book.title,
                     subtitle = book.authorsText,
@@ -889,14 +930,16 @@ private fun LibraryGrid(
                     coverModifier = Modifier.sharedCover("book-${book.id}"),
                     onClick = { onClick(book) },
                     onLongClick = { onLongClick(book) },
-                    modifier = motionItem(),
                     trailing = {
                         IconButton(onClick = { onDetails(book) }) {
                             Icon(if (book.id in selection) Icons.Default.Check else Icons.Outlined.Info, stringResource(R.string.library_details))
                         }
                     },
                 )
+                }
             }
+        }
+        FastScroller(listState.asFastScrollTarget(), scrollDescription, Modifier.align(Alignment.CenterEnd).padding(bottom = navBarBottomPadding(96.dp)), label)
         }
     }
 }
@@ -1011,3 +1054,23 @@ private fun Choice(label: String, selected: Boolean, onClick: () -> Unit) {
 
 /** Titles on the shelf; the rest are one tap away ("All"). */
 private const val SHELF_MAX = 30
+
+@Composable
+private fun rememberMonthFormat(): java.text.DateFormat {
+    val locale = java.util.Locale.getDefault()
+    return remember(locale) { java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "yMMM"), locale) }
+}
+
+/** The bubble text of the fast scroller: what the books are ordered by. */
+private fun Book.fastScrollLabel(sort: LibrarySort, months: java.text.DateFormat): String = when (sort) {
+    LibrarySort.TITLE -> initialOf(title)
+    LibrarySort.AUTHOR -> initialOf(authors.firstOrNull().orEmpty())
+    LibrarySort.ADDED -> months.format(addedAt)
+    LibrarySort.LAST_READ -> lastReadAt?.let { months.format(it) } ?: "—"
+    LibrarySort.PROGRESS -> "${(progress * 100).toInt()}%"
+}
+
+private fun initialOf(text: String): String {
+    val c = text.trim().firstOrNull() ?: return "#"
+    return if (c.isLetter()) c.uppercaseChar().toString() else "#"
+}

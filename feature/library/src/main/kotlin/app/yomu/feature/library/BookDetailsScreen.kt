@@ -87,6 +87,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.yomu.core.common.Files
 import app.yomu.core.common.ScreenErrors
 import app.yomu.core.ui.components.CoverImage
+import app.yomu.core.ui.components.CoverTheme
+import app.yomu.core.ui.components.rememberCoverColor
+import androidx.compose.foundation.layout.heightIn
 import app.yomu.core.ui.components.SkeletonList
 import app.yomu.core.ui.components.TextInputDialog
 import app.yomu.core.ui.components.YomuFab
@@ -103,6 +106,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
 
+/** The book page, tinted with the cover's colours (the app's scheme without a cover). */
 @Composable
 fun BookDetailsScreen(
     viewModel: BookDetailsViewModel,
@@ -112,6 +116,24 @@ fun BookDetailsScreen(
     onOpenAnnotations: (Book) -> Unit,
     onOpenPageLayout: ((Book) -> Unit)? = null,
     inPane: Boolean = false,
+) {
+    val book by viewModel.book.collectAsStateWithLifecycle()
+    val hideCovers = app.yomu.core.ui.components.LocalHideCovers.current
+    val coverModel = book?.coverPath?.takeIf { !hideCovers }?.let { File(it) }
+    CoverTheme(rememberCoverColor(coverModel)) {
+        BookDetailsContent(viewModel, onBack, onRead, onOpenEditor, onOpenAnnotations, onOpenPageLayout, inPane)
+    }
+}
+
+@Composable
+private fun BookDetailsContent(
+    viewModel: BookDetailsViewModel,
+    onBack: () -> Unit,
+    onRead: (Book) -> Unit,
+    onOpenEditor: (Book) -> Unit,
+    onOpenAnnotations: (Book) -> Unit,
+    onOpenPageLayout: ((Book) -> Unit)?,
+    inPane: Boolean,
 ) {
     val book by viewModel.book.collectAsStateWithLifecycle()
     val extras by viewModel.extras.collectAsStateWithLifecycle()
@@ -209,7 +231,7 @@ fun BookDetailsScreen(
             return@Scaffold
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Box(Modifier.fillMaxWidth().height(300.dp)) {
+            Box(Modifier.fillMaxWidth().heightIn(min = 300.dp)) {
                 val cover = current.coverPath?.takeIf { !app.yomu.core.ui.components.LocalHideCovers.current }?.let { File(it) }
                 val tint = app.yomu.core.ui.components.rememberCoverColor(cover, app.yomu.core.ui.components.coverPlaceholderColor(current.title))
                 if (cover != null) {

@@ -55,7 +55,7 @@ fun Modifier.coverTint(color: Color?): Modifier {
     // The app's own theme decides, not the system one: the app may be forced dark or light.
     val alpha = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) 0.35f else 0.25f
     val animated by animateColorAsState(color?.copy(alpha = alpha) ?: Color.Transparent, label = "coverTint")
-    return background(Brush.verticalGradient(listOf(animated, Color.Transparent)))
+    return this.background(Brush.verticalGradient(listOf(animated, Color.Transparent)))
 }
 
 /** Buckets pixels by hue and picks the heaviest bucket, weighting saturated mid-lightness pixels. */

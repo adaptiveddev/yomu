@@ -50,6 +50,7 @@ import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import app.yomu.core.ui.components.rememberHaptic
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
@@ -156,7 +157,8 @@ fun SourceBrowseScreen(
     val onItem: (SItem) -> Unit = { item ->
         if (item.isNavigation) onOpenNavigation(viewModel.sourceId, item.url, item.title) else viewModel.open(item)
     }
-    val onLongItem: (SItem) -> Unit = { item -> if (!item.isNavigation) viewModel.toggleLibrary(item) }
+    val haptic = rememberHaptic()
+    val onLongItem: (SItem) -> Unit = { item -> if (!item.isNavigation) { haptic.confirm(); viewModel.toggleLibrary(item) } }
 
     // Leaving the search tab hides the keyboard.
     LaunchedEffect(pager, tabs) {

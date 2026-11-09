@@ -51,7 +51,6 @@ import androidx.compose.ui.zIndex
 import app.yomu.core.ui.components.navBarBottomPadding
 import app.yomu.core.ui.components.NavTab
 import app.yomu.core.ui.components.PreferenceHeader
-import app.yomu.core.ui.components.PreferenceItem
 import app.yomu.core.ui.theme.Dimens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
