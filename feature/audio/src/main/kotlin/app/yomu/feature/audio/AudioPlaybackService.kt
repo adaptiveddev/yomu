@@ -209,6 +209,12 @@ class AudioPlaybackService : MediaSessionService() {
 
     /** A resolved stream for YouTube tracks (only for the start track unless [eager]); other tracks play their own address. */
     private suspend fun streamFor(index: Int, track: AudioTrack, eager: Boolean): Pair<String, String?>? {
+        val playable = AudiobookStore.playableUri(track)
+        if (playable != track.uri) {
+            // A downloaded copy: nothing to resolve.
+            resolved += index
+            return playable to null
+        }
         val id = AudiobookManifest.youtubeId(track.uri) ?: return track.uri to null
         if (!eager) return null
         val s = store.youtube.stream(id)

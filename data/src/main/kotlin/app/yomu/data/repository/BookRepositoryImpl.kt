@@ -3,6 +3,7 @@ package app.yomu.data.repository
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
+import app.yomu.data.audio.AudiobookStore
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
@@ -255,6 +256,8 @@ class BookRepositoryImpl(
             val uri = Uri.parse(b.uri)
             if (!b.isLinked && uri.scheme == "file") {
                 File(uri.path!!).let { if (it.isDirectory) it.deleteRecursively() else it.delete() }
+                // Offline copies of an online audiobook live next to its manifest.
+                if (AudiobookStore.isManifest(b.uri)) AudiobookStore.downloadDirOf(File(uri.path!!)).deleteRecursively()
             } else if (deleteFiles && b.isLinked) {
                 runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }.onFailure { Timber.w(it, "Cannot delete ${b.uri}") }
             }

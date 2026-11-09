@@ -7,6 +7,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.activity.ComponentDialog
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -15,6 +16,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
@@ -342,7 +344,9 @@ class AppSmokeTest {
             compose.onNode(hasText("Add OPDS catalog") and hasAnyAncestor(hasScrollAction())).performSemanticsAction(SemanticsActions.OnClick)
         }
 
-        // With the built-in novel sources the row can sit below the navigation bar, where a tap would land on the bar.
+        // The row sits after every built-in source: scroll the lazy list to it (off-screen rows are not composed),
+        // and with the novel sources it can sit below the navigation bar, where a tap would land on the bar.
+        compose.onNode(hasScrollAction() and hasAnyDescendant(hasText("Add OPDS catalog"))).performScrollToNode(hasText("Extensions"))
         compose.onNode(hasText("Extensions") and hasAnyAncestor(hasScrollAction())).performSemanticsAction(SemanticsActions.OnClick)
         awaitText("Installed")
         compose.mainClock.advanceTimeBy(2_000)
