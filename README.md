@@ -53,7 +53,7 @@ No accounts, no ads, no telemetry. Your library stays on your device.
 
 ### Sync between devices
 
-- Backups (manual and scheduled) plus sync through your own WebDAV server or a shared folder: progress, highlights, notes, bookmarks, words and the online library — and, optionally, the book files themselves.
+- Backups (manual and scheduled) plus sync through your own WebDAV server, a private GitHub repository or a shared folder: progress, highlights, notes, bookmarks, words and the online library — and, optionally, the book files themselves.
 - Conflicts are resolved by you, in the app: changed files, edited image folders and book deletions appear on a dedicated "Sync conflicts" screen with clear actions. Changed copies are never overwritten or deleted silently.
 
 | Appearance | Navigation | Updates | Library filters |
