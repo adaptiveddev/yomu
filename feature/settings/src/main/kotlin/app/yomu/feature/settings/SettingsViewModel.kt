@@ -109,9 +109,7 @@ class SettingsViewModel(
         busy.value = true
         runCatchingApp {
             appScope.detached {
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)?.use { backup.create(it, includeFiles) } ?: error("Cannot write the file")
-                }
+                backup.createTo(uri, includeFiles)
                 settings.lastBackupAt.set(System.currentTimeMillis())
             }
         }.onSuccess { _events.send(SettingsEvent.Message(R.string.set_backup_done)) }
