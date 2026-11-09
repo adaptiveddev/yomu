@@ -7,8 +7,6 @@
     <string name="audio_stop">Остановить</string>
     <string name="audio_previous">Предыдущая глава</string>
     <string name="audio_next">Следующая глава</string>
-    <string name="audio_back_10">Назад на 10 секунд</string>
-    <string name="audio_forward_30">Вперёд на 30 секунд</string>
     <string name="audio_speed">Скорость</string>
     <string name="audio_sleep">Таймер сна</string>
     <string name="audio_sleep_off">Выключен</string>
@@ -36,4 +34,24 @@
     <string name="audio_download_rest">Докачать</string>
     <string name="audio_download_cancel">Остановить</string>
     <string name="audio_download_remove">Удалить скачанное</string>
+    <string name="audio_back_n">Назад на %1$d с</string>
+    <string name="audio_forward_n">Вперёд на %1$d с</string>
+    <string name="audio_chapter_of">Глава %1$d из %2$d</string>
+    <string name="audio_progress_percent">%1$d%%</string>
+    <string name="audio_bookmarks">Закладки</string>
+    <string name="audio_bookmark_add">Добавить закладку</string>
+    <string name="audio_bookmark_here">Закладка на %1$s</string>
+    <string name="audio_bookmark_note">Заметка (необязательно)</string>
+    <string name="audio_bookmark_save">Сохранить</string>
+    <string name="audio_bookmark_delete">Удалить закладку</string>
+    <string name="audio_bookmarks_empty">Закладок пока нет. Добавьте закладку, чтобы вернуться к этому месту.</string>
+    <string name="audio_skip_intervals">Шаг перемотки</string>
+    <string name="audio_skip_back_title">Назад</string>
+    <string name="audio_skip_forward_title">Вперёд</string>
+    <string name="audio_seconds_short">%1$d с</string>
+    <string name="audio_sleep_extend">Ещё 5 минут</string>
+    <string name="audio_sleep_custom">Своё время…</string>
+    <string name="audio_sleep_custom_title">Таймер сна, минут</string>
+    <string name="audio_minutes_label">Минуты</string>
+    <string name="audio_start">Запустить</string>
 </resources>

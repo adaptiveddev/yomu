@@ -7,8 +7,6 @@
     <string name="audio_stop">Stop</string>
     <string name="audio_previous">Previous chapter</string>
     <string name="audio_next">Next chapter</string>
-    <string name="audio_back_10">Back 10 seconds</string>
-    <string name="audio_forward_30">Forward 30 seconds</string>
     <string name="audio_speed">Playback speed</string>
     <string name="audio_sleep">Sleep timer</string>
     <string name="audio_sleep_off">Off</string>
@@ -36,4 +34,24 @@
     <string name="audio_download_rest">Download the rest</string>
     <string name="audio_download_cancel">Stop</string>
     <string name="audio_download_remove">Delete downloaded files</string>
+    <string name="audio_back_n">Back %1$d seconds</string>
+    <string name="audio_forward_n">Forward %1$d seconds</string>
+    <string name="audio_chapter_of">Chapter %1$d of %2$d</string>
+    <string name="audio_progress_percent">%1$d%%</string>
+    <string name="audio_bookmarks">Bookmarks</string>
+    <string name="audio_bookmark_add">Add bookmark</string>
+    <string name="audio_bookmark_here">Bookmark at %1$s</string>
+    <string name="audio_bookmark_note">Note (optional)</string>
+    <string name="audio_bookmark_save">Save</string>
+    <string name="audio_bookmark_delete">Delete bookmark</string>
+    <string name="audio_bookmarks_empty">No bookmarks yet. Add one to come back to this spot later.</string>
+    <string name="audio_skip_intervals">Skip intervals</string>
+    <string name="audio_skip_back_title">Rewind</string>
+    <string name="audio_skip_forward_title">Fast forward</string>
+    <string name="audio_seconds_short">%1$d s</string>
+    <string name="audio_sleep_extend">Add 5 minutes</string>
+    <string name="audio_sleep_custom">Custom time…</string>
+    <string name="audio_sleep_custom_title">Sleep timer in minutes</string>
+    <string name="audio_minutes_label">Minutes</string>
+    <string name="audio_start">Start</string>
 </resources>

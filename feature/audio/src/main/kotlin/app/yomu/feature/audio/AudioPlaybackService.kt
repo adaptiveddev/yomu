@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -90,6 +91,7 @@ class AudioPlaybackService : MediaSessionService() {
     private var listeningSince = 0L
     private var pausedAt = 0L
     private var skipSilence = false
+    private var settings = AudioSettings()
     private val retriedAt = mutableMapOf<Int, Long>()
     private val expiresAt = mutableMapOf<Int, Long>()
     private val resolving = mutableSetOf<Int>()
@@ -122,27 +124,50 @@ class AudioPlaybackService : MediaSessionService() {
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
-            .setSeekBackIncrementMs(SEEK_BACK_MS)
-            .setSeekForwardIncrementMs(SEEK_FORWARD_MS)
             .build()
         // Video of YouTube streams is never shown: do not decode it.
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
         player.addListener(listener)
-        // Rewind/forward instead of previous/next in the notification: chapters of an audiobook are long.
-        val back = CommandButton.Builder(CommandButton.ICON_SKIP_BACK_10)
-            .setDisplayName(getString(R.string.audio_back_10))
+        // An ExoPlayer cannot change its seek increments once built; the skip intervals are per book.
+        val seeking = object : ForwardingPlayer(player) {
+            override fun getSeekBackIncrement() = settings.skipBackSec * 1000L
+            override fun getSeekForwardIncrement() = settings.skipForwardSec * 1000L
+            override fun seekBack() = seekTo((currentPosition - seekBackIncrement).coerceAtLeast(0))
+            override fun seekForward() = seekTo(currentPosition + seekForwardIncrement)
+        }
+        session = MediaSession.Builder(this, seeking)
+            .setCallback(callback)
+            .setMediaButtonPreferences(skipButtons())
+            .build()
+    }
+
+    // Rewind/forward instead of previous/next in the notification: chapters of an audiobook are long.
+    private fun skipButtons(): ImmutableList<CommandButton> {
+        val back = CommandButton.Builder(
+            when (settings.skipBackSec) {
+                5 -> CommandButton.ICON_SKIP_BACK_5
+                15 -> CommandButton.ICON_SKIP_BACK_15
+                30 -> CommandButton.ICON_SKIP_BACK_30
+                else -> CommandButton.ICON_SKIP_BACK_10
+            },
+        )
+            .setDisplayName(getString(R.string.audio_back_n, settings.skipBackSec))
             .setPlayerCommand(Player.COMMAND_SEEK_BACK)
             .setSlots(CommandButton.SLOT_BACK)
             .build()
-        val forward = CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD_30)
-            .setDisplayName(getString(R.string.audio_forward_30))
+        val forward = CommandButton.Builder(
+            when (settings.skipForwardSec) {
+                10 -> CommandButton.ICON_SKIP_FORWARD_10
+                15 -> CommandButton.ICON_SKIP_FORWARD_15
+                60 -> CommandButton.ICON_SKIP_FORWARD
+                else -> CommandButton.ICON_SKIP_FORWARD_30
+            },
+        )
+            .setDisplayName(getString(R.string.audio_forward_n, settings.skipForwardSec))
             .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
             .setSlots(CommandButton.SLOT_FORWARD)
             .build()
-        session = MediaSession.Builder(this, player)
-            .setCallback(callback)
-            .setMediaButtonPreferences(ImmutableList.of(back, forward))
-            .build()
+        return ImmutableList.of(back, forward)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -210,7 +235,8 @@ class AudioPlaybackService : MediaSessionService() {
                 first?.let { accept(start, it) }
                 val items = list.mapIndexed { i, t -> item(b, i, t, if (i == start) first else null) }
                 player.setMediaItems(items, start, position)
-                val settings = AudioSettings.of(b.readerSettingsJson)
+                settings = AudioSettings.of(b.readerSettingsJson)
+                session?.setMediaButtonPreferences(skipButtons())
                 player.setPlaybackParameters(PlaybackParameters(settings.speed))
                 skipSilence = settings.skipSilence
                 player.skipSilenceEnabled = skipSilence
@@ -336,7 +362,7 @@ class AudioPlaybackService : MediaSessionService() {
 
     private fun saveSettings() {
         val b = book ?: return
-        val json = AudioSettings(player.playbackParameters.speed, skipSilence).merge(b.readerSettingsJson)
+        val json = settings.copy(speed = player.playbackParameters.speed, skipSilence = skipSilence).merge(b.readerSettingsJson)
         book = b.copy(readerSettingsJson = json)
         scope.launch(Dispatchers.IO) { books.saveReaderSettings(b.id, json) }
     }
@@ -530,6 +556,8 @@ class AudioPlaybackService : MediaSessionService() {
                 .add(SessionCommand(CMD_LOAD, Bundle.EMPTY))
                 .add(SessionCommand(CMD_SLEEP, Bundle.EMPTY))
                 .add(SessionCommand(CMD_SKIP_SILENCE, Bundle.EMPTY))
+                .add(SessionCommand(CMD_SKIP_INTERVALS, Bundle.EMPTY))
+                .add(SessionCommand(CMD_BOOKMARKS, Bundle.EMPTY))
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands).build()
         }
@@ -544,6 +572,18 @@ class AudioPlaybackService : MediaSessionService() {
                     saveSettings()
                     publish()
                 }
+                CMD_SKIP_INTERVALS -> {
+                    settings = settings.copy(
+                        skipBackSec = args.getInt(KEY_SKIP_BACK).takeIf { it in AudioSettings.SKIP_BACK_OPTIONS } ?: settings.skipBackSec,
+                        skipForwardSec = args.getInt(KEY_SKIP_FORWARD).takeIf { it in AudioSettings.SKIP_FORWARD_OPTIONS } ?: settings.skipForwardSec,
+                    )
+                    session?.setMediaButtonPreferences(skipButtons())
+                    saveSettings()
+                }
+                CMD_BOOKMARKS -> {
+                    settings = settings.copy(bookmarks = AudioSettings.decodeBookmarks(args.getString(KEY_BOOKMARKS)))
+                    saveSettings()
+                }
                 else -> return Futures.immediateFuture(SessionResult(androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED))
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
@@ -554,6 +594,11 @@ class AudioPlaybackService : MediaSessionService() {
         const val CMD_LOAD = "app.yomu.audio.LOAD"
         const val CMD_SLEEP = "app.yomu.audio.SLEEP"
         const val CMD_SKIP_SILENCE = "app.yomu.audio.SKIP_SILENCE"
+        const val CMD_SKIP_INTERVALS = "app.yomu.audio.SKIP_INTERVALS"
+        const val CMD_BOOKMARKS = "app.yomu.audio.BOOKMARKS"
+        const val KEY_SKIP_BACK = "skipBack"
+        const val KEY_SKIP_FORWARD = "skipForward"
+        const val KEY_BOOKMARKS = "bookmarks"
         const val KEY_ENABLED = "enabled"
         const val KEY_SKIP_SILENCE = "skipSilence"
         const val KEY_BOOK = "book"
@@ -563,8 +608,6 @@ class AudioPlaybackService : MediaSessionService() {
         const val KEY_SLEEP_CHAPTER = "sleepChapter"
         const val KEY_ERROR = "error"
         const val SLEEP_END_OF_CHAPTER = -1
-        const val SEEK_BACK_MS = 10_000L
-        const val SEEK_FORWARD_MS = 30_000L
         private const val SAVE_EVERY_MS = 10_000L
         private const val MIN_SESSION_MS = 15_000L
         private const val SLEEP_FADE_MS = 20_000L
