@@ -19,12 +19,14 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import app.yomu.core.network.NetworkClients
 import app.yomu.data.audio.AudiobookStore
+import app.yomu.data.audio.YouTubeClient
 import app.yomu.domain.model.AudioNavEntry
 import app.yomu.domain.model.AudioPositions
 import app.yomu.domain.model.AudioTrack
@@ -33,6 +35,7 @@ import app.yomu.domain.model.Book
 import app.yomu.domain.model.ReadingStatus
 import app.yomu.domain.repository.BookRepository
 import app.yomu.domain.repository.StatsRepository
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
@@ -45,14 +48,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.floatOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
 import org.koin.android.ext.android.inject
 import timber.log.Timber
 import java.io.File
@@ -91,8 +86,10 @@ class AudioPlaybackService : MediaSessionService() {
     private var sleepAt = 0L
     private var sleepChapter = false
     private var listeningSince = 0L
-    private var retriedIndex = -1
     private var pausedAt = 0L
+    private var skipSilence = false
+    private val retriedAt = mutableMapOf<Int, Long>()
+    private val expiresAt = mutableMapOf<Int, Long>()
 
     // Stream servers of YouTube expect the user agent of the client that asked for the address.
     private val streamHeaders = ConcurrentHashMap<String, Map<String, String>>()
@@ -116,7 +113,21 @@ class AudioPlaybackService : MediaSessionService() {
         // Video of YouTube streams is never shown: do not decode it.
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
         player.addListener(listener)
-        session = MediaSession.Builder(this, player).setCallback(callback).build()
+        // Rewind/forward instead of previous/next in the notification: chapters of an audiobook are long.
+        val back = CommandButton.Builder(CommandButton.ICON_SKIP_BACK_10)
+            .setDisplayName(getString(R.string.audio_back_10))
+            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+            .setSlots(CommandButton.SLOT_BACK)
+            .build()
+        val forward = CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD_30)
+            .setDisplayName(getString(R.string.audio_forward_30))
+            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+            .setSlots(CommandButton.SLOT_FORWARD)
+            .build()
+        session = MediaSession.Builder(this, player)
+            .setCallback(callback)
+            .setMediaButtonPreferences(ImmutableList.of(back, forward))
+            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -143,6 +154,7 @@ class AudioPlaybackService : MediaSessionService() {
     private fun load(bookId: Long, play: Boolean) {
         if (book?.id == bookId && player.mediaItemCount > 0) {
             if (play) player.play()
+            resolveAhead()
             return
         }
         savePosition(blocking = false)
@@ -155,14 +167,18 @@ class AudioPlaybackService : MediaSessionService() {
                 val list = store.tracks(b)
                 val saved = withContext(Dispatchers.IO) { books.getProgress(bookId) }
                 val start = saved?.chapter?.coerceIn(0, list.lastIndex) ?: 0
-                val position = saved?.let(AudioPositions::positionMs) ?: 0L
+                // Coming back after a while: repeat the last seconds heard, like after a pause.
+                val position = ((saved?.let(AudioPositions::positionMs) ?: 0L) - (b.lastReadAt?.let { rewindAfter(System.currentTimeMillis() - it) } ?: 0L))
+                    .coerceAtLeast(0)
                 book = b
                 tracks = list
                 nav = AudioPositions.navigation(list)
                 durations.clear()
                 list.forEachIndexed { i, t -> if (t.durationMs > 0) durations[i] = t.durationMs }
                 resolved.clear()
-                retriedIndex = -1
+                resolving.clear()
+                retriedAt.clear()
+                expiresAt.clear()
                 pausedAt = 0
                 var startError: Throwable? = null
                 val items = list.mapIndexed { i, t ->
@@ -170,8 +186,10 @@ class AudioPlaybackService : MediaSessionService() {
                     item(b, i, t, stream)
                 }
                 player.setMediaItems(items, start, position)
-                player.skipSilenceEnabled = skipSilenceOf(b)
-                player.setPlaybackParameters(PlaybackParameters(speedOf(b)))
+                val settings = AudioSettings.of(b.readerSettingsJson)
+                player.setPlaybackParameters(PlaybackParameters(settings.speed))
+                skipSilence = settings.skipSilence
+                player.skipSilenceEnabled = skipSilence
                 player.prepare()
                 player.playWhenReady = play
                 if (b.status == ReadingStatus.NEW) withContext(Dispatchers.IO) { books.setStatus(listOf(b.id), ReadingStatus.READING) }
@@ -193,8 +211,9 @@ class AudioPlaybackService : MediaSessionService() {
     private suspend fun streamFor(index: Int, track: AudioTrack, eager: Boolean): Pair<String, String?>? {
         val playable = AudiobookStore.playableUri(track)
         if (playable != track.uri) {
-            // A downloaded copy: nothing to resolve.
+            // A downloaded copy: nothing to resolve, nothing expires.
             resolved += index
+            expiresAt.remove(index)
             return playable to null
         }
         val id = AudiobookManifest.youtubeId(track.uri) ?: return track.uri to null
@@ -202,7 +221,17 @@ class AudioPlaybackService : MediaSessionService() {
         val s = store.youtube.stream(id)
         s.headers.takeIf { it.isNotEmpty() }?.let { streamHeaders["googlevideo.com"] = it; streamHeaders["youtube.com"] = it }
         resolved += index
+        expiresAt[index] = YouTubeClient.expiresAt(s.url)
         return s.url to if (s.isHls) MimeTypes.APPLICATION_M3U8 else s.mimeType
+    }
+
+    /** A YouTube track without an address yet, or whose address has expired or is about to. */
+    private fun needsStream(i: Int): Boolean {
+        if (i !in tracks.indices || AudiobookManifest.youtubeId(tracks[i].uri) == null) return false
+        if (AudiobookStore.playableUri(tracks[i]) != tracks[i].uri) return false
+        if (i !in resolved) return true
+        val expires = expiresAt[i] ?: 0
+        return expires > 0 && expires < System.currentTimeMillis() + EXPIRY_MARGIN_MS
     }
 
     private fun item(b: Book, index: Int, t: AudioTrack, stream: Pair<String, String?>?): MediaItem {
@@ -224,11 +253,12 @@ class AudioPlaybackService : MediaSessionService() {
             .build()
     }
 
-    /** Resolves the current YouTube track (when the user jumped to it) and the next one before it is needed. */
+    /** Resolves the current YouTube track (when the user jumped to it or its address expired) and the next one before it is needed. */
     private fun resolveAhead() {
         val b = book ?: return
         val current = player.currentMediaItemIndex
-        listOf(current, current + 1).filter { it in tracks.indices && it !in resolved && AudiobookManifest.youtubeId(tracks[it].uri) != null }.forEach { i ->
+        listOf(current, current + 1).filter { it !in resolving && needsStream(it) }.forEach { i ->
+            resolving += i
             scope.launch {
                 runCatching { streamFor(i, tracks[i], eager = true) }
                     .onSuccess { stream ->
@@ -244,35 +274,18 @@ class AudioPlaybackService : MediaSessionService() {
                         }
                     }
                     .onFailure { if (player.currentMediaItemIndex == i) publish(error = it.message ?: "YouTube") }
+                resolving -= i
             }
         }
     }
 
-    /** The book's own player settings (`{"audio": {"speed", "skipSilence"}}` in its reader settings). */
-    private fun audioSettings(b: Book): JsonObject? = runCatching {
-        Json.parseToJsonElement(b.readerSettingsJson ?: return null).jsonObject["audio"]?.jsonObject
-    }.getOrNull()
+    private val resolving = mutableSetOf<Int>()
 
-    private fun speedOf(b: Book): Float = audioSettings(b)?.get("speed")?.jsonPrimitive?.floatOrNull?.coerceIn(0.5f, 3f) ?: 1f
-
-    private fun skipSilenceOf(b: Book): Boolean = audioSettings(b)?.get("skipSilence")?.jsonPrimitive?.booleanOrNull ?: false
-
-    private fun saveAudioSettings() {
+    private fun saveSettings() {
         val b = book ?: return
-        val json = buildJsonObject {
-            put("audio", buildJsonObject {
-                put("speed", player.playbackParameters.speed)
-                put("skipSilence", player.skipSilenceEnabled)
-            })
-        }.toString()
+        val json = AudioSettings(player.playbackParameters.speed, skipSilence).merge(b.readerSettingsJson)
         book = b.copy(readerSettingsJson = json)
         scope.launch(Dispatchers.IO) { books.saveReaderSettings(b.id, json) }
-    }
-
-    private fun setSkipSilence(enabled: Boolean) {
-        player.skipSilenceEnabled = enabled
-        saveAudioSettings()
-        publish()
     }
 
     // ---------------------------------------------------------------- state
@@ -300,8 +313,22 @@ class AudioPlaybackService : MediaSessionService() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            retriedIndex = -1
             savePosition(blocking = false)
+            resolveAhead()
+        }
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            if (!playWhenReady) {
+                pausedAt = System.currentTimeMillis()
+                return
+            }
+            val paused = pausedAt
+            pausedAt = 0
+            if (paused > 0) {
+                val rewind = rewindAfter(System.currentTimeMillis() - paused)
+                if (rewind > 0) player.seekTo(player.currentMediaItemIndex, (player.currentPosition - rewind).coerceAtLeast(0))
+            }
+            // Addresses expire after a few hours: a book paused overnight asks for a fresh one before it plays.
             resolveAhead()
         }
 
@@ -309,8 +336,6 @@ class AudioPlaybackService : MediaSessionService() {
             if (state == Player.STATE_READY) {
                 val d = player.duration
                 if (d > 0) durations[player.currentMediaItemIndex] = d
-                // A stream that played may expire again hours later: allow a fresh retry then.
-                retriedIndex = -1
             }
             if (state == Player.STATE_ENDED) {
                 val b = book ?: return
@@ -321,29 +346,14 @@ class AudioPlaybackService : MediaSessionService() {
             }
         }
 
-        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) = saveAudioSettings()
-
-        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            if (!playWhenReady) {
-                pausedAt = System.currentTimeMillis()
-                return
-            }
-            // After a long pause the last sentence is gone from memory: go back a few seconds.
-            val paused = if (pausedAt > 0) System.currentTimeMillis() - pausedAt else 0L
-            pausedAt = 0
-            val rewind = when {
-                paused >= LONG_PAUSE_MS -> LONG_REWIND_MS
-                paused >= SHORT_PAUSE_MS -> SHORT_REWIND_MS
-                else -> 0L
-            }
-            if (rewind > 0 && player.mediaItemCount > 0) player.seekTo((player.currentPosition - rewind).coerceAtLeast(0))
-        }
+        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) = saveSettings()
 
         override fun onPlayerError(error: PlaybackException) {
             val index = player.currentMediaItemIndex
-            // Expired or refused YouTube addresses: ask once more for a fresh one, then report.
-            if (index in tracks.indices && AudiobookManifest.youtubeId(tracks[index].uri) != null && retriedIndex != index) {
-                retriedIndex = index
+            // Expired or refused YouTube addresses: ask for a fresh one (at most once a minute per track), then report.
+            val now = System.currentTimeMillis()
+            if (index in tracks.indices && AudiobookManifest.youtubeId(tracks[index].uri) != null && now - (retriedAt[index] ?: 0) > RETRY_WINDOW_MS) {
+                retriedAt[index] = now
                 resolved -= index
                 resolveAhead()
                 return
@@ -395,14 +405,22 @@ class AudioPlaybackService : MediaSessionService() {
 
     private fun sleep(minutes: Int) {
         sleepJob?.cancel()
+        player.volume = 1f
         sleepAt = 0
         sleepChapter = false
         when {
             minutes > 0 -> {
                 sleepAt = System.currentTimeMillis() + minutes * 60_000L
                 sleepJob = scope.launch {
-                    delay(minutes * 60_000L)
+                    delay(minutes * 60_000L - SLEEP_FADE_MS)
+                    // Fade out instead of cutting off mid-sentence.
+                    val steps = 20
+                    for (i in 1..steps) {
+                        player.volume = 1f - i.toFloat() / steps
+                        delay(SLEEP_FADE_MS / steps)
+                    }
                     player.pause()
+                    player.volume = 1f
                     sleepAt = 0
                     publish()
                 }
@@ -434,7 +452,7 @@ class AudioPlaybackService : MediaSessionService() {
                 putLong(KEY_BOOK, loading ?: book?.id ?: -1)
                 putLong(KEY_SLEEP_AT, sleepAt)
                 putBoolean(KEY_SLEEP_CHAPTER, sleepChapter)
-                putBoolean(KEY_SKIP_SILENCE, player.skipSilenceEnabled)
+                putBoolean(KEY_SKIP_SILENCE, skipSilence)
                 error?.let { putString(KEY_ERROR, it) }
             },
         )
@@ -456,7 +474,12 @@ class AudioPlaybackService : MediaSessionService() {
             when (customCommand.customAction) {
                 CMD_LOAD -> load(args.getLong(KEY_BOOK, -1), args.getBoolean(KEY_PLAY, false))
                 CMD_SLEEP -> sleep(args.getInt(KEY_MINUTES, 0))
-                CMD_SKIP_SILENCE -> setSkipSilence(args.getBoolean(KEY_ENABLED, false))
+                CMD_SKIP_SILENCE -> {
+                    skipSilence = args.getBoolean(KEY_ENABLED, false)
+                    player.skipSilenceEnabled = skipSilence
+                    saveSettings()
+                    publish()
+                }
                 else -> return Futures.immediateFuture(SessionResult(androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED))
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
@@ -480,9 +503,17 @@ class AudioPlaybackService : MediaSessionService() {
         const val SEEK_FORWARD_MS = 30_000L
         private const val SAVE_EVERY_MS = 10_000L
         private const val MIN_SESSION_MS = 15_000L
-        private const val SHORT_PAUSE_MS = 5 * 60_000L
-        private const val LONG_PAUSE_MS = 60 * 60_000L
-        private const val SHORT_REWIND_MS = 5_000L
-        private const val LONG_REWIND_MS = 20_000L
+        private const val SLEEP_FADE_MS = 20_000L
+        private const val RETRY_WINDOW_MS = 60_000L
+        private const val EXPIRY_MARGIN_MS = 5 * 60_000L
+
+        /** How far to step back when playback resumes after [pausedMs]: nothing for short pauses, up to 30 s after a day. */
+        fun rewindAfter(pausedMs: Long): Long = when {
+            pausedMs < 60_000L -> 0
+            pausedMs < 10 * 60_000L -> 3_000
+            pausedMs < 60 * 60_000L -> 10_000
+            pausedMs < 24 * 60 * 60_000L -> 20_000
+            else -> 30_000
+        }
     }
 }

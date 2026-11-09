@@ -55,7 +55,7 @@ class YouTubeSource(private val youtube: YouTubeClient) : CatalogSource {
 
     override val homeUrl: String get() = "https://www.youtube.com"
 
-    private fun item(r: YouTubeResult) = SItem(
+    private fun item(r: YouTubeSearchItem) = SItem(
         url = r.url,
         title = r.title,
         author = r.author,

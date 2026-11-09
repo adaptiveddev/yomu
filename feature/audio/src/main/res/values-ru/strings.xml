@@ -19,6 +19,10 @@
     <string name="audio_origin_catalog">Каталог</string>
     <string name="audio_origin_podcast">Подкаст</string>
     <string name="audio_origin_link">Ссылка</string>
+    <string name="audio_book_left">До конца книги: %1$s</string>
+    <string name="audio_hours_minutes">%1$d ч %2$02d мин</string>
+    <string name="audio_speed_down">Медленнее</string>
+    <string name="audio_speed_up">Быстрее</string>
     <string name="audio_skip_silence">Без пауз</string>
     <string name="audio_offline">Прослушивание офлайн</string>
     <string name="audio_offline_hint">Сохранить дорожки на устройстве, чтобы слушать без сети.</string>

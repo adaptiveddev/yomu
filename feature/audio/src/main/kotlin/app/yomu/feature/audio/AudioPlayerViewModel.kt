@@ -49,6 +49,9 @@ class AudioPlayerViewModel(
 
     val download: StateFlow<AudioDownloadProgress?> = downloader.progress(bookId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** Track lengths known before playback (playlists, M4B headers); 0 where unknown. */
+    private var trackDurations: List<Long> = emptyList()
+
     /** The player, only while it holds this book. */
     val player: StateFlow<PlayerSnapshot?> = audio.state.map { s -> s?.takeIf { it.bookId == bookId } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -58,7 +61,9 @@ class AudioPlayerViewModel(
             runCatching {
                 val b = withContext(Dispatchers.IO) { books.getBook(bookId) } ?: return@launch
                 _origin.value = withContext(Dispatchers.IO) { store.origin(b) }
-                _chapters.value = AudioPositions.navigation(store.tracks(b))
+                val tracks = store.tracks(b)
+                trackDurations = tracks.map { it.durationMs }
+                _chapters.value = AudioPositions.navigation(tracks)
                 refreshOffline()
                 audio.open(bookId, play = false)
             }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it else _loadError.value = it }
@@ -116,7 +121,19 @@ class AudioPlayerViewModel(
         list.getOrNull(AudioPositions.current(list, s.track, s.positionMs) + 1)?.let { audio.player()?.seekTo(it.track, it.startMs) }
     }
 
-    fun setSpeed(speed: Float) { audio.player()?.setPlaybackSpeed(speed) }
+    fun setSpeed(speed: Float) {
+        // Steps of ±0.05 add float error; keep two decimals.
+        val v = Math.round(speed.coerceIn(AudioSettings.MIN_SPEED, AudioSettings.MAX_SPEED) * 100) / 100f
+        audio.player()?.setPlaybackSpeed(v)
+    }
+
+    /** Time left in the book at the current speed, or null while some track length is unknown. */
+    fun timeLeftMs(s: PlayerSnapshot): Long? {
+        val durations = trackDurations.toMutableList().takeIf { it.size == s.trackCount } ?: return null
+        if (s.track !in durations.indices) return null
+        if (s.durationMs > 0) durations[s.track] = s.durationMs
+        return AudioPositions.remaining(durations, s.track, s.positionMs)?.let { (it / s.speed.coerceAtLeast(0.1f)).toLong() }
+    }
 
     fun toggleSkipSilence() { player.value?.let { audio.setSkipSilence(!it.skipSilence) } }
 

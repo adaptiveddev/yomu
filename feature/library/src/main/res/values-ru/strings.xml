@@ -139,7 +139,10 @@
     <string name="details_listen">Слушать</string>
     <string name="details_continue_listening">Продолжить слушать</string>
     <string name="library_audio_link">Аудиокнига по ссылке</string>
-    <string name="library_audio_link_hint">Видео или плейлист YouTube, RSS подкаста, аудиофайл</string>
+    <string name="library_audio_link_hint">Ссылка YouTube или слова для поиска на YouTube, RSS подкаста, аудиофайл</string>
+    <string name="library_audio_search_title">YouTube: «%1$s»</string>
+    <string name="library_audio_search_empty">На YouTube ничего не нашлось</string>
+    <string name="library_audio_playlist">Плейлист</string>
     <string name="library_audio_link_adding">Добавляю аудиокнигу…</string>
     <string name="library_no_books_title">Книг с устройства пока нет</string>
     <string name="library_no_books_text">Импортируйте EPUB, PDF, FB2, CBZ и другие файлы — они появятся здесь рядом с онлайн-тайтлами.</string>
