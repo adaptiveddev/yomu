@@ -89,6 +89,7 @@ class YomuApp : Application(), SingletonImageLoader.Factory {
             Intent(ctx, YomuActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         Notifications.createChannels(this)
+        Notifications.watch(appScope, get())
         get<AppLockController>().start()
         get<AppLauncherIcons>().start()
         get<AutoSync>().start()

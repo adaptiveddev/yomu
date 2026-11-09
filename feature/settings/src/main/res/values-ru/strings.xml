@@ -562,4 +562,37 @@
     <string name="set_track_sign_in">Войти</string>
     <string name="set_track_login_done">Вход выполнен</string>
     <string name="set_track_password_notice">Экспериментальная интеграция. Пароль отправляется в Kitsu и не сохраняется в Yomu.</string>
+    <!-- Notifications -->
+    <string name="set_notifications">Уведомления</string>
+    <string name="set_notifications_sum">О чём уведомлять, тихие часы, недавние уведомления</string>
+    <string name="set_notify_permission">Уведомления запрещены</string>
+    <string name="set_notify_permission_sum">Нажмите, чтобы разрешить Yomu показывать уведомления</string>
+    <string name="set_notify_system">Системные настройки уведомлений</string>
+    <string name="set_notify_system_sum">Звук, вибрация и важность каждого канала</string>
+    <string name="set_notify_kinds">Уведомлять о</string>
+    <string name="set_notify_new_chapters">Новых главах</string>
+    <string name="set_notify_new_chapters_sum">Тайтлы библиотеки, в которых после проверки появились новые главы</string>
+    <string name="set_notify_downloads">Загрузках</string>
+    <string name="set_notify_downloads_sum">Завершённые, неудачные или приостановленные загрузки (прогресс во время загрузки виден всегда)</string>
+    <string name="set_notify_sync">Проблемах синхронизации</string>
+    <string name="set_notify_sync_sum">Автоматическая синхронизация не удалась несколько раз подряд</string>
+    <string name="set_notify_backup">Резервных копиях</string>
+    <string name="set_notify_backup_sum">Автоматическая резервная копия не удалась</string>
+    <string name="set_notify_tasks">Завершённых задачах</string>
+    <string name="set_notify_tasks_sum">Перевод книги и другие долгие задачи</string>
+    <string name="set_notify_reminders">Напоминаниях о повторении</string>
+    <string name="set_notify_reminders_sum">Ежедневное напоминание повторить слова (время — в разделе «Перевод и словарь»)</string>
+    <string name="set_notify_quiet">Тихие часы</string>
+    <string name="set_notify_quiet_on">Тихие часы</string>
+    <string name="set_notify_quiet_sum">Ночью уведомления приходят без звука и вибрации</string>
+    <string name="set_notify_quiet_from">С</string>
+    <string name="set_notify_quiet_to">До</string>
+    <string name="set_notify_recent">Недавние уведомления</string>
+    <string name="set_notify_recent_empty">Пока ничего. Уведомления, выключенные выше, всё равно появляются здесь.</string>
+    <string name="set_notify_muted">без показа</string>
+    <string name="set_notify_clear">Очистить список</string>
+    <string name="set_notify_test">Отправить тестовое уведомление</string>
+    <string name="set_notify_test_sum">Проверяет разрешение, тихие часы и список</string>
+    <string name="set_notify_test_title">Уведомления Yomu работают</string>
+    <string name="set_notify_test_text">Так Yomu сообщает о новых главах, загрузках и синхронизации.</string>
 </resources>

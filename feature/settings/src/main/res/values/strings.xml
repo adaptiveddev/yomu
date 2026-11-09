@@ -558,4 +558,37 @@
     <string name="set_track_sign_in">Sign in</string>
     <string name="set_track_login_done">Signed in</string>
     <string name="set_track_password_notice">Experimental integration. The password is sent to Kitsu and is not saved by Yomu.</string>
+    <!-- Notifications -->
+    <string name="set_notifications">Notifications</string>
+    <string name="set_notifications_sum">What to notify about, quiet hours, recent notifications</string>
+    <string name="set_notify_permission">Notifications are blocked</string>
+    <string name="set_notify_permission_sum">Tap to allow Yomu to show notifications</string>
+    <string name="set_notify_system">System notification settings</string>
+    <string name="set_notify_system_sum">Sound, vibration and importance of each channel</string>
+    <string name="set_notify_kinds">Notify about</string>
+    <string name="set_notify_new_chapters">New chapters</string>
+    <string name="set_notify_new_chapters_sum">Library titles that got new chapters after an update check</string>
+    <string name="set_notify_downloads">Downloads</string>
+    <string name="set_notify_downloads_sum">Finished, failed or paused downloads (the progress while downloading always shows)</string>
+    <string name="set_notify_sync">Sync problems</string>
+    <string name="set_notify_sync_sum">An automatic sync that failed several times in a row</string>
+    <string name="set_notify_backup">Backups</string>
+    <string name="set_notify_backup_sum">An automatic backup that failed</string>
+    <string name="set_notify_tasks">Finished tasks</string>
+    <string name="set_notify_tasks_sum">Book translation and other long tasks</string>
+    <string name="set_notify_reminders">Review reminders</string>
+    <string name="set_notify_reminders_sum">The daily reminder to review words (its time is in Translation and dictionary)</string>
+    <string name="set_notify_quiet">Quiet hours</string>
+    <string name="set_notify_quiet_on">Quiet hours</string>
+    <string name="set_notify_quiet_sum">Notifications arrive without sound or vibration at night</string>
+    <string name="set_notify_quiet_from">From</string>
+    <string name="set_notify_quiet_to">Until</string>
+    <string name="set_notify_recent">Recent notifications</string>
+    <string name="set_notify_recent_empty">Nothing yet. Notifications switched off above are still listed here.</string>
+    <string name="set_notify_muted">muted</string>
+    <string name="set_notify_clear">Clear the list</string>
+    <string name="set_notify_test">Send a test notification</string>
+    <string name="set_notify_test_sum">Checks the permission, quiet hours and the list</string>
+    <string name="set_notify_test_title">Yomu notifications work</string>
+    <string name="set_notify_test_text">This is how Yomu notifies you about new chapters, downloads and sync.</string>
 </resources>

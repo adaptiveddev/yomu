@@ -16,6 +16,7 @@
     </plurals>
     <string name="notif_backup_done">Резервная копия создана</string>
     <string name="notif_backup_failed">Не удалось создать резервную копию</string>
+    <string name="notif_sync_failed">Синхронизация не удалась</string>
     <string name="notif_sync_done">Синхронизировано</string>
     <string name="notif_review_title">Пора повторить слова</string>
     <plurals name="notif_review_text">

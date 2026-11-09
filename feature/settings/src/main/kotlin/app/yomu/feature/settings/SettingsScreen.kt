@@ -55,6 +55,7 @@ import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Switch
 import androidx.compose.material3.AlertDialog
@@ -108,6 +109,7 @@ enum class SettingsSection(val title: Int, val summary: Int, val icon: ImageVect
     NETWORK(R.string.set_network, R.string.set_network_sum, Icons.Outlined.DataUsage, listOf(R.string.set_download_wifi, R.string.set_net_update_wifi, R.string.set_models_wifi, R.string.set_data_saver, R.string.set_covers_mobile, R.string.set_warn_mobile, R.string.set_traffic, R.string.set_traffic_reset)),
     BACKUP(R.string.set_backup, R.string.set_backup_sum, Icons.Outlined.Backup, listOf(R.string.set_backup_create, R.string.set_backup_restore, R.string.set_mihon_import, R.string.set_auto_backup, R.string.set_backup_folder, R.string.set_backup_keep, R.string.set_reset_all)),
     SYNC(R.string.set_sync_section, R.string.set_sync_section_sum, Icons.Outlined.CloudSync, listOf(R.string.set_sync, R.string.set_sync_now, R.string.set_sync_method, R.string.set_sync_folder, R.string.set_webdav_url, R.string.set_github_token, R.string.set_github_repo, R.string.set_github_create, R.string.set_sync_check, R.string.set_sync_on_start, R.string.set_sync_on_exit, R.string.set_sync_interval, R.string.set_sync_wifi_only, R.string.set_sync_progress, R.string.set_sync_annotations, R.string.set_sync_bookmarks, R.string.set_sync_words, R.string.set_sync_track_links, R.string.set_sync_catalog, R.string.set_sync_book_files, R.string.set_sync_deletions, R.string.set_sync_problems)),
+    NOTIFICATIONS(R.string.set_notifications, R.string.set_notifications_sum, Icons.Outlined.Notifications, listOf(R.string.set_notify_permission, R.string.set_notify_system, R.string.set_notify_new_chapters, R.string.set_notify_downloads, R.string.set_notify_sync, R.string.set_notify_backup, R.string.set_notify_tasks, R.string.set_notify_reminders, R.string.set_notify_quiet_on, R.string.set_notify_recent, R.string.set_notify_test)),
     SYNC_PROBLEMS(R.string.set_sync_problems, R.string.set_sync_problems_sum, Icons.Outlined.ErrorOutline, emptyList(), visible = false),
     SECURITY(R.string.set_security, R.string.set_security_sum, Icons.Outlined.Lock, listOf(R.string.set_app_lock, R.string.set_change_pin, R.string.set_biometric, R.string.set_lock_timeout, R.string.set_secure_screen)),
     FONTS(R.string.set_fonts, R.string.set_fonts_sum, Icons.Outlined.FontDownload, listOf(R.string.set_font_import)),
@@ -291,7 +293,7 @@ private fun SettingsRoot(
 private val ROOT_GROUPS = listOf(
     listOf(SettingsSection.APPEARANCE, SettingsSection.NAVIGATION, SettingsSection.LIBRARY, SettingsSection.READER, SettingsSection.MANGA, SettingsSection.SELECTION, SettingsSection.QUICK_ACTIONS, SettingsSection.FONTS),
     listOf(SettingsSection.TRANSLATION, SettingsSection.CATALOG, SettingsSection.TRACKING, SettingsSection.DOWNLOADS, SettingsSection.NETWORK),
-    listOf(SettingsSection.BACKUP, SettingsSection.SYNC, SettingsSection.SECURITY, SettingsSection.ADVANCED, SettingsSection.ABOUT),
+    listOf(SettingsSection.BACKUP, SettingsSection.SYNC, SettingsSection.NOTIFICATIONS, SettingsSection.SECURITY, SettingsSection.ADVANCED, SettingsSection.ABOUT),
 )
 
 @Composable
@@ -345,6 +347,7 @@ private fun SectionContent(s: SettingsSection, vm: SettingsViewModel, links: Set
                 SettingsSection.NETWORK -> NetworkSection(vm)
                 SettingsSection.BACKUP -> BackupSection(vm, onOpenSync = { onOpen(SettingsSection.SYNC) })
                 SettingsSection.SYNC -> SyncSection(vm, onOpenProblems = { onOpen(SettingsSection.SYNC_PROBLEMS) })
+                SettingsSection.NOTIFICATIONS -> NotificationsSection(vm)
                 SettingsSection.TRACKING -> TrackingSection(vm)
                 SettingsSection.SECURITY -> SecuritySection(vm)
                 SettingsSection.ADVANCED -> AdvancedSection(vm, onOpenLogs = { onOpen(SettingsSection.LOGS) })

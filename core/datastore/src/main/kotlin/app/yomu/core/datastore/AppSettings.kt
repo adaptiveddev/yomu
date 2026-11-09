@@ -150,6 +150,14 @@ class AppSettings(context: Context) {
     val reminderEnabled = bool("reminder_enabled", false)
     val reminderHour = int("reminder_hour", 19)
     val reminderMinute = int("reminder_minute", 0)
+
+    // Notifications
+    /** Kinds of notifications switched off (names of data.work.NotifyKind); they still appear in the in-app list. */
+    val notifyDisabled = stringSet("notify_disabled")
+    /** Quiet hours: notifications arrive without sound or vibration from [quietFrom] to [quietTo] (hours). */
+    val quietHours = bool("quiet_hours", false)
+    val quietFrom = int("quiet_from", 22)
+    val quietTo = int("quiet_to", 8)
     val reviewModes = stringSet("review_modes", setOf("WORD_TO_TRANSLATION", "TRANSLATION_TO_WORD", "CLOZE"))
 
     // Catalog

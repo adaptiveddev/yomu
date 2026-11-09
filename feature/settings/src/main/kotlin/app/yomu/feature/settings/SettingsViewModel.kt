@@ -22,6 +22,8 @@ import app.yomu.data.download.DownloadRepository
 import app.yomu.data.download.StorageUsage
 import app.yomu.data.work.LibraryScanWorker
 import app.yomu.data.work.WorkScheduler
+import app.yomu.data.work.Notifications
+import app.yomu.data.work.NotifyKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -158,6 +160,16 @@ class SettingsViewModel(
             .onSuccess { full -> _events.send(SettingsEvent.Message(R.string.set_github_created, listOf(full))); scheduler.scheduleSync() }
             .onFailure { _events.send(SettingsEvent.Failure(it)) }
         busy.value = false
+    }
+
+    /** Posts a sample notification through the same rules as the real ones (kinds, quiet hours, the recent list). */
+    fun testNotification() {
+        Notifications.notify(
+            context, Notifications.ID_TEST,
+            Notifications.builder(context, Notifications.TASKS).setContentTitle(context.getString(R.string.set_notify_test_title))
+                .setContentText(context.getString(R.string.set_notify_test_text)).setAutoCancel(true),
+            NotifyKind.TASKS,
+        )
     }
 
     fun checkSync() = viewModelScope.launch(ScreenErrors) {
